@@ -372,7 +372,7 @@ export const mockBackend: Backend = {
   async feed() {
     const s = store();
     return {
-      customers: buildCustomerList(s.customers, s.consents, s.analyses),
+      customers: buildCustomerList(s.customers, s.consents, s.analyses, s.consultations),
       schedules: buildScheduleItems(s.schedules, s.customers, s.messages, s.documents),
       fetched_at: new Date().toISOString(),
     };

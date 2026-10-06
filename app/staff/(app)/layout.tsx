@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { StaffShell } from "@/components/staff/StaffShell";
 import { getBackend } from "@/lib/backend";
-import { USE_MOCK } from "@/lib/config";
 import { getSession } from "@/lib/session";
 
 export default async function StaffLayout({ children }: LayoutProps<"/staff">) {
@@ -17,7 +16,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/staff">) {
   }
 
   return (
-    <StaffShell staffId={session.staff_id} storeName={storeName} mock={USE_MOCK}>
+    <StaffShell staffId={session.staff_id} storeName={storeName}>
       {children}
     </StaffShell>
   );

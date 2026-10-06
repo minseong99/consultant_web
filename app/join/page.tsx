@@ -4,13 +4,22 @@ import { useState, type ReactNode } from "react";
 import { Button, ErrorNote, inputClass } from "@/components/ui";
 import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey } from "@/lib/fields";
 import { formatDate, formatPhone, formatWon } from "@/lib/format";
+import { Wordmark } from "@/components/Wordmark";
 
 type Values = Record<FieldKey, string>;
 type Consents = Record<ConsentKey, boolean>;
 
 const EMPTY_VALUES = Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f.key, ""])) as Values;
 const REQUIRED = CUSTOMER_FIELDS.filter((f) => f.required);
-const OPTIONAL = CUSTOMER_FIELDS.filter((f) => !f.required);
+
+// 입력 화면의 묶음. 필수 항목을 먼저 끝낼 수 있게 선택 항목은 마지막 묶음에 접어 둔다.
+const GROUPS: { title: string; note?: string; keys: FieldKey[]; collapsed?: boolean }[] = [
+  { title: "기본 정보", keys: ["customer_name", "phone"] },
+  { title: "현재 이용 정보", keys: ["current_device", "current_plan", "device_use_months", "contract_end_date"] },
+  { title: "이번 상담", keys: ["usage_pattern", "consultation_goal"] },
+  { title: "더 정확한 추천을 위해", note: "선택 항목입니다. 아는 만큼만 입력하셔도 됩니다.", keys: ["age", "target_monthly_budget", "preferred_brand", "interests"], collapsed: true },
+];
+const FIELD_BY_KEY = Object.fromEntries(CUSTOMER_FIELDS.map((f) => [f.key, f])) as Record<FieldKey, FieldDef>;
 
 function display(field: FieldDef, value: string) {
   if (field.key === "phone") return formatPhone(value);
@@ -67,10 +76,13 @@ export default function JoinPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white px-5 pb-10 pt-8">
       <header className="mb-7">
-        <p className="text-[14px] font-semibold text-brand-600">KT 매장 · 상담 정보 입력</p>
+        <div className="flex items-center justify-between">
+          <Wordmark size="sm" label="상담 접수" />
+          <p className="text-[13px] font-semibold tabular-nums text-stone-500">{step} / 3</p>
+        </div>
         <div className="mt-3 flex gap-1.5" aria-label={`3단계 중 ${step}단계`}>
           {[1, 2, 3].map((n) => (
-            <span key={n} className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-brand-600" : "bg-slate-200"}`} />
+            <span key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-ink" : "bg-stone-200"}`} />
           ))}
         </div>
       </header>
@@ -82,10 +94,10 @@ export default function JoinPage() {
             <br />
             동의가 필요해요
           </h1>
-          <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 px-4 py-4">
+          <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-xl bg-stone-50 px-4 py-4">
             <input
               type="checkbox"
-              className="size-6 accent-brand-600"
+              className="size-6 accent-stone-900"
               checked={allChecked}
               onChange={(e) =>
                 setConsents({ privacy_consent: e.target.checked, recontact_consent: e.target.checked, marketing_consent: e.target.checked })
@@ -93,22 +105,22 @@ export default function JoinPage() {
             />
             <span className="text-[17px] font-semibold">전체 동의</span>
           </label>
-          <ul className="mt-2 divide-y divide-slate-100">
+          <ul className="mt-2 divide-y divide-stone-100">
             {CONSENT_ITEMS.map((item) => (
               <li key={item.key}>
                 <label className="flex cursor-pointer items-start gap-3 px-4 py-4">
                   <input
                     type="checkbox"
-                    className="mt-0.5 size-6 shrink-0 accent-brand-600"
+                    className="mt-0.5 size-6 shrink-0 accent-stone-900"
                     checked={consents[item.key]}
                     onChange={(e) => setConsents((prev) => ({ ...prev, [item.key]: e.target.checked }))}
                   />
                   <span>
                     <span className="text-[16px] font-semibold">
-                      <span className={item.required ? "text-brand-600" : "text-slate-400"}>[{item.required ? "필수" : "선택"}]</span>{" "}
+                      <span className={item.required ? "text-danger" : "text-stone-500"}>[{item.required ? "필수" : "선택"}]</span>{" "}
                       {item.title}
                     </span>
-                    <span className="mt-1 block text-[14px] leading-relaxed text-slate-500">{item.description}</span>
+                    <span className="mt-1 block text-[14px] leading-relaxed text-stone-500">{item.description}</span>
                   </span>
                 </label>
               </li>
@@ -119,7 +131,7 @@ export default function JoinPage() {
               다음
             </Button>
             {!consents.privacy_consent && (
-              <p className="mt-2 text-center text-[13px] text-slate-500">필수 항목에 동의하시면 다음으로 넘어갈 수 있어요.</p>
+              <p className="mt-2 text-center text-[13px] text-stone-500">필수 항목에 동의하시면 다음으로 넘어갈 수 있어요.</p>
             )}
           </div>
         </section>
@@ -128,19 +140,28 @@ export default function JoinPage() {
       {step === 2 && (
         <section className="flex flex-1 flex-col">
           <h1 className="text-[26px] font-bold leading-snug">상담에 필요한 정보를 알려 주세요</h1>
-          <div className="mt-6 flex flex-col gap-5">
-            {REQUIRED.map((field) => (
-              <FieldInput key={field.key} field={field} value={values[field.key]} error={errors[field.key]} onChange={(v) => setValues((p) => ({ ...p, [field.key]: v }))} />
-            ))}
-          </div>
-          <div className="mt-8 rounded-xl bg-slate-50 p-4">
-            <p className="text-[16px] font-semibold">더 정확한 추천을 위해 (선택)</p>
-            <p className="mt-0.5 text-[13px] text-slate-500">아는 만큼만 입력하셔도 됩니다.</p>
-            <div className="mt-4 flex flex-col gap-5">
-              {OPTIONAL.map((field) => (
-                <FieldInput key={field.key} field={field} value={values[field.key]} error={errors[field.key]} onChange={(v) => setValues((p) => ({ ...p, [field.key]: v }))} />
-              ))}
-            </div>
+          <div className="mt-6 flex flex-col gap-8">
+            {GROUPS.map((group) => {
+              const fields = (
+                <div className="flex flex-col gap-5">
+                  {group.keys.map((key) => (
+                    <FieldInput key={key} field={FIELD_BY_KEY[key]} value={values[key]} error={errors[key]} onChange={(v) => setValues((p) => ({ ...p, [key]: v }))} />
+                  ))}
+                </div>
+              );
+              return (
+                <fieldset key={group.title} className="border-t border-stone-200 pt-5">
+                  <legend className="float-left mb-4 w-full text-[13px] font-bold text-stone-500">{group.title}</legend>
+                  <div className="clear-both">
+                    {group.collapsed ? (
+                      <OptionalGroup note={group.note}>{fields}</OptionalGroup>
+                    ) : (
+                      fields
+                    )}
+                  </div>
+                </fieldset>
+              );
+            })}
           </div>
           <div className="mt-8 flex flex-col gap-3">
             {submitError && <ErrorNote>{submitError}</ErrorNote>}
@@ -156,18 +177,18 @@ export default function JoinPage() {
 
       {step === 3 && (
         <section className="flex flex-1 flex-col">
-          <div className="flex size-14 items-center justify-center rounded-full bg-brand-50 text-[28px] text-brand-600">✓</div>
+          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-[28px] font-bold text-success">✓</div>
           <h1 className="mt-5 text-[26px] font-bold leading-snug">접수가 완료됐어요</h1>
-          <p className="mt-2 text-[16px] text-slate-600">잠시 후 직원이 입력하신 내용을 바탕으로 상담을 도와드립니다.</p>
-          <dl className="mt-7 divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+          <p className="mt-2 text-[16px] text-stone-600">잠시 후 직원이 입력하신 내용을 바탕으로 상담을 도와드립니다.</p>
+          <dl className="mt-7 divide-y divide-stone-100 rounded-xl ring-1 ring-stone-200">
             {CUSTOMER_FIELDS.filter((f) => values[f.key].trim()).map((field) => (
               <div key={field.key} className="flex gap-4 px-4 py-3 text-[15px]">
-                <dt className="w-28 shrink-0 text-slate-500">{field.label}</dt>
+                <dt className="w-28 shrink-0 text-stone-500">{field.label}</dt>
                 <dd className="font-medium">{display(field, values[field.key].trim())}</dd>
               </div>
             ))}
             <div className="flex gap-4 px-4 py-3 text-[15px]">
-              <dt className="w-28 shrink-0 text-slate-500">동의 항목</dt>
+              <dt className="w-28 shrink-0 text-stone-500">동의 항목</dt>
               <dd className="font-medium">
                 {CONSENT_ITEMS.filter((item) => consents[item.key])
                   .map((item) => item.title.replace(" 동의", ""))
@@ -189,6 +210,28 @@ function FieldInput(props: FieldProps) {
   return <TextField {...props} />;
 }
 
+// 선택 항목 묶음. 처음에는 접혀 있어 필수 항목만으로 제출할 수 있다.
+function OptionalGroup({ note, children }: { note?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      {note && <p className="text-[13px] text-stone-600">{note}</p>}
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="mt-2 flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-[15px] font-semibold ring-1 ring-inset ring-stone-300 focus-visible:outline-2 focus-visible:outline-brand-600"
+      >
+        {open ? "선택 항목 접기" : "선택 항목 입력하기"}
+        <span aria-hidden className="text-stone-400">
+          {open ? "▴" : "▾"}
+        </span>
+      </button>
+      {open && <div className="mt-5">{children}</div>}
+    </div>
+  );
+}
+
 function FieldFrame({ field, error, children, labelFor }: { field: FieldDef; error?: string; children: ReactNode; labelFor?: string }) {
   const id = `field-${field.key}`;
   const Label = labelFor ? "label" : "p";
@@ -196,12 +239,12 @@ function FieldFrame({ field, error, children, labelFor }: { field: FieldDef; err
     <div>
       <Label {...(labelFor ? { htmlFor: labelFor } : { id: `${id}-label` })} className="mb-1.5 block text-[15px] font-semibold">
         {field.label}
-        {field.required && <span className="ml-0.5 text-rose-500">*</span>}
+        {field.required ? <span className="ml-0.5 text-danger">*</span> : <span className="ml-1.5 text-[12px] font-medium text-stone-500">선택</span>}
       </Label>
       {children}
-      {field.hint && !error && <p className="mt-1 text-[13px] text-slate-500">{field.hint}</p>}
+      {field.hint && !error && <p className="mt-1 text-[13px] text-stone-500">{field.hint}</p>}
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-[13px] text-rose-600">
+        <p id={`${id}-error`} className="mt-1 text-[13px] text-danger">
           {error}
         </p>
       )}
@@ -214,12 +257,12 @@ function SelectField({ field, value, error, onChange }: FieldProps) {
   const id = `field-${field.key}`;
   const options = field.options ?? [];
   const [other, setOther] = useState(value !== "" && !options.includes(value));
-  const fieldClass = `${inputClass} !py-3 !text-[16px] ${error ? "!border-rose-400" : ""}`;
+  const fieldClass = `${inputClass} !py-3 !text-[16px] ${error ? "!border-red-500" : ""}`;
   return (
     <FieldFrame field={field} error={error} labelFor={id}>
       <select
         id={id}
-        className={`${fieldClass} ${!other && value === "" ? "text-slate-400" : ""}`}
+        className={`${fieldClass} ${!other && value === "" ? "text-stone-400" : ""}`}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
         value={other ? OTHER_OPTION : value}
@@ -270,8 +313,8 @@ function MultiField({ field, value, error, onChange }: FieldProps) {
   }
 
   const chip = (active: boolean) =>
-    `rounded-full px-3.5 py-2 text-[15px] font-medium ring-1 ring-inset transition-colors ${
-      active ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300"
+    `inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-medium ring-1 ring-inset transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+      active ? "bg-ink text-white ring-ink" : "bg-white text-stone-800 ring-stone-300"
     }`;
 
   return (
@@ -291,6 +334,7 @@ function MultiField({ field, value, error, onChange }: FieldProps) {
                 emit(next, otherOpen, otherText);
               }}
             >
+              {active && <span aria-hidden>✓</span>}
               {option}
             </button>
           );
@@ -304,6 +348,7 @@ function MultiField({ field, value, error, onChange }: FieldProps) {
             emit(selected, !otherOpen, otherText);
           }}
         >
+          {otherOpen && <span aria-hidden>✓</span>}
           {OTHER_OPTION}
         </button>
       </div>
@@ -332,7 +377,7 @@ function TextField({ field, value, error, onChange }: FieldProps) {
     placeholder: field.placeholder,
     "aria-invalid": Boolean(error),
     "aria-describedby": error ? `${id}-error` : undefined,
-    className: `${inputClass} !py-3 !text-[16px] ${error ? "!border-rose-400" : ""}`,
+    className: `${inputClass} !py-3 !text-[16px] ${error ? "!border-red-500" : ""}`,
   };
   // 휴대폰 번호는 숫자만 받는다. 붙여 넣은 값에 '-' 나 공백이 있어도 지운다.
   const digitsOnly = field.type === "number" || field.type === "tel";
@@ -349,7 +394,7 @@ function TextField({ field, value, error, onChange }: FieldProps) {
             autoComplete={field.key === "customer_name" ? "name" : field.key === "phone" ? "tel-national" : "off"}
             onChange={(e) => onChange(digitsOnly ? e.target.value.replace(/[^0-9]/g, "").slice(0, field.type === "tel" ? 11 : undefined) : e.target.value)}
           />
-          {field.suffix && <span className="shrink-0 text-[15px] text-slate-500">{field.suffix}</span>}
+          {field.suffix && <span className="shrink-0 text-[15px] text-stone-500">{field.suffix}</span>}
         </div>
       )}
     </FieldFrame>

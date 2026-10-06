@@ -57,16 +57,17 @@ export const realBackend: Backend = {
   },
 
   async feed() {
-    const [customers, consents, analyses, schedules, messages, documents] = await Promise.all([
+    const [customers, consents, analyses, schedules, messages, documents, consultations] = await Promise.all([
       rows<Customer>(db().from("customers").select("*")),
       rows<CustomerConsent>(db().from("customer_consents").select("*")),
       rows<Pick<CustomerAnalysis, "customer_id">>(db().from("customer_analyses").select("customer_id")),
       rows<MessageSchedule>(db().from("message_schedules").select("*")),
       rows<Message>(db().from("messages").select("*")),
       rows<Pick<DocumentRow, "document_id" | "file_name">>(db().from("documents").select("document_id, file_name")),
+      rows<Pick<Consultation, "customer_id" | "consulted_at">>(db().from("consultations").select("customer_id, consulted_at")),
     ]);
     return {
-      customers: buildCustomerList(customers, consents, analyses),
+      customers: buildCustomerList(customers, consents, analyses, consultations),
       schedules: buildScheduleItems(schedules, customers, messages, documents),
       fetched_at: new Date().toISOString(),
     };
