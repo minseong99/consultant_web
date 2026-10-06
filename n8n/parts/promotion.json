@@ -1,0 +1,323 @@
+{
+  "nodes": [
+    {
+      "id": "445df263-432d-4668-ab79-6740cb9c8c39",
+      "name": "안내: 프로모션",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        1616
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/promotion\n요청: `{ document_id, store_id }`\n\nF05로 대상을 선정하고, `targeted` 이면 F06(promotion)으로 일정을 만든다.\n\n응답: F05 반환값 그대로 (`status`, `target_count`, `target_customers[]`)",
+        "height": 200,
+        "width": 460
+      }
+    },
+    {
+      "id": "ae550d96-8f3e-4d78-a7f9-39dd2ffd53eb",
+      "position": [
+        0,
+        1656
+      ],
+      "name": "프로모션 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "1cdb82ad-486e-4df5-a7c8-82a3b49b5285",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/promotion",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c99a7a83-c6b3-4ac4-a82c-ac2e75e06ac2",
+      "position": [
+        260,
+        1656
+      ],
+      "name": "F05 프로모션 대상 고객 선정",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "kSNl11r9lqQjBO5E",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "document_id": "={{ $json.body.document_id }}",
+            "store_id": "={{ $json.body.store_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "store_id",
+              "displayName": "store_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "f1ff4622-2bb2-4d1e-a545-b6329e3c40e2",
+      "position": [
+        520,
+        1656
+      ],
+      "name": "F05 결과 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\n\nif (typeof result.status !== 'string') {\n  return [{ json: { targeted: false, response: {\n    success: false,\n    error_code: 'PROMOTION_FAILED',\n    message: result.error\n      ? 'F05 실행 중 오류: ' + String(result.error.message ?? result.error)\n      : 'F05 프로모션 대상 고객 선정이 결과를 반환하지 않았습니다.',\n  } } }];\n}\n\n// F06 프로모션 일정이 F05가 선정한 고객에게만 만들어지도록, 대상 고객 ID를 쉼표로 이어 넘긴다.\n// (F06 일정 관리의 customer_id 입력을 사용. F06 쪽 수정 전에는 이 값이 무시된다.)\nconst targetIds = Array.isArray(result.target_customers)\n  ? result.target_customers.map((c) => c.customer_id).filter(Boolean).join(',')\n  : '';\n\nreturn [{ json: { targeted: result.status === 'targeted', document_id: result.document_id, target_ids: targetIds, response: result } }];"
+      }
+    },
+    {
+      "id": "764d682f-7a68-459c-ae9a-e54112344d31",
+      "position": [
+        780,
+        1656
+      ],
+      "name": "프로모션: 대상 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "700c4b9e-102a-49ee-a9df-2565441bcdd0",
+              "leftValue": "={{ $json.targeted === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4f1da84c-35d3-4248-ac3a-9f7f9da1e5b3",
+      "position": [
+        1040,
+        1800
+      ],
+      "name": "프로모션: F06 일정 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "j9aDZV3iDfCQaFsM",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_type": "={{ 'promotion' }}",
+            "customer_id": "={{ $json.target_ids }}",
+            "consultation_id": "={{ '' }}",
+            "document_id": "={{ $json.document_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "30fd8d7d-b346-4958-a4ed-623902f5c1c7",
+      "position": [
+        1300,
+        1656
+      ],
+      "name": "프로모션 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{ json: $('F05 결과 확인').first().json.response }];"
+      }
+    },
+    {
+      "id": "2a2f53db-23f3-4838-a9ad-931c0d64c425",
+      "position": [
+        1560,
+        1656
+      ],
+      "name": "프로모션 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "프로모션 Webhook": {
+      "main": [
+        [
+          {
+            "node": "F05 프로모션 대상 고객 선정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 프로모션 대상 고객 선정": {
+      "main": [
+        [
+          {
+            "node": "F05 결과 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 결과 확인": {
+      "main": [
+        [
+          {
+            "node": "프로모션: 대상 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: 대상 있음?": {
+      "main": [
+        [
+          {
+            "node": "프로모션: F06 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "프로모션 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: F06 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "프로모션 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "프로모션 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

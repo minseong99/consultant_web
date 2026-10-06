@@ -189,6 +189,7 @@ export type IntakeInput = {
   device_use_months: number | null;
   target_monthly_budget: number | null;
   interests: string | null;
+  preferred_brand: string | null;
   privacy_consent: boolean;
   marketing_consent: boolean;
   recontact_consent: boolean;

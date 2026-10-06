@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     device_use_months: numberOrNull(body.device_use_months),
     target_monthly_budget: numberOrNull(body.target_monthly_budget),
     interests: textOrNull(body.interests),
+    preferred_brand: textOrNull(body.preferred_brand),
     privacy_consent: body.privacy_consent === true,
     marketing_consent: body.marketing_consent === true,
     recontact_consent: body.recontact_consent === true,
