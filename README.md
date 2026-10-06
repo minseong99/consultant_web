@@ -33,6 +33,7 @@ MOCK 데이터는 서버 메모리에 있으므로 개발 서버를 다시 시�
 | `SUPABASE_URL` | Supabase 프로젝트 주소 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 서버에서 조회할 때 쓰는 service role key. **절대 커밋하지 마세요** |
 | `STAFF_DEMO_PASSWORD` | 직원 로그인 공용 비밀번호 |
+| `STAFF_DEFAULT_ID` | (선택) 로그인 화면에서 처음 선택되어 있을 직원 ID |
 | `SESSION_SECRET` | 세션 쿠키 서명용 임의 문자열 (`openssl rand -hex 32`) |
 
 `.env.local` 은 gitignore 되어 있습니다.

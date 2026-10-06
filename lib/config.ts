@@ -9,6 +9,8 @@ export const config = {
   supabaseUrl: process.env.SUPABASE_URL ?? "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   staffDemoPassword: process.env.STAFF_DEMO_PASSWORD ?? "",
+  /** 로그인 화면에서 처음 선택되어 있을 직원 (선택) */
+  staffDefaultId: process.env.STAFF_DEFAULT_ID ?? "",
   sessionSecret: process.env.SESSION_SECRET ?? "",
 };
 
