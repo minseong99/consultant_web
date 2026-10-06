@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { DeviceVisual } from "@/components/staff/DeviceVisual";
+import { usePolling } from "@/lib/usePolling";
 import { ScheduleList } from "@/components/staff/ScheduleList";
 import { Steps, type Step } from "@/components/Steps";
 import {
@@ -58,7 +59,6 @@ import type {
   ScheduleItem,
 } from "@/lib/types";
 
-const POLL_MS = 3000;
 const TAB_ID = "customer";
 
 type TabKey = "brief" | "recommend" | "record" | "followup";
@@ -97,15 +97,8 @@ export default function CustomerDetailPage({
     }
   }, [id, router]);
 
-  // 분석 결과와 일정은 n8n이 나중에 저장하므로 주기적으로 다시 읽는다.
-  useEffect(() => {
-    const first = window.setTimeout(load, 0);
-    const timer = window.setInterval(load, POLL_MS);
-    return () => {
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
-  }, [load]);
+  // 분석 결과와 일정은 n8n이 나중에 저장하므로 주기적으로 다시 읽는다. 보고 있지 않을 때는 느리게 돈다.
+  usePolling(load);
 
   if (notFound) return <EmptyState>고객 정보를 찾을 수 없습니다.</EmptyState>;
   if (!detail) {
