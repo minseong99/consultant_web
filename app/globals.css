@@ -3,14 +3,27 @@
 @theme inline {
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Malgun Gothic", "Segoe UI", sans-serif;
-  --color-brand-50: #eef6f6;
-  --color-brand-100: #d5eaea;
-  --color-brand-500: #14857f;
-  --color-brand-600: #0e6f6a;
-  --color-brand-700: #0b5955;
-  --color-ink: #16202e;
+  /* 포인트 색(레드). 1순위 추천, 주요 버튼, 선택 상태에만 쓴다. */
+  --color-brand-50: #fef2f2;
+  --color-brand-100: #fee2e2;
+  --color-brand-500: #dc2626;
+  --color-brand-600: #c81e1e;
+  --color-brand-700: #991b1b;
+  --color-ink: #1c1917;
+  /* 바탕. 흰 면(카드)과 구분되도록 한 단계 어둡게 둔다. */
+  --color-canvas: #f3f2f0;
+  /* AI가 만든 내용이 놓이는 면. 사람이 입력한 흰 면과 구분한다. */
+  --color-ai-surface: #f3f6ff;
+  --color-ai-line: #d6e0fb;
+  --color-success: #047857;
+  --color-warning: #a16207;
+  --color-danger: #b42318;
+  --color-info: #1d4ed8;
   --animate-toast-in: toast-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-flash: flash 2.4s ease-out;
+  --animate-drawer-in: drawer-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-pulse-soft: pulse-soft 1.6s ease-in-out infinite;
 }
 
 @keyframes toast-in {
@@ -24,11 +37,42 @@
   }
 }
 
+@keyframes drawer-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 결과가 들어올 자리의 뼈대 */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* 새로 들어온 행을 잠깐 강조 */
 @keyframes flash {
   0%,
   35% {
-    background-color: #d5eaea;
+    background-color: #fef3c7;
   }
   100% {
     background-color: transparent;
@@ -41,7 +85,7 @@
 }
 
 body {
-  background: #f4f6f8;
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
   word-break: keep-all;

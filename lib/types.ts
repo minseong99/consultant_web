@@ -129,6 +129,8 @@ export type CustomerListItem = {
   registered_at: string | null;
   consent: ConsentSummary;
   has_analysis: boolean;
+  /** 가장 최근 상담 시각. 상담 이력이 없으면 null */
+  last_consulted_at: string | null;
 };
 
 export type ScheduleItem = MessageSchedule & {

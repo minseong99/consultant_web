@@ -1,5 +1,6 @@
 import type {
   ConsentSummary,
+  Consultation,
   Customer,
   CustomerAnalysis,
   CustomerConsent,
@@ -34,9 +35,15 @@ export function buildCustomerList(
   customers: Customer[],
   consents: CustomerConsent[],
   analyses: Pick<CustomerAnalysis, "customer_id">[],
+  consultations: Pick<Consultation, "customer_id" | "consulted_at">[] = [],
 ): CustomerListItem[] {
   const consentByCustomer = latestConsents(consents);
   const analyzed = new Set(analyses.map((a) => a.customer_id));
+  const lastConsulted = new Map<string, string>();
+  for (const c of consultations) {
+    const current = lastConsulted.get(c.customer_id);
+    if (c.consulted_at && (!current || c.consulted_at > current)) lastConsulted.set(c.customer_id, c.consulted_at);
+  }
   return customers
     .map((c) => {
       const consent = summarizeConsent(consentByCustomer.get(c.customer_id));
@@ -51,6 +58,7 @@ export function buildCustomerList(
         registered_at: consent.consent_at,
         consent,
         has_analysis: analyzed.has(c.customer_id),
+        last_consulted_at: lastConsulted.get(c.customer_id) ?? null,
       };
     })
     .sort((a, b) => (b.registered_at ?? "").localeCompare(a.registered_at ?? ""));

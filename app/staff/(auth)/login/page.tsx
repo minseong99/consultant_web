@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, ErrorNote, inputClass, Spinner } from "@/components/ui";
 import type { StaffOption } from "@/lib/types";
+import { Wordmark } from "@/components/Wordmark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,12 +56,12 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 ring-1 ring-slate-200">
-        <p className="text-[14px] font-semibold text-brand-600">KT 매장 상담 지원 AI Agent</p>
-        <h1 className="mt-1 text-[24px] font-bold">직원 로그인</h1>
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 ring-1 ring-stone-200">
+        <Wordmark />
+        <h1 className="mt-6 text-[22px] font-bold">직원 로그인</h1>
 
         {staff === null ? (
-          <div className="mt-8 flex justify-center text-brand-600">
+          <div className="mt-8 flex justify-center text-stone-500">
             <Spinner className="!size-6" />
           </div>
         ) : (
@@ -85,7 +86,7 @@ export default function LoginPage() {
                 <input id="password" type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
               </div>
             ) : (
-              mock && <p className="text-[13px] text-slate-500">MOCK 모드에서는 비밀번호 없이 들어갑니다.</p>
+              mock && <p className="text-[13px] text-stone-500">비밀번호 없이 들어갑니다.</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <Button type="submit" size="lg" loading={loading} disabled={!staffId}>
