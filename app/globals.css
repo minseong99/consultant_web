@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+    "Malgun Gothic", "Segoe UI", sans-serif;
+  --color-brand-50: #eef6f6;
+  --color-brand-100: #d5eaea;
+  --color-brand-500: #14857f;
+  --color-brand-600: #0e6f6a;
+  --color-brand-700: #0b5955;
+  --color-ink: #16202e;
+  --animate-toast-in: toast-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-flash: flash 2.4s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 새로 들어온 행을 잠깐 강조 */
+@keyframes flash {
+  0%,
+  35% {
+    background-color: #d5eaea;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* 녹화 화면이 일정하게 보이도록 라이트 테마로 고정한다 */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #f4f6f8;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  word-break: keep-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
