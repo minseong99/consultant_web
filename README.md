@@ -122,6 +122,12 @@ curl -s -X POST "$N8N/web/send-now" -H "content-type: application/json" -H "x-we
 curl -s -X POST "$N8N/web/promotion" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"document_id":"<document_id>","store_id":"<store_id>"}'
 ```
 
+프로모션 등록 — 문서 행과 본문 조각을 저장하고 `document_id` 를 돌려줍니다. 실제 데이터가 생깁니다.
+
+```bash
+curl -s -X POST "$N8N/web/promotion-register" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"store_id":"<store_id>","promotion_name":"<이름>","valid_from":"2026-11-01","valid_until":"2026-11-30","benefit":"<혜택>","target_device":"<대상 기기>"}'
+```
+
 ### 3. 웹사이트 전환
 
 `.env.local` 에서 `USE_MOCK=false` 로 바꾸고 나머지 값을 채운 뒤 개발 서버를 다시 시작합니다. 우상단의 MOCK 배지가 사라지면 실제 연동 상태입니다.

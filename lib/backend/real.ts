@@ -12,6 +12,7 @@ import type {
   IntakeResult,
   Message,
   MessageSchedule,
+  PromotionRegisterResult,
   PromotionResult,
   RecommendResult,
   SendNowResult,
@@ -135,6 +136,10 @@ export const realBackend: Backend = {
         .eq("document_type", "promotion")
         .order("valid_from", { ascending: false }),
     );
+  },
+
+  async registerPromotion(input, storeId) {
+    return (await callN8n(N8N_PATHS.promotionRegister, { ...input, store_id: storeId })) as PromotionRegisterResult;
   },
 
   async runPromotion(documentId, storeId) {

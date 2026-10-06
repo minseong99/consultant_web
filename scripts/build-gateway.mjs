@@ -76,6 +76,9 @@ const WORKFLOWS = {
 // 기존 워크플로우가 쓰는 Postgres 자격증명. 같은 n8n 인스턴스에 import하면 자동으로 연결된다.
 const POSTGRES_CREDENTIAL = { postgres: { id: "YVkzsBzhXmXxNLug", name: "KT_Project_Supabase_Postgres" } };
 
+// F05의 Embeddings OpenAI 노드가 쓰는 OpenAI 자격증명. 프로모션 등록에서 같은 모델로 본문을 임베딩한다.
+const OPENAI_CREDENTIAL = { openAiApi: { id: "nIiZAyshbU5fsKDS", name: "OpenAI account" } };
+
 const nodes = [];
 const connections = {};
 
@@ -810,6 +813,180 @@ return [{ json: { targeted: result.status === 'targeted', document_id: result.do
   link(targeted, f06, 0);
   link(targeted, build, 1);
   link(f06, build);
+  link(build, reply);
+}
+
+// ---------------------------------------------------------------------------
+// 6. 프로모션 등록: 입력 정리 → 본문 임베딩 → documents + kt_promotion_vectors 저장 → 응답
+//    대상 선정과 일정 생성은 등록 후 5번 경로(web/promotion)로 따로 실행한다.
+// ---------------------------------------------------------------------------
+{
+  const r = 8.4;
+  group = "promotion-register";
+  note(
+    "안내: 프로모션 등록",
+    "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, 메타데이터에 `document_id`)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
+    r,
+    240,
+  );
+  const hook = add(webhook("프로모션 등록 Webhook", "web/promotion-register"), r, 0);
+  const prepare = add(
+    code(
+      "등록 입력 정리",
+      `const body = $input.first().json.body ?? {};
+const text = (value) => (typeof value === 'string' ? value.trim() : '');
+const isDate = (value) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value);
+
+const name = text(body.promotion_name);
+const storeId = text(body.store_id);
+const from = text(body.valid_from);
+const until = text(body.valid_until);
+const benefit = text(body.benefit);
+
+const fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];
+
+if (!storeId) return fail('매장 정보가 없습니다.');
+if (!name) return fail('프로모션 이름을 입력해 주세요.');
+if (!isDate(from) || !isDate(until)) return fail('적용 기간을 입력해 주세요.');
+if (from > until) return fail('종료일이 시작일보다 빠릅니다.');
+if (!benefit) return fail('혜택 내용을 입력해 주세요.');
+
+// documents.document_id 는 varchar(20) 이다. 'PROMO-' + 13자리 = 19자.
+const documentId = 'PROMO-' + Date.now();
+
+// F05(대상 조건 추출)와 F07(문자 생성)이 읽는 본문. 기존 프로모션 문서와 같은 형식으로 만든다.
+const lines = [
+  ['프로모션 ID', documentId],
+  ['프로모션명', name],
+  ['프로모션 유형', text(body.promotion_type)],
+  ['대상 기기', text(body.target_device)],
+  ['대상 요금제', text(body.target_plan)],
+  ['대상 고객', text(body.target_customer)],
+  ['혜택', benefit],
+  ['조건', text(body.conditions)],
+  ['적용 기간', from + ' ~ ' + until],
+].filter(([, value]) => value).map(([label, value]) => label + ': ' + value);
+
+return [{ json: {
+  valid: true,
+  document_id: documentId,
+  store_id: storeId,
+  file_name: name,
+  file_path: 'web/' + documentId,
+  valid_from: from,
+  valid_until: until,
+  content: lines.join('\\n'),
+  metadata: JSON.stringify({
+    source: 'web',
+    store_id: storeId,
+    file_name: name,
+    document_id: documentId,
+    document_type: 'promotion',
+  }),
+} }];`,
+    ),
+    r,
+    1,
+  );
+  const valid = add(iff("등록: 입력 유효?", "$json.valid === true"), r, 2);
+  // F05의 Embeddings OpenAI 노드와 같은 모델(기본값 text-embedding-3-small, 1536차원)을 쓴다.
+  const embed = add(
+    {
+      name: "등록: 본문 임베딩",
+      type: "n8n-nodes-base.httpRequest",
+      typeVersion: 4.2,
+      alwaysOutputData: true,
+      onError: "continueRegularOutput",
+      credentials: OPENAI_CREDENTIAL,
+      parameters: {
+        method: "POST",
+        url: "https://api.openai.com/v1/embeddings",
+        authentication: "predefinedCredentialType",
+        nodeCredentialType: "openAiApi",
+        sendBody: true,
+        specifyBody: "json",
+        jsonBody: "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.content }) }}",
+        options: {},
+      },
+    },
+    r,
+    3,
+  );
+  // 문서 행과 본문 조각을 한 문장으로 저장한다. 임베딩이 없으면 vector 변환에서 실패해 둘 다 저장되지 않는다.
+  const save = add(
+    {
+      ...postgres(
+        "등록: 문서·본문 저장",
+        `WITH doc AS (
+    INSERT INTO public.documents (
+        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until
+    )
+    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)
+    RETURNING document_id, file_name, valid_from, valid_until
+),
+vec AS (
+    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding)
+    SELECT $7, $8::jsonb, $9::vector
+    FROM doc
+    RETURNING vector_id
+)
+SELECT
+    doc.document_id,
+    doc.file_name,
+    doc.valid_from,
+    doc.valid_until,
+    (SELECT vector_id FROM vec) AS vector_id
+FROM doc;`,
+        `(() => {
+  const p = $('등록 입력 정리').first().json;
+  return [
+    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,
+    p.content, p.metadata,
+    JSON.stringify($json.data?.[0]?.embedding ?? null),
+  ];
+})()`,
+      ),
+      onError: "continueRegularOutput",
+    },
+    r,
+    4,
+  );
+  const build = add(
+    code(
+      "등록 응답 구성",
+      `const input = $('등록 입력 정리').first().json;
+if (!input.valid) return [{ json: input.response }];
+
+const saved = $input.first()?.json ?? {};
+if (saved.document_id && saved.vector_id) {
+  return [{ json: {
+    success: true,
+    document_id: saved.document_id,
+    file_name: input.file_name,
+    valid_from: input.valid_from,
+    valid_until: input.valid_until,
+  } }];
+}
+
+// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.
+let embedding = {};
+try { embedding = $('등록: 본문 임베딩').first()?.json ?? {}; } catch (error) { embedding = {}; }
+const reason = !Array.isArray(embedding.data)
+  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')
+  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');
+
+return [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];`,
+    ),
+    r,
+    5,
+  );
+  const reply = add(respond("등록 응답"), r, 6);
+  link(hook, prepare);
+  link(prepare, valid);
+  link(valid, embed, 0);
+  link(valid, build, 1);
+  link(embed, save);
+  link(save, build);
   link(build, reply);
 }
 
