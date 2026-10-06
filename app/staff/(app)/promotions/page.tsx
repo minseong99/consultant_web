@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { Steps } from "@/components/Steps";
 import { Badge, Button, Card, EmptyState, ErrorNote, Spinner } from "@/components/ui";
-import { formatDate, formatPhone } from "@/lib/format";
+import { todayKST, formatDate, formatPhone } from "@/lib/format";
 import { lookup, PROMOTION_STATUS } from "@/lib/labels";
 import type { DocumentRow, PromotionResult } from "@/lib/types";
 
 type Run = { loading: boolean; result: PromotionResult | null };
+
+function isEnded(validUntil: string | null) {
+  return Boolean(validUntil) && String(validUntil).slice(0, 10) < todayKST();
+}
 
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<DocumentRow[] | null>(null);
@@ -57,7 +61,9 @@ export default function PromotionsPage() {
         ) : promotions.length === 0 ? (
           !error && <EmptyState>이 매장에 등록된 프로모션이 없습니다.</EmptyState>
         ) : (
-          promotions.map((promotion) => {
+          // 기간이 끝난 프로모션은 아래로 내리고 실행을 막는다.
+          [...promotions].sort((a, b) => Number(isEnded(a.valid_until)) - Number(isEnded(b.valid_until))).map((promotion) => {
+            const ended = isEnded(promotion.valid_until);
             const state = runs[promotion.document_id];
             const result = state?.result;
             const status = result && "status" in result ? lookup(PROMOTION_STATUS, result.status) : null;
@@ -66,7 +72,7 @@ export default function PromotionsPage() {
                 key={promotion.document_id}
                 title={promotion.file_name}
                 action={
-                  <Button size="sm" loading={state?.loading} onClick={() => run(promotion.document_id)}>
+                  <Button size="sm" loading={state?.loading} disabled={ended} onClick={() => run(promotion.document_id)}>
                     대상 선정 및 일정 생성
                   </Button>
                 }
@@ -74,6 +80,11 @@ export default function PromotionsPage() {
                 <p className="text-slate-600">
                   기간 {formatDate(promotion.valid_from)} ~ {formatDate(promotion.valid_until)}
                   <span className="ml-3 text-[13px] text-slate-400">{promotion.document_id}</span>
+                  {ended && (
+                    <span className="ml-3">
+                      <Badge tone="gray">기간 종료</Badge>
+                    </span>
+                  )}
                 </p>
                 {state && (
                   <div className="mt-4 flex flex-col gap-3">

@@ -111,7 +111,7 @@ export function ScheduleList({
               <button onClick={() => toggle(schedule.schedule_id)} aria-expanded={expanded} className="flex min-w-0 flex-1 items-center gap-4 text-left">
                 <span className="w-36 shrink-0">
                   <span className="block font-semibold">{formatDateTime(schedule.scheduled_contact_at)}</span>
-                  <span className="text-[13px] text-slate-500">발송 예정</span>
+                  <span className="text-[13px] text-slate-500">예약 시각</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
