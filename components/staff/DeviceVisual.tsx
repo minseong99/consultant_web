@@ -18,6 +18,22 @@ const DEVICE_IMAGES: Record<string, StaticImageData> = {
   "DEV-IP17": iphone17,
 };
 
+// 추천 결과에 product_id 가 빠져 오는 경우가 있어(LLM 출력) 기기 이름으로도 찾는다.
+// 이름에 들어 있는 글자로 맞추며, 더 구체적인 이름을 앞에 둔다(예: "iphone17pro" 가 "iphone17" 보다 먼저).
+const DEVICE_IMAGES_BY_NAME: [string, StaticImageData][] = [
+  ["galaxyzfold8", fold8],
+  ["galaxyzflip8", flip8],
+  ["galaxys26", s26],
+  ["iphone17pro", iphone17Pro],
+  ["iphone17", iphone17],
+];
+
+function photoOf(productId: string | null | undefined, deviceName: string | null) {
+  if (productId && DEVICE_IMAGES[productId]) return DEVICE_IMAGES[productId];
+  const name = (deviceName ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return DEVICE_IMAGES_BY_NAME.find(([key]) => name.includes(key))?.[1];
+}
+
 type Form = "bar" | "fold" | "flip";
 type Look = { form: Form; body: string; edge: string; lenses: 2 | 3; apple: boolean };
 
@@ -37,8 +53,8 @@ function lookOf(name: string | null): Look {
   };
 }
 
-export function DeviceVisual({ productId, deviceName }: { productId: string | null; deviceName: string | null }) {
-  const photo = productId ? DEVICE_IMAGES[productId] : undefined;
+export function DeviceVisual({ productId, deviceName }: { productId: string | null | undefined; deviceName: string | null }) {
+  const photo = photoOf(productId, deviceName);
   return (
     <span className="flex h-28 w-24 shrink-0 items-center justify-center rounded-lg bg-stone-100">
       {photo ? <Image src={photo} alt={deviceName ?? "추천 기기"} className="h-24 w-auto rounded object-contain mix-blend-multiply" /> : <Illustration look={lookOf(deviceName)} />}

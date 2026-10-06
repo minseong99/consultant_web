@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useStaffFeed } from "@/components/staff/FeedProvider";
 import { Badge, Spinner, StatusLine } from "@/components/ui";
-import { addDays, formatDate, formatTime, todayKST } from "@/lib/format";
+import { addDays, formatDate, formatDateTime, formatTime, todayKST } from "@/lib/format";
 import { lookup, SCHEDULE_STATUS, scheduleTitle } from "@/lib/labels";
 import type { CustomerListItem, ScheduleItem } from "@/lib/types";
 
@@ -23,6 +23,8 @@ function isWaiting(customer: CustomerListItem, today: string) {
 export default function TodayPage() {
   const { feed, fresh } = useStaffFeed();
   const today = todayKST();
+  // 화면이 갱신될 때(3초마다)의 시각을 기준으로 지연 여부를 본다.
+  const now = feed ? new Date(feed.fetched_at).getTime() : 0;
 
   if (!feed) {
     return (
@@ -34,12 +36,16 @@ export default function TodayPage() {
 
   const waiting = feed.customers.filter((c) => isWaiting(c, today));
   const todays = feed.schedules.filter((s) => dayOf(s.scheduled_contact_at) === today);
-  const toSend = todays.filter((s) => s.schedule_status === "scheduled" || s.schedule_status === "processing");
+  // 예약 시각이 1시간 넘게 지났는데도 예정 상태로 남은 것은 자동 발송을 놓친 것이다.
+  const overdueBefore = new Date(now - 60 * 60 * 1000).toISOString();
+  const isOverdue = (s: ScheduleItem) => s.schedule_status === "scheduled" && new Date(s.scheduled_contact_at).toISOString() < overdueBefore;
+  const toSend = todays.filter((s) => (s.schedule_status === "scheduled" || s.schedule_status === "processing") && !isOverdue(s));
   const sentToday = todays.filter((s) => s.schedule_status === "sent").length;
   // 어제와 오늘 예정이었는데 발송되지 않은 것
   const yesterday = addDays(today, -1);
   const attention = feed.schedules.filter(
-    (s) => (s.schedule_status === "failed" || s.schedule_status === "skipped") && dayOf(s.scheduled_contact_at) >= yesterday && dayOf(s.scheduled_contact_at) <= today,
+    (s) =>
+      (s.schedule_status === "failed" || s.schedule_status === "skipped" || isOverdue(s)) && dayOf(s.scheduled_contact_at) >= yesterday && dayOf(s.scheduled_contact_at) <= today,
   );
   // 내일부터 7일
   const weekEnd = addDays(today, 7);
@@ -77,8 +83,10 @@ export default function TodayPage() {
                         {fresh.has(customer.customer_id) && <Badge tone="red">새 고객</Badge>}
                       </span>
                       <span className="block truncate text-[13px] text-stone-600">{customer.consultation_goal}</span>
+                      <span className="mt-1 block">
+                        <StatusLine state={customer.has_analysis ? "done" : "active"} label={customer.has_analysis ? "AI 분석 완료" : "AI 분석 중"} />
+                      </span>
                     </span>
-                    <StatusLine state={customer.has_analysis ? "done" : "active"} label={customer.has_analysis ? "AI 분석 완료" : "AI 분석 중"} />
                   </Row>
                 </li>
               ))}
@@ -96,8 +104,13 @@ export default function TodayPage() {
           {toSend.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {toSend.length - LIST_LIMIT}건</p>}
         </Section>
 
-        <Section id="attention" title="확인 필요" note="어제와 오늘 발송되지 않은 연락">
-          {attention.length === 0 ? <Empty>확인할 것이 없습니다.</Empty> : <ScheduleRows items={attention.slice(0, LIST_LIMIT)} fresh={fresh} showStatus />}
+        <Section id="attention" title="확인 필요" note="어제와 오늘 발송되지 않았거나 예약 시각이 지난 연락">
+          {attention.length === 0 ? (
+            <Empty>확인할 것이 없습니다.</Empty>
+          ) : (
+            <ScheduleRows items={attention.slice(0, LIST_LIMIT)} fresh={fresh} showStatus overdue={isOverdue} showDate />
+          )}
+          {attention.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {attention.length - LIST_LIMIT}건</p>}
         </Section>
 
         <Section id="upcoming" title="이번 주" note="앞으로 7일 동안 예정된 연락" more={{ href: "/staff/schedules", label: "일정 전체 보기" }}>
@@ -114,7 +127,7 @@ export default function TodayPage() {
                 return (
                   <li key={day} className="flex min-h-11 items-center gap-4 py-2">
                     <span className="w-28 shrink-0 text-[14px] font-semibold tabular-nums">{formatDate(day)}</span>
-                    <span className="min-w-0 flex-1 text-[14px] text-stone-700">
+                    <span className="min-w-0 flex-1 break-words text-[14px] text-stone-700">
                       {[...kinds.entries()].map(([title, count]) => `${title} ${count}건`).join(" · ")}
                     </span>
                   </li>
@@ -170,7 +183,20 @@ function Row({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-function ScheduleRows({ items, fresh, showStatus }: { items: ScheduleItem[]; fresh: Set<string>; showStatus?: boolean }) {
+function ScheduleRows({
+  items,
+  fresh,
+  showStatus,
+  showDate,
+  overdue,
+}: {
+  items: ScheduleItem[];
+  fresh: Set<string>;
+  showStatus?: boolean;
+  /** 오늘이 아닌 일정이 섞일 때 날짜도 보여 준다 */
+  showDate?: boolean;
+  overdue?: (schedule: ScheduleItem) => boolean;
+}) {
   return (
     <ul className="divide-y divide-stone-200">
       {items.map((schedule) => {
@@ -178,12 +204,18 @@ function ScheduleRows({ items, fresh, showStatus }: { items: ScheduleItem[]; fre
         return (
           <li key={schedule.schedule_id} className={fresh.has(schedule.schedule_id) ? "animate-flash" : ""}>
             <Row href={`/staff/schedules?focus=${schedule.schedule_id}`}>
-              <span className="w-14 shrink-0 text-[13px] font-semibold tabular-nums">{formatTime(schedule.scheduled_contact_at)}</span>
+              <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${showDate ? "w-32" : "w-14"}`}>
+                {showDate ? formatDateTime(schedule.scheduled_contact_at) : formatTime(schedule.scheduled_contact_at)}
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-bold">{schedule.customer_name}</span>
                 <span className="block truncate text-[13px] text-stone-600">{scheduleTitle(schedule.schedule_type, schedule.schedule_subtype)}</span>
               </span>
-              {(showStatus || schedule.schedule_status === "processing") && <Badge tone={status.tone}>{status.label}</Badge>}
+              {overdue?.(schedule) ? (
+                <Badge tone="amber">발송 지연</Badge>
+              ) : (
+                (showStatus || schedule.schedule_status === "processing") && <Badge tone={status.tone}>{status.label}</Badge>
+              )}
             </Row>
           </li>
         );
