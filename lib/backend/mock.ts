@@ -535,6 +535,24 @@ export const mockBackend: Backend = {
     return store().documents.filter((d) => d.store_id === storeId && d.document_type === "promotion");
   },
 
+  async registerPromotion(input, storeId) {
+    await sleep(1200);
+    const documentId = `PROMO-${Date.now()}`;
+    // mock의 대상 선정은 condition_data의 키워드를 쓴다. 대상 기기를 관심 키워드로 넣어 둔다.
+    const keyword = input.target_device?.split(/\s+/)[0];
+    store().documents.unshift({
+      document_id: documentId,
+      store_id: storeId,
+      document_type: "promotion",
+      file_name: input.promotion_name,
+      file_path: `web/${documentId}`,
+      valid_from: input.valid_from,
+      valid_until: input.valid_until,
+      condition_data: keyword ? { interest_keywords: [keyword] } : {},
+    });
+    return { success: true, document_id: documentId, file_name: input.promotion_name, valid_from: input.valid_from, valid_until: input.valid_until };
+  },
+
   async runPromotion(documentId, storeId) {
     await sleep(2800);
     const s = store();

@@ -1,0 +1,246 @@
+{
+  "nodes": [
+    {
+      "id": "8f85c485-1068-4d9b-a465-6642a71e0dfc",
+      "name": "안내: 프로모션 등록",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        1976
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, 메타데이터에 `document_id`)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
+        "height": 240,
+        "width": 460
+      }
+    },
+    {
+      "id": "dc692ead-02b5-4b1a-a1b2-3a6294fc862a",
+      "position": [
+        0,
+        2016
+      ],
+      "name": "프로모션 등록 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "28968bdb-04bc-45ff-a6c1-271635b7171c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/promotion-register",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "071da1ee-49e5-4114-a8b0-77236dcb252a",
+      "position": [
+        260,
+        2016
+      ],
+      "name": "등록 입력 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst isDate = (value) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value);\n\nconst name = text(body.promotion_name);\nconst storeId = text(body.store_id);\nconst from = text(body.valid_from);\nconst until = text(body.valid_until);\nconst benefit = text(body.benefit);\n\nconst fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];\n\nif (!storeId) return fail('매장 정보가 없습니다.');\nif (!name) return fail('프로모션 이름을 입력해 주세요.');\nif (!isDate(from) || !isDate(until)) return fail('적용 기간을 입력해 주세요.');\nif (from > until) return fail('종료일이 시작일보다 빠릅니다.');\nif (!benefit) return fail('혜택 내용을 입력해 주세요.');\n\n// documents.document_id 는 varchar(20) 이다. 'PROMO-' + 13자리 = 19자.\nconst documentId = 'PROMO-' + Date.now();\n\n// F05(대상 조건 추출)와 F07(문자 생성)이 읽는 본문. 기존 프로모션 문서와 같은 형식으로 만든다.\nconst lines = [\n  ['프로모션 ID', documentId],\n  ['프로모션명', name],\n  ['프로모션 유형', text(body.promotion_type)],\n  ['대상 기기', text(body.target_device)],\n  ['대상 요금제', text(body.target_plan)],\n  ['대상 고객', text(body.target_customer)],\n  ['혜택', benefit],\n  ['조건', text(body.conditions)],\n  ['적용 기간', from + ' ~ ' + until],\n].filter(([, value]) => value).map(([label, value]) => label + ': ' + value);\n\nreturn [{ json: {\n  valid: true,\n  document_id: documentId,\n  store_id: storeId,\n  file_name: name,\n  file_path: 'web/' + documentId,\n  valid_from: from,\n  valid_until: until,\n  content: lines.join('\\n'),\n  metadata: JSON.stringify({\n    source: 'web',\n    store_id: storeId,\n    file_name: name,\n    document_id: documentId,\n    document_type: 'promotion',\n  }),\n} }];"
+      }
+    },
+    {
+      "id": "b1635c71-d24f-47d4-a000-f15a1fd98017",
+      "position": [
+        520,
+        2016
+      ],
+      "name": "등록: 입력 유효?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3f403820-0899-4edd-a8f1-76acb43dbdee",
+              "leftValue": "={{ $json.valid === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "77c69d29-e083-4da2-af3b-76b517ba8ad8",
+      "position": [
+        780,
+        2016
+      ],
+      "name": "등록: 본문 임베딩",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.content }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "160f6cf8-b0e2-4b3d-a2ed-1d7bb5d95fea",
+      "position": [
+        1040,
+        2016
+      ],
+      "name": "등록: 문서·본문 저장",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding)\n    SELECT $7, $8::jsonb, $9::vector\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
+        "options": {
+          "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "e9ef1ba1-a34b-4f7d-ade4-a2f00a3c9322",
+      "position": [
+        1300,
+        2016
+      ],
+      "name": "등록 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const input = $('등록 입력 정리').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst saved = $input.first()?.json ?? {};\nif (saved.document_id && saved.vector_id) {\n  return [{ json: {\n    success: true,\n    document_id: saved.document_id,\n    file_name: input.file_name,\n    valid_from: input.valid_from,\n    valid_until: input.valid_until,\n  } }];\n}\n\n// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nlet embedding = {};\ntry { embedding = $('등록: 본문 임베딩').first()?.json ?? {}; } catch (error) { embedding = {}; }\nconst reason = !Array.isArray(embedding.data)\n  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')\n  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');\n\nreturn [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];"
+      }
+    },
+    {
+      "id": "20852045-3e3b-4126-a541-6f5ac43eb139",
+      "position": [
+        1560,
+        2016
+      ],
+      "name": "등록 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "프로모션 등록 Webhook": {
+      "main": [
+        [
+          {
+            "node": "등록 입력 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록 입력 정리": {
+      "main": [
+        [
+          {
+            "node": "등록: 입력 유효?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록: 입력 유효?": {
+      "main": [
+        [
+          {
+            "node": "등록: 본문 임베딩",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "등록 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록: 본문 임베딩": {
+      "main": [
+        [
+          {
+            "node": "등록: 문서·본문 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록: 문서·본문 저장": {
+      "main": [
+        [
+          {
+            "node": "등록 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "등록 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

@@ -8,6 +8,8 @@ import type {
   Feed,
   IntakeInput,
   IntakeResult,
+  PromotionRegisterInput,
+  PromotionRegisterResult,
   PromotionResult,
   RecommendResult,
   SendNowResult,
@@ -27,6 +29,7 @@ export interface Backend {
   consultationResult(input: ConsultationInput): Promise<ConsultationResult>;
   sendNow(scheduleId: string): Promise<SendNowResult>;
   listPromotions(storeId: string): Promise<DocumentRow[]>;
+  registerPromotion(input: PromotionRegisterInput, storeId: string): Promise<PromotionRegisterResult>;
   runPromotion(documentId: string, storeId: string): Promise<PromotionResult>;
 }
 

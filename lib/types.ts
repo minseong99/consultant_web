@@ -237,6 +237,22 @@ export type SendNowResult =
   | ApiFailure;
 
 // F05 반환값
+export type PromotionRegisterInput = {
+  promotion_name: string;
+  valid_from: string;
+  valid_until: string;
+  benefit: string;
+  promotion_type: string | null;
+  target_device: string | null;
+  target_plan: string | null;
+  target_customer: string | null;
+  conditions: string | null;
+};
+
+export type PromotionRegisterResult =
+  | { success: true; document_id: string; file_name: string; valid_from: string; valid_until: string }
+  | ApiFailure;
+
 export type PromotionTarget = {
   customer_id: string;
   customer_name: string;
