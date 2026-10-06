@@ -1,0 +1,50 @@
+name: CI
+
+# PR과 main 반영 때마다 타입 검사, 린트, 빌드를 돌린다.
+# 샘플 데이터 모드로 빌드하므로 n8n·Supabase 키가 필요 없고 외부 호출도 없다.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      USE_MOCK: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # next-env.d.ts 와 경로 타입(PageProps 등)은 저장소에 없고 Next가 만든다. 타입 검사 전에 먼저 생성한다.
+      - name: 타입 검사
+        run: |
+          npx next typegen
+          npx tsc --noEmit
+
+      - name: 린트
+        run: npx eslint app lib components
+
+      # n8n/workflows 의 ID·입력 필드명과 대조하고, 저장소의 게이트웨이 JSON이 스크립트 결과와 같은지 본다.
+      - name: 게이트웨이 JSON 확인
+        run: |
+          node scripts/build-gateway.mjs
+          git diff --exit-code -- n8n
+
+      - name: 빌드
+        run: npm run build
