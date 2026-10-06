@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "상담 지원 AI Agent",
-  description: "통신 매장 상담 지원 AI Agent 시연",
+  title: "KT 매장 상담 지원 AI Agent",
+  description: "KT 매장 상담 지원 AI Agent 시연",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };

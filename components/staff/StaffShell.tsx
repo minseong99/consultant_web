@@ -46,7 +46,7 @@ function Shell({ staffId, storeName, mock, children }: Props) {
   return (
     <div className="flex min-h-screen text-[15px]">
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col bg-ink px-4 py-6 text-slate-200">
-        <p className="px-2 text-[13px] font-semibold text-brand-100">상담 지원 AI Agent</p>
+        <p className="px-2 text-[13px] font-semibold text-brand-100">KT 매장 상담 지원 AI Agent</p>
         <p className="px-2 text-[19px] font-bold text-white">{storeName}</p>
         <nav className="mt-8 flex flex-col gap-1">
           {NAV.map((item) => {
