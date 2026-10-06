@@ -1,0 +1,280 @@
+{
+  "id": "AGUr1pcjAH5Jrkrt",
+  "name": "zWF04메세지 생성 및 발송",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -288,
+        288
+      ],
+      "id": "f41a8c1f-c63f-4b02-977b-f034d45d09d2",
+      "name": "[시작] 일일 메시지 발송 시작"
+    },
+    {
+      "parameters": {
+        "content": "## 일일 메시지 발송 시작 노드\n\n메시지 생성 및 발송\n트리거 시기 : 매일 오전 9시",
+        "height": 112
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -160,
+        48
+      ],
+      "typeVersion": 1,
+      "id": "53294e2e-79a7-4d0a-9980-1d184b9f72b6",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        560
+      ],
+      "id": "d4e471e3-b93a-4635-83f6-469018467fd8",
+      "name": "테스트"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    -- S01 직접 전달값\n    ms.schedule_id,\n    ms.scheduled_contact_at,\n\n    -- message_data 구성용\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n\n    con.summary AS consultation_summary\n\nFROM public.message_schedules AS ms\n\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\n\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\n\nWHERE\n    ms.schedule_status = 'scheduled'\n\n    AND ms.scheduled_contact_at >=\n        (\n            (NOW() AT TIME ZONE 'Asia/Seoul')::date::timestamp\n            AT TIME ZONE 'Asia/Seoul'\n        )\n\n    AND ms.scheduled_contact_at <\n        (\n            (\n                (NOW() AT TIME ZONE 'Asia/Seoul')::date + 1\n            )::timestamp\n            AT TIME ZONE 'Asia/Seoul'\n        )\n\nORDER BY\n    ms.scheduled_contact_at ASC,\n    ms.schedule_id ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        64,
+        352
+      ],
+      "id": "ce633f7c-de2f-47ff-ada9-3c593b1a96c8",
+      "name": "[조회] 오늘의 메시지 발송 대상",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## [조회]오늘의 메시지 발송 대상  \n[역할]\n매일 오전 9시 message_schedules에서 오늘 발송 예정인 scheduled 상태의 스케줄을 한 번에 조회한다.\n고객·상담 정보를 함께 조회하고, 동의 상태를 기준으로 can_send와 skip_reason을 계산한다.\n\n[목적]\nDB 조회를 하루 1회로 최소화하고, 이후 노드에서는 추가 조회 없이 메시지 발송 가능 여부를 판단할 수 있도록 한다.",
+        "height": 416,
+        "width": 272
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        528
+      ],
+      "typeVersion": 1,
+      "id": "882662b6-018b-455f-b60a-a9fe382995c2",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "QFjC2ARP9Q6fCExH",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/QFjC2ARP9Q6fCExH",
+          "cachedResultName": "zF07_개별 메시지 처리_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "scheduled_contact_at": "={{ $json.scheduled_contact_at }}",
+            "message_data": "={{ {   customer_id: $json.customer_id,   schedule_type: $json.schedule_type,   schedule_subtype: $json.schedule_subtype ?? null,   contact_reason: $json.contact_reason ?? null,    customer_name: $json.customer_name,   phone: $json.phone,    current_device: $json.current_device ?? null,   current_plan: $json.current_plan ?? null,   usage_pattern: $json.usage_pattern ?? null,   contract_end_date: $json.contract_end_date ?? null,   device_use_months: $json.device_use_months ?? null,   preferred_brand: $json.preferred_brand ?? null,   target_monthly_budget: $json.target_monthly_budget ?? null,   interests: $json.interests ?? null,    consultation_summary: $json.consultation_summary ?? null,   document_id: $json.document_id ?? null } }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "scheduled_contact_at",
+              "displayName": "scheduled_contact_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        272
+      ],
+      "id": "53306241-619c-44a4-8803-3f38d4d66c3f",
+      "name": "Call 'F07-S01 개별 메시지 처리'"
+    },
+    {
+      "parameters": {
+        "content": "## call F07-S01 개발 메시지 처리\n[역할]\n조회된 각 메시지 스케줄을 F07-S01 개별 메시지 처리로 전달한다.\n각 스케줄은 독립적으로 실행되며, 메인 워크플로우는 서브워크플로우의 완료를 기다리지 않는다.\n[입력]\nschedule_id, scheduled_contact_at,  message_data",
+        "height": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        560,
+        560
+      ],
+      "typeVersion": 1,
+      "id": "8651957e-8144-45e6-a0d5-7a5aebb6d06b",
+      "name": "Sticky Note18"
+    },
+    {
+      "parameters": {
+        "content": "실제 운영에서 같은시간에 보낼 문자가 10000건 이상으로 많다면 n8n 동시 실행 수, worker 수, SMS API rate limit 같은 걸 고려해야 해서 별도의 Queue/Batch 설계가 필요함",
+        "height": 192,
+        "width": 224,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        832,
+        464
+      ],
+      "typeVersion": 1,
+      "id": "e73ee95c-35c8-43d7-9345-f06ac8571f2b",
+      "name": "Sticky Note19"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        384,
+        192
+      ],
+      "id": "500ddf05-8dc9-4e72-9294-6f4168437855",
+      "name": "[반복] 메시지 스케줄 1건씩 처리"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n\n    TO_CHAR(\n        ms.scheduled_contact_at AT TIME ZONE 'Asia/Seoul',\n        'YYYY-MM-DD HH24:MI:SS'\n    ) AS scheduled_contact_at_kst,\n\n    ms.schedule_status,\n\n    m.message_id,\n    m.send_status,\n    m.message_content,\n\n    TO_CHAR(\n        m.sent_at AT TIME ZONE 'Asia/Seoul',\n        'YYYY-MM-DD HH24:MI:SS'\n    ) AS sent_at_kst\n\nFROM public.message_schedules ms\n\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\n\nWHERE ms.schedule_id IN (\n    'SCH_F07_INT_001',\n    'SCH_F07_INT_002',\n    'SCH_F07_INT_003'\n)\n\nORDER BY ms.scheduled_contact_at;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        848,
+        112
+      ],
+      "id": "db070caf-e76f-4961-a182-5c1ccc228861",
+      "name": "테스트 확인 ",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "테스트": {
+      "main": [
+        []
+      ]
+    },
+    "[조회] 오늘의 메시지 발송 대상": {
+      "main": [
+        [
+          {
+            "node": "[반복] 메시지 스케줄 1건씩 처리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'F07-S01 개별 메시지 처리'": {
+      "main": [
+        [
+          {
+            "node": "[반복] 메시지 스케줄 1건씩 처리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[반복] 메시지 스케줄 1건씩 처리": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Call 'F07-S01 개별 메시지 처리'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[시작] 일일 메시지 발송 시작": {
+      "main": [
+        [
+          {
+            "node": "[조회] 오늘의 메시지 발송 대상",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Seoul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

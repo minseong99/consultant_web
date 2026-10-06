@@ -7,7 +7,7 @@
 |---|---|---|
 | `/` | 시연 진행자 | 두 화면으로 가는 진입 페이지 |
 | `/join` | 고객 (모바일) | 동의 → 정보 입력 → 접수 완료 |
-| `/staff` | 직원 (PC) | 고객 목록, 고객 상세(AI 분석·맞춤 추천·상담 결과 입력), 후속 연락 일정, 프로모션, 알림 |
+| `/staff` | 직원 (PC) | 고객 목록, 고객 상세(AI 분석·맞춤 추천·상담 결과 입력), 후속 연락 일정, 프로모션 등록·대상 선정, 알림 |
 
 ## 실행
 
@@ -54,8 +54,10 @@ lib/notify.ts                알림 생성 규칙 (직전 조회 결과와 비�
 lib/labels.ts                상태값 → 한글 라벨·색
 lib/fields.ts                고객 입력 폼의 항목·문구
 lib/types.ts                 Supabase 스키마 타입
-n8n/web-gateway.json         n8n에 import하는 게이트웨이 워크플로우
+n8n/workflows                n8n에서 현재 발행된 워크플로우 (내보낸 것)
+n8n/parts, web-gateway.json  게이트웨이 조각과 전체 (생성물)
 scripts/build-gateway.mjs    게이트웨이 JSON 생성·검증 스크립트
+scripts/export-workflows.mjs n8n 발행본을 n8n/workflows 로 내보내는 스크립트
 ```
 
 - 브라우저는 n8n이나 Supabase를 직접 호출하지 않습니다. 모두 `/api/...` 를 거칩니다.
@@ -65,25 +67,37 @@ scripts/build-gateway.mjs    게이트웨이 JSON 생성·검증 스크립트
 
 ## 실제 연동
 
-### 1. 게이트웨이 워크플로우 import
+### 1. n8n 워크플로우
 
-기존 워크플로우(F01~F07)에는 webhook이 없습니다. `n8n/web-gateway.json` 이 웹사이트의 요청을 받아 기존 워크플로우를 호출합니다. 기존 워크플로우는 수정하지 않습니다.
+`n8n/` 폴더에 세 가지가 있습니다.
 
-1. n8n에서 새 워크플로우를 만들고 `⋯` → **Import from File** → `n8n/web-gateway.json`
-2. Webhook 노드 5개 각각에서 **Credential for Header Auth** 를 새로 만듭니다. Name은 `x-web-secret`, Value는 임의의 긴 문자열(이 값을 `.env.local` 의 `N8N_WEB_SECRET` 에 넣습니다). 한 번 만든 자격증명을 5개 노드에서 같이 선택하면 됩니다.
-3. Postgres 노드 5개의 자격증명이 `KT_Project_Supabase_Postgres` 로 연결됐는지 확인합니다(같은 인스턴스면 자동 연결).
-4. Execute Workflow 노드 11개가 각각 올바른 워크플로우를 가리키는지 확인합니다(ID로 지정되어 있음).
-5. 워크플로우를 **활성화**합니다. 활성화 전에는 `/webhook/` 대신 `/webhook-test/` 주소로, 편집 화면에서 "Listen for test event"를 누른 상태에서만 호출됩니다.
+| 경로 | 내용 |
+|---|---|
+| `n8n/workflows/*.json` | **n8n에서 현재 발행된 워크플로우 14개.** 게이트웨이(`WF Main`), F01~F07과 서브 워크플로우, 매일 자동 발송(`zWF04`). `npm run n8n:export` 로 갱신 |
+| `n8n/parts/*.json` | 게이트웨이의 경로별 조각. `WF Main` 에서 한 경로만 바꿀 때 캔버스에 붙여 넣음 |
+| `n8n/web-gateway.json` | 게이트웨이 전체. 새 n8n 인스턴스에 처음 import할 때 사용 |
 
-> **이 게이트웨이는 n8n에서 실행해 보지 못한 상태로 작성되었습니다.** 스크립트로 확인한 것은 JSON 형식, 노드 연결, 호출 대상 워크플로우의 ID와 입력 필드명이 원본과 일치하는지까지입니다. import 후 아래 curl로 경로별로 한 번씩 확인하세요. 특히 Execute Workflow 노드에 객체(`customer`, `analysis`, `message_data` 등)를 넘기는 부분과 Respond to Webhook 뒤에 이어지는 실행은 n8n 버전에 따라 설정을 손봐야 할 수 있습니다.
+`n8n/workflows` 는 실제로 동작 중인 상태의 기록입니다. 공개 저장소이므로 pinData(테스트 데이터)는 빼고 Google Calendar ID는 `<GOOGLE_CALENDAR_ID>` 로 바꿔 저장합니다. 자격증명은 이름과 ID만 들어 있고 값은 없습니다.
 
-스크립트는 경로별 조각 파일도 함께 만듭니다(`n8n/parts/*.json`). 이미 import한 워크플로우에서 한 경로만 바꿀 때는, 그 경로의 기존 노드를 지우고 조각 파일의 내용을 n8n 캔버스에 붙여 넣으면 됩니다.
+기존 워크플로우(F01~F07)에는 webhook이 없어서, 게이트웨이 `WF Main` 이 웹사이트의 요청을 받아 Execute Workflow 노드로 기존 워크플로우를 호출합니다. 경로는 6개입니다.
 
-게이트웨이를 고치려면 `scripts/build-gateway.mjs` 를 수정하고 다시 생성합니다. 원본 워크플로우 JSON 폴더를 넘기면 ID·입력 필드명을 대조합니다.
+| 경로 | 화면 | 호출 |
+|---|---|---|
+| `web/customer-intake` | 고객 접수 | F01 → 응답 → F06(약정) → F02 |
+| `web/recommend` | 추천 받기 | 고객·분석 조회 → F03 |
+| `web/consultation-result` | 상담 결과 저장 | 상담 행 생성 → F04 → F06 → 응답 → F02 |
+| `web/send-now` | 지금 발송 | 일정 조회 → F07 |
+| `web/promotion` | 대상 선정 및 일정 생성 | F05 → F06(프로모션) |
+| `web/promotion-register` | 새 프로모션 등록 | 본문 임베딩 → 문서·본문 저장 |
+
+**게이트웨이를 고칠 때**는 n8n에서 직접 고치지 않고 `scripts/build-gateway.mjs` 를 고쳐 다시 생성합니다. 그 경로의 기존 노드를 지운 뒤 `n8n/parts/<경로>.json` 의 내용을 `WF Main` 캔버스에 붙여 넣고 publish합니다. 기존 노드를 남긴 채 붙이면 노드 이름 끝에 숫자가 붙습니다(동작은 합니다).
 
 ```bash
-npm run gateway -- ../workflow_json
+npm run gateway      # n8n/web-gateway.json 과 n8n/parts 생성. n8n/workflows 와 ID·입력 필드명을 대조
+npm run n8n:export   # n8n의 발행본을 n8n/workflows 로 다시 내보냄 (.env.local 의 N8N_API_KEY 필요, 읽기만 함)
 ```
+
+**새 인스턴스에 처음 올릴 때**: `n8n/workflows` 의 F01~F07·zWF04를 import하고 `<GOOGLE_CALENDAR_ID>` 와 자격증명(Postgres, Supabase, OpenAI, Google Calendar)을 연결한 뒤, `n8n/web-gateway.json` 을 import합니다. Webhook 노드 6개에 Header Auth 자격증명(Name `x-web-secret`, Value는 `.env.local` 의 `N8N_WEB_SECRET`)을 연결하고, 호출되는 워크플로우부터 차례로 publish합니다. 호출되는 워크플로우의 Settings에서 "This workflow can be called by" 가 호출을 허용하는지 확인하세요.
 
 ### 2. 경로별 확인
 
@@ -132,19 +146,15 @@ curl -s -X POST "$N8N/web/promotion-register" -H "content-type: application/json
 
 `.env.local` 에서 `USE_MOCK=false` 로 바꾸고 나머지 값을 채운 뒤 개발 서버를 다시 시작합니다. 우상단의 MOCK 배지가 사라지면 실제 연동 상태입니다.
 
-### 연동 전 확인
+### 알아 둘 동작
 
-원본 워크플로우의 알려진 문제입니다. 게이트웨이로 우회할 수 없어 n8n에서 직접 고쳐야 합니다.
-
-| 기능 | 문제 | 고치기 전 웹사이트 동작 |
-|---|---|---|
-| 맞춤 추천 (F03) | 빈 Set 노드(`고객 정보 입력`)가 입력을 지우고, `기종 정보 조회`·`요금제 정보 조회` 의 쿼리가 비어 있음. 상품 목록이 테스트 값 | [추천 받기]가 오류를 표시하거나 "테스트 모델"을 추천 |
-| 문자 발송 (F07-S03) | 입력 필드명이 `"message_id "`(끝에 공백)였던 문제. 수정했다고 전달받았으나 S01의 호출 매핑까지 반영됐는지 확인 필요 | [지금 발송] 후 "발송이 완료되지 않았습니다" 표시, 일정이 처리 중에 머묾 |
-| 프로모션 문자 (F07-S02) | 프로모션 정보 조회가 임시 값이라 문자 생성이 항상 실패 | 프로모션 일정의 [지금 발송] 버튼을 비활성화해 둠 |
-
-그 밖에 OpenAI·Google Calendar·Postgres 자격증명이 유효해야 합니다. Google Calendar 자격증명이 만료되면 일정 생성이 중간에 실패합니다.
-
-게이트웨이가 보완하는 것: 상담 행 생성(F04는 update만 함), 재상담 예정일을 `reconsultation_at` 에 저장, F04의 `contract_expiry` 를 F06의 `contract` 로 매핑.
+- 문자 발송은 MOCK입니다. 실제 SMS는 나가지 않고 DB에 발송 완료로 기록됩니다.
+- 약정·재상담 일정은 재연락 동의가 있어야 생기고, 프로모션은 마케팅 동의까지 필요합니다.
+- 맞춤 추천은 DB에 저장되지 않고 화면에만 표시됩니다.
+- LLM을 거치는 호출(분석, 추천, 상담 결과, 문자 생성)은 10~55초가 걸립니다. 웹사이트의 n8n 호출 한도는 90초입니다.
+- `zWF04` 는 매일 09시와 18시(서울 시간)에 그날 예정된 일정을 조회해 발송합니다. 화면의 [지금 발송]은 이와 별개로 한 건을 바로 보냅니다.
+- OpenAI·Google Calendar·Postgres 자격증명이 유효해야 합니다. Google Calendar 자격증명이 만료되면 일정 생성이 중간에 실패합니다.
+- 게이트웨이가 보완하는 것: 상담 행 생성(F04는 update만 함), 재상담 예정일을 `reconsultation_at` 에 저장, F04의 `contract_expiry` 를 F06의 `contract` 로 매핑, F05가 선정한 고객 ID를 F06으로 전달, 프로모션 등록.
 
 ## 시연 촬영 순서
 
@@ -155,6 +165,7 @@ curl -s -X POST "$N8N/web/promotion-register" -H "content-type: application/json
 3. **분석·추천** — 새 고객을 눌러 AI 고객 분석 확인, [추천 받기]로 맞춤 추천 카드 확인
 4. **상담 결과** — 상담 메모와 재상담 예정일(내일)을 입력하고 저장 → AI가 정리한 결과 표시, "재상담 안내 일정 생성" 알림
 5. **문자 발송** — 후속 연락 일정의 [지금 발송 (시연용)] → 처리 중 → 발송 완료, "문자 발송" 알림, 생성된 문자 본문 확인
+6. **프로모션** — 프로모션 메뉴의 [새 프로모션 등록]에서 이름·기간·대상 기기·혜택을 입력해 등록 → 목록 맨 위의 [대상 선정 및 일정 생성] → 조건에 맞는 고객과 선정 사유 표시, 일정 생성 알림 → 그 일정을 [지금 발송]해 혜택이 담긴 문자 확인
 
 주의할 점:
 

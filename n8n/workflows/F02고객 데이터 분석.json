@@ -1,0 +1,528 @@
+{
+  "id": "NGN6YgDidp9E3vtf",
+  "name": "F02고객 데이터 분석",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_id"
+            },
+            {
+              "name": "consultation_id"
+            }
+          ]
+        }
+      },
+      "id": "dbe8220e-33f0-4823-ab38-35e0bb44aaf3",
+      "typeVersion": 1.1,
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -1504,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=다음 고객의 현재 정보, 이전 분석 결과, 최근 상담 정보를 종합하여 고객 상태를 분석하세요.\n\n[고객 기본정보]\n\n고객 ID: {{ $json.customer_id }}\n나이: {{ $json.age }}\n현재 사용 기종: {{ $json.current_device }}\n현재 사용 요금제: {{ $json.current_plan }}\n약정 종료일: {{ $json.contract_end_date }}\n현재 휴대폰 사용기간: {{ $json.device_use_months }}개월\n주요 사용 패턴: {{ $json.usage_pattern }}\n상담 목적: {{ $json.consultation_goal }}\n선호 브랜드: {{ $json.preferred_brand }}\n희망 월 예산: {{ $json.target_monthly_budget }}원\n관심사항: {{ $json.interests }}\n\n[이전 고객 분석 존재 여부]\n\n{{ $json.previous_analysis_available }}\n\n[이전 고객 분석]\n\n{{ JSON.stringify($json.previous_analysis_data ?? {}) }}\n\n[최근 상담 존재 여부]\n\n{{ $json.consultation_available }}\n\n[최근 상담 ID]\n\n{{ $json.consultation_id }}\n\n[최근 상담 내용]\n\n{{ $json.consultation_summary }}\n\n[최근 상담 일시]\n\n{{ $json.consulted_at }}\n\n[재상담 예정일]\n\n{{ $json.reconsultation_at }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "당신은 이동통신 매장의 상담 지원을 위한 고객 분석 AI Agent입니다.\n\n당신의 역할은 고객의 기본정보, 이전 고객 분석이 존재하는 경우 해당 분석 내용,\n그리고 이번 상담 녹취 내용을 종합하여\n이후 휴대폰·요금제 추천 및 상담에 활용할 수 있는 최신 고객 특성을 구조화하는 것입니다.\n\n다음 항목을 분석하세요.\n\n1. 고객의 주요 휴대폰 사용 성향\n2. 기기 변경을 고려하는 주요 이유\n3. 고객이 중요하게 생각하는 기능\n4. 가격에 대한 민감도\n5. 브랜드 또는 제품군 선호\n6. 기기 교체 필요성 또는 교체 의향\n7. 이후 상품 추천 시 고려해야 할 핵심 요소\n8. 현재 데이터만으로 판단할 수 없는 정보\n\n규칙:\n- 제공된 고객 기본정보, 이전 고객 분석, 이번 상담 녹취 내용만 사용합니다.\n- 입력되지 않은 정보를 임의로 추측하지 않습니다.\n- 불명확한 정보는 판단 불가 또는 정보 부족으로 표시합니다.\n- 이전 고객 분석이 존재하면 참고하되, 이번 상담에서 새롭게 확인된 내용을 우선하여 최신 상태로 갱신합니다.\n- 이전 고객 분석과 이번 상담 내용이 서로 다를 경우 이번 상담에서 직접 확인된 내용을 우선합니다.\n- 이전 고객 분석이 없더라도 고객 기본정보와 이번 상담 녹취를 바탕으로 정상적으로 분석합니다.\n- 이번 상담 녹취가 없더라도 고객 기본정보와 이전 고객 분석을 바탕으로 가능한 범위에서 분석합니다.\n- 이전 고객 분석과 상담 녹취가 모두 없는 경우 고객 기본정보만으로 판단 가능한 내용만 분석합니다.\n- 이 단계에서는 특정 휴대폰이나 요금제를 직접 추천하지 않습니다.\n- 상품 추천은 이후 별도의 추천 단계에서 수행합니다.\n- 분석 결과는 상담 직원이 이해하기 쉽도록 명확하고 간결하게 작성합니다.\n- 이전 분석 결과가 존재하는 경우 이를 참고하되, 현재 고객정보와 최근 상담정보를 우선하여 최신 상태로 다시 분석합니다.\n- 이전 분석 결과가 없거나 최근 상담정보가 없는 경우에도 제공된 정보만으로 분석을 진행합니다.\n- 고객의 성별, 직업, 가족 구성, 거주지 등 입력에 없는 인적 사항은 어떤 형태로도 쓰지 않습니다. \"추정\"이라고 표시해도 쓰지 않습니다.\n- 고객을 가리킬 때는 \"고객\"이라고만 쓰고, 나이는 입력된 경우에만 \"31세 고객\"처럼 씁니다.\n- analysis_summary 는 2~3문장의 자연스러운 요약 문단으로 씁니다. 입력에 실제로 적힌 사실만 담고, 대괄호 제목·항목 나열·고객 ID는 넣지 않습니다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -192,
+        384
+      ],
+      "id": "65bce34a-1680-44e6-afea-d1d2c08dc7c7",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        544
+      ],
+      "id": "872507e6-bf64-4864-9f0b-99313605a648",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"customer_id\": \"CUST-001\",\n  \"analysis_summary\": \"고객 특성 요약\",\n  \"usage_profile\": \"영상·SNS 중심\",\n  \"replacement_reason\": \"배터리 성능 저하\",\n  \"important_features\": [\n    \"카메라\",\n    \"배터리\"\n  ],\n  \"price_sensitivity\": \"높음\",\n  \"preferred_product_group\": \"Galaxy S 시리즈\",\n  \"device_change_signal\": \"높음\",\n  \"recommendation_factors\": [\n    \"현재 단말 사용기간\",\n    \"카메라 선호\",\n    \"가격 민감도\"\n  ],\n  \"missing_information\": []\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        544
+      ],
+      "id": "f5cc1a22-cf68-4719-8426-3f3b3d190a40",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "tableId": "customer_analyses",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "analysis_id",
+              "fieldValue": "={{ 'ANA-' + $now.toMillis() }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $('Get Customer Data').item.json.customer_id }}"
+            },
+            {
+              "fieldId": "analysis_data",
+              "fieldValue": "={{ $json.output }}"
+            },
+            {
+              "fieldId": "consultation_id",
+              "fieldValue": "={{ $('Merge Analysis Context').first().json.consultation_id || null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        96,
+        384
+      ],
+      "id": "602cbea6-e978-49f4-917a-d6e5e99e48ba",
+      "name": "Save Customer Analysis",
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        400
+      ],
+      "id": "030bf4de-8ce8-43a8-8db2-0cbb9e766ae9",
+      "name": "Get Customer Data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "99b23eae-8fa0-4c54-af78-b1a3b5977175",
+              "leftValue": "={{ $json.customer_id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1136,
+        400
+      ],
+      "id": "c90106ec-1a1d-47a7-abb6-bd7e2c19a663",
+      "name": "Check Customer Exists"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customer_analyses",
+        "limit": 1,
+        "orderBy": "created_at.desc",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        272
+      ],
+      "id": "3a5318d1-e1c7-4231-a157-a276b67f816e",
+      "name": "Get Latest Analysis",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "consultations",
+        "limit": 1,
+        "orderBy": "consulted_at.desc",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "customer_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Get Customer Data').item.json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        480
+      ],
+      "id": "0785157c-4349-415c-98a7-e048732032eb",
+      "name": "Get Consultation",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        368
+      ],
+      "id": "c22e4e27-ef98-4337-9413-d00167d01509",
+      "name": "Merge Analysis Context"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d0af6ee-249c-43c0-b051-fb25bebf7664",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "9613b596-7c57-4c05-8865-73199866e2cb",
+              "name": "analysis_id",
+              "value": "={{ $json.analysis_id }}",
+              "type": "string"
+            },
+            {
+              "id": "f1415235-ec08-4749-80ed-656598c264d9",
+              "name": "customer_id",
+              "value": "={{ $json.customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d24b6692-dc6c-4242-b334-9c0b41a9da45",
+              "name": "consultation_id",
+              "value": "={{ $json.consultation_id ?? null }}",
+              "type": "string"
+            },
+            {
+              "id": "bed0e1dd-2223-41e9-98f5-41be9f6761b3",
+              "name": "consulted_at",
+              "value": "={{ $('Merge Analysis Context').first().json.consulted_at || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "7cd6e976-b30c-4c41-a23a-db2c70b44412",
+              "name": "reconsultation_at",
+              "value": "={{ $('Merge Analysis Context').first().json.reconsultation_at || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "d189fff1-4de5-4efb-92c6-b195246f8ede",
+              "name": "analysis_data",
+              "value": "={{ $json.analysis_data }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        272,
+        384
+      ],
+      "id": "7d5b7a54-f4d8-47c0-8c8b-866a4d1b681d",
+      "name": "Return F02 Result"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f5a91d1b-e4df-4ab8-b55b-e0eab4cc0d74",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "4f008119-b0ff-4b3e-b9c9-048e2dd48f0e",
+              "name": "error_code",
+              "value": "CUSTOMER_NOT_FOUND",
+              "type": "string"
+            },
+            {
+              "id": "d620408f-b9ed-439e-8135-1e59d98be8ce",
+              "name": "requested_customer_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "78a49bf8-77e9-46b9-834b-086b03e4673b",
+              "name": "message",
+              "value": "분석할 고객 정보를 찾을 수 없습니다.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -912,
+        704
+      ],
+      "id": "d0da1a34-3be0-482d-94d3-e8fc6111ba9d",
+      "name": "Return F02 Customer Not Found"
+    },
+    {
+      "parameters": {
+        "jsCode": "const customer = $('Get Customer Data').first().json;\nconst prev = $('Get Latest Analysis').first()?.json ?? {};\nconst consultation = $('Get Consultation').first()?.json ?? {};\n\nconst hasPrev = Boolean(prev.analysis_id);\nconst hasConsultation = Boolean(consultation.consultation_id);\n\n// 프롬프트의 [최근 상담 내용] 칸에 들어갈 글. 요약 외에 F04가 구조화한 항목도 함께 넣는다.\nconst consultationText = hasConsultation\n  ? [\n      consultation.summary,\n      consultation.customer_response ? `고객 반응: ${consultation.customer_response}` : null,\n      consultation.interested_product ? `관심 상품: ${consultation.interested_product}` : null,\n      consultation.interested_plan ? `관심 요금제: ${consultation.interested_plan}` : null,\n      consultation.special_notes ? `특이사항: ${consultation.special_notes}` : null,\n      consultation.follow_up_reason ? `후속 연락 사유: ${consultation.follow_up_reason}` : null,\n    ].filter(Boolean).join('\\n')\n  : '없음';\n\nreturn [{\n  json: {\n    ...customer,\n    previous_analysis_available: hasPrev ? '있음' : '없음',\n    previous_analysis_data: hasPrev ? prev.analysis_data : null,\n    consultation_available: hasConsultation ? '있음' : '없음',\n    consultation_id: hasConsultation ? consultation.consultation_id : null,\n    consultation_summary: consultationText,\n    consulted_at: consultation.consulted_at ?? null,\n    reconsultation_at: consultation.reconsultation_at ?? null,\n  },\n  // 뒤의 저장 노드가 $('Get Customer Data').item 으로 앞 노드를 찾을 수 있게 연결 정보를 유지한다.\n  pairedItem: { item: 0 },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        384
+      ],
+      "id": "86cd9f6f-f75d-47b8-824a-5993c5d1dd27",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Save Customer Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Customer Analysis": {
+      "main": [
+        [
+          {
+            "node": "Return F02 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Check Customer Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Customer Exists": {
+      "main": [
+        [
+          {
+            "node": "Merge Analysis Context",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get Latest Analysis",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Consultation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return F02 Customer Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge Analysis Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Consultation": {
+      "main": [
+        [
+          {
+            "node": "Merge Analysis Context",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Analysis Context": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
