@@ -69,7 +69,7 @@ function Schedules() {
         </div>
       ) : view === "calendar" ? (
         // 알림에서 넘어온 일정이 바뀌면 그 날짜로 다시 맞춘다.
-        <CalendarView key={focused?.schedule_id ?? "none"} schedules={schedules} focused={focused} fresh={fresh} onChanged={refresh} />
+        <CalendarView key={focused?.schedule_id ?? "none"} schedules={schedules} focused={focused} fresh={fresh} onChanged={refresh} now={new Date(feed.fetched_at).getTime()} />
       ) : (
         <ListView schedules={schedules} focusId={focusId} focused={focused} fresh={fresh} onChanged={refresh} />
       )}
@@ -106,7 +106,22 @@ function formatDay(day: string) {
   return `${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일 (${WEEKDAYS[date.getUTCDay()]})`;
 }
 
-function CalendarView({ schedules, focused, fresh, onChanged }: { schedules: ScheduleItem[]; focused: ScheduleItem | undefined; fresh: Set<string>; onChanged: () => void }) {
+function CalendarView({
+  schedules,
+  focused,
+  fresh,
+  onChanged,
+  now,
+}: {
+  schedules: ScheduleItem[];
+  focused: ScheduleItem | undefined;
+  fresh: Set<string>;
+  onChanged: () => void;
+  /** 화면이 마지막으로 갱신된 시각. 예약 시각이 지난 일정을 가리는 기준 */
+  now: number;
+}) {
+  // 예약 시각이 1시간 넘게 지났는데도 예정 상태로 남은 것은 자동 발송을 놓친 것이다.
+  const isOverdue = (s: ScheduleItem) => s.schedule_status === "scheduled" && new Date(s.scheduled_contact_at).getTime() < now - 60 * 60 * 1000;
   const today = todayKST();
   const initialDay = focused ? dayOf(focused.scheduled_contact_at) : today;
   const [month, setMonth] = useState(initialDay.slice(0, 7));
@@ -161,6 +176,7 @@ function CalendarView({ schedules, focused, fresh, onChanged }: { schedules: Sch
             const counts = new Map<string, number>();
             for (const item of items) counts.set(item.schedule_type, (counts.get(item.schedule_type) ?? 0) + 1);
             const missed = items.filter((s) => s.schedule_status === "failed" || s.schedule_status === "skipped").length;
+            const overdue = items.filter(isOverdue).length;
             const allSent = items.length > 0 && items.every((s) => s.schedule_status === "sent");
             const hasFresh = items.some((s) => fresh.has(s.schedule_id));
             const lines = [...counts.entries()];
@@ -198,6 +214,7 @@ function CalendarView({ schedules, focused, fresh, onChanged }: { schedules: Sch
                 ))}
                 {allSent && <span className="whitespace-nowrap text-[11px] font-semibold text-success">✓ 발송</span>}
                 {missed > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-danger">! 미발송 {missed}</span>}
+                {overdue > 0 && <span className="whitespace-nowrap text-[11px] font-semibold text-warning">! 지연 {overdue}</span>}
               </button>
             );
           })}

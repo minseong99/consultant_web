@@ -191,7 +191,7 @@ function CustomerView({
         <Tabs tabs={tabs} active={tab} onChange={go} idPrefix={TAB_ID} />
 
         <TabPanel idPrefix={TAB_ID} tabKey="brief" active={tab === "brief"}>
-          <div className="grid grid-cols-[minmax(0,1fr)_20rem] items-start gap-8">
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-8">
             <CustomerBrief
               analysis={analysis}
               onOpenFull={() => setDrawer("analysis")}
@@ -232,7 +232,7 @@ function CustomerView({
         </TabPanel>
 
         <TabPanel idPrefix={TAB_ID} tabKey="record" active={tab === "record"}>
-          <div className="grid grid-cols-[minmax(0,1fr)_22rem] items-start gap-8">
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-8">
             <ConsultationForm
               customerId={customer.customer_id}
               recontact={canRecontact}
@@ -904,6 +904,8 @@ function RecommendationPanel({
   analysis: AnalysisData | null;
 }) {
   const { result, loading, startedAt, request } = recommend;
+  // 근거를 보고 있는 추천의 순번. null 이면 서랍이 닫혀 있다.
+  const [evidenceIndex, setEvidenceIndex] = useState<number | null>(null);
   const info = result?.success
     ? lookup(INFORMATION_STATUS, result.information_status)
     : null;
@@ -913,6 +915,7 @@ function RecommendationPanel({
       )
     : [];
   const missing = result?.success ? result.missing_information : [];
+  const evidence = evidenceIndex !== null ? recommendations[evidenceIndex] : undefined;
 
   // 추천에 함께 전달되는 고객 정보. 추천 이유를 읽을 때 대조할 수 있게 근거 영역에 보여 준다.
   const basis = [
@@ -1009,15 +1012,9 @@ function RecommendationPanel({
           {recommendations.length === 0 ? (
             <EmptyState>추천할 수 있는 상품을 찾지 못했습니다.</EmptyState>
           ) : (
-            <ol className="grid grid-cols-2 items-start gap-5">
+            <ol className="grid grid-cols-2 gap-5">
               {recommendations.map((item, index) => (
-                <RecommendationCard
-                  key={index}
-                  item={item}
-                  rank={item.recommendation_rank ?? index + 1}
-                  primary={index === 0}
-                  basis={basis}
-                />
+                <RecommendationCard key={index} item={item} rank={item.recommendation_rank ?? index + 1} primary={index === 0} onOpenEvidence={() => setEvidenceIndex(index)} />
               ))}
             </ol>
           )}
@@ -1042,26 +1039,22 @@ function RecommendationPanel({
           )}
         </div>
       )}
+      <Drawer
+        open={evidence !== undefined}
+        title={evidence ? `${evidence.recommendation_rank ?? (evidenceIndex ?? 0) + 1}순위 추천 근거` : "추천 근거"}
+        source="recommend"
+        onClose={() => setEvidenceIndex(null)}
+      >
+        {evidence && <RecommendationEvidence item={evidence} basis={basis} />}
+      </Drawer>
     </section>
   );
 }
 
-function RecommendationCard({
-  item,
-  rank,
-  primary,
-  basis,
-}: {
-  item: Recommendation;
-  rank: number;
-  primary: boolean;
-  basis: { label: string; value: string }[];
-}) {
+function RecommendationCard({ item, rank, primary, onOpenEvidence }: { item: Recommendation; rank: number; primary: boolean; onOpenEvidence: () => void }) {
   const benefit = item.benefit_info ?? item.expected_benefit;
   return (
-    <li
-      className={`rounded-xl bg-white p-5 ${primary ? "ring-2 ring-brand-600" : "ring-1 ring-stone-200"}`}
-    >
+    <li className={`flex flex-col rounded-xl bg-white p-5 ${primary ? "ring-2 ring-brand-600" : "ring-1 ring-stone-200"}`}>
       <div className="flex items-center gap-4">
         {item.device_name && <DeviceVisual productId={item.product_id} deviceName={item.device_name} />}
         <div className="min-w-0">
@@ -1083,59 +1076,55 @@ function RecommendationCard({
         </p>
       )}
 
-      <Disclosure
-        label="추천 근거 보기"
-        openLabel="추천 근거 접기"
-        className="mt-3"
-      >
-        <div className="flex flex-col gap-5 border-t border-stone-200 pt-4">
-          {item.recommendation_reason && (
-            <section className="rounded-lg border-l-[3px] border-info bg-ai-surface px-4 py-3">
-              <h3 className="text-[12px] font-semibold text-info">
-                고객에게 맞는 이유
-              </h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed">
-                {item.recommendation_reason}
-              </p>
-            </section>
-          )}
-          {basis.length > 0 && (
-            <section>
-              <h3 className="text-[12px] font-semibold text-stone-500">
-                추천에 반영된 고객 정보
-              </h3>
-              <dl className="mt-1.5 flex flex-col gap-1.5 text-[13px]">
-                {basis.map((b) => (
-                  <div key={b.label} className="flex gap-3">
-                    <dt className="w-24 shrink-0 text-stone-500">{b.label}</dt>
-                    <dd className="min-w-0 flex-1">
-                      <Clamp lines={2}>{b.value}</Clamp>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-          {(item.expected_benefit ||
-            item.benefit_info ||
-            item.eligibility_condition) && (
-            <section>
-              <h3 className="text-[12px] font-semibold text-stone-500">
-                적용 가능한 혜택
-              </h3>
-              <dl className="mt-1.5 flex flex-col gap-2 text-[13px] leading-relaxed">
-                <InlineField label="예상 혜택" value={item.expected_benefit} />
-                <InlineField label="혜택 정보" value={item.benefit_info} />
-                <InlineField
-                  label="적용 조건"
-                  value={item.eligibility_condition}
-                />
-              </dl>
-            </section>
-          )}
-        </div>
-      </Disclosure>
+      {/* 근거는 카드를 늘리지 않고 옆 서랍에서 본다. 카드 두 장의 높이가 달라지거나 아래 내용이 밀리지 않는다. */}
+      <div className="mt-auto pt-3">
+        <TextButton onClick={onOpenEvidence}>추천 근거 보기</TextButton>
+      </div>
     </li>
+  );
+}
+
+// 추천 한 건의 근거 전체. 서랍 안에 보여 준다.
+function RecommendationEvidence({ item, basis }: { item: Recommendation; basis: { label: string; value: string }[] }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        {item.device_name && <DeviceVisual productId={item.product_id} deviceName={item.device_name} />}
+        <div className="min-w-0">
+          <p className="text-[17px] font-bold leading-snug">{item.device_name ?? "기기 추천 없음"}</p>
+          <p className={`text-[14px] ${item.plan_name ? "font-semibold text-stone-700" : "text-stone-400"}`}>{item.plan_name ?? "요금제 추천 없음"}</p>
+        </div>
+      </div>
+      {item.recommendation_reason && (
+        <section className="rounded-lg border-l-[3px] border-info bg-ai-surface px-4 py-3">
+          <h3 className="text-[12px] font-semibold text-info">고객에게 맞는 이유</h3>
+          <p className="mt-1.5 text-[14px] leading-relaxed">{item.recommendation_reason}</p>
+        </section>
+      )}
+      {basis.length > 0 && (
+        <section>
+          <h3 className="text-[12px] font-semibold text-stone-500">추천에 반영된 고객 정보</h3>
+          <dl className="mt-2 flex flex-col gap-2 text-[13px] leading-relaxed">
+            {basis.map((b) => (
+              <div key={b.label} className="flex gap-3">
+                <dt className="w-24 shrink-0 text-stone-500">{b.label}</dt>
+                <dd className="min-w-0 flex-1">{b.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+      {(item.expected_benefit || item.benefit_info || item.eligibility_condition) && (
+        <section>
+          <h3 className="text-[12px] font-semibold text-stone-500">적용 가능한 혜택</h3>
+          <dl className="mt-2 flex flex-col gap-2 text-[13px] leading-relaxed">
+            <InlineField label="예상 혜택" value={item.expected_benefit} />
+            <InlineField label="혜택 정보" value={item.benefit_info} />
+            <InlineField label="적용 조건" value={item.eligibility_condition} />
+          </dl>
+        </section>
+      )}
+    </div>
   );
 }
 
