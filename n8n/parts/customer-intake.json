@@ -1,0 +1,552 @@
+{
+  "nodes": [
+    {
+      "id": "96844a07-cfa5-459a-aad4-eea107fcb1f9",
+      "name": "안내: 고객 접수",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        -40
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/customer-intake\n고객 화면(/join)의 제출을 받는다.\n\nF01 저장 → **먼저 응답** → 약정 만료일이 있으면 F06(contract) → F02 분석.\n\n응답: `{ success, customer_id }`",
+        "height": 200,
+        "width": 460
+      }
+    },
+    {
+      "id": "28084cf9-edd9-4496-a612-8534a1a4b7b6",
+      "position": [
+        0,
+        0
+      ],
+      "name": "접수 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "03de7b89-c031-4347-afa2-10d559c3b353",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/customer-intake",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "7a29a97a-d417-4069-ad5c-9f0039315e6e",
+      "position": [
+        260,
+        0
+      ],
+      "name": "F01 고객 및 동의 정보 저장",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "DmykDmlhlWgPXYD5",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_name": "={{ $json.body.customer_name }}",
+            "phone": "={{ $json.body.phone }}",
+            "age": "={{ $json.body.age }}",
+            "current_device": "={{ $json.body.current_device }}",
+            "current_plan": "={{ $json.body.current_plan }}",
+            "contract_end_date": "={{ $json.body.contract_end_date }}",
+            "device_use_months": "={{ $json.body.device_use_months }}",
+            "usage_pattern": "={{ $json.body.usage_pattern }}",
+            "consultation_goal": "={{ $json.body.consultation_goal }}",
+            "interests": "={{ $json.body.interests }}",
+            "target_monthly_budget": "={{ $json.body.target_monthly_budget }}",
+            "privacy_consent": "={{ $json.body.privacy_consent === true }}",
+            "marketing_consent": "={{ $json.body.marketing_consent === true }}",
+            "recontact_consent": "={{ $json.body.recontact_consent === true }}",
+            "preferred_brand": "={{ $json.body.preferred_brand ?? null }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "age",
+              "displayName": "age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "current_device",
+              "displayName": "current_device",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "current_plan",
+              "displayName": "current_plan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "contract_end_date",
+              "displayName": "contract_end_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "device_use_months",
+              "displayName": "device_use_months",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "usage_pattern",
+              "displayName": "usage_pattern",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_goal",
+              "displayName": "consultation_goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "interests",
+              "displayName": "interests",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "target_monthly_budget",
+              "displayName": "target_monthly_budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "privacy_consent",
+              "displayName": "privacy_consent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "marketing_consent",
+              "displayName": "marketing_consent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "recontact_consent",
+              "displayName": "recontact_consent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "preferred_brand",
+              "displayName": "preferred_brand",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "78d6f3a5-c458-42fe-a3ee-e080349223e9",
+      "position": [
+        520,
+        0
+      ],
+      "name": "접수 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// F01은 저장에 성공하면 { customer_id, status: 'saved', contract_end_date } 를 반환한다.\n// 개인정보 동의가 없으면 status 없이 끝난다.\nconst result = $input.first()?.json ?? {};\nconst body = $('접수 Webhook').first().json.body ?? {};\n\nif (result.status === 'saved' && result.customer_id) {\n  return [{ json: {\n    success: true,\n    customer_id: result.customer_id,\n    has_contract_end_date: Boolean(body.contract_end_date),\n  } }];\n}\n\nreturn [{ json: {\n  success: false,\n  error_code: body.privacy_consent === true ? 'INTAKE_FAILED' : 'CONSENT_REQUIRED',\n  message: body.privacy_consent === true\n    ? (result.error ? String(result.error) : '고객 정보를 저장하지 못했습니다.')\n    : '개인정보 수집·이용 동의가 필요합니다.',\n} }];"
+      }
+    },
+    {
+      "id": "12b811c5-aa41-4052-a770-5abe26da2984",
+      "position": [
+        780,
+        0
+      ],
+      "name": "접수 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    },
+    {
+      "id": "9d2f1968-2765-4e75-a354-1e59de272ccd",
+      "position": [
+        1040,
+        0
+      ],
+      "name": "접수: 저장 성공?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "233ead39-826c-4a07-abb2-64b19db3878c",
+              "leftValue": "={{ $('접수 응답 구성').first().json.success === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "509c1b33-f742-49f8-ab78-615c683fe149",
+      "position": [
+        1300,
+        0
+      ],
+      "name": "접수: 약정 만료일 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aa24f4a5-6e21-4428-abe8-3dcdfd707c27",
+              "leftValue": "={{ $('접수 응답 구성').first().json.has_contract_end_date === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e7bd3f5d-98fe-401f-abfb-147765cd923c",
+      "position": [
+        1560,
+        0
+      ],
+      "name": "접수: F06 약정 일정 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "j9aDZV3iDfCQaFsM",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_type": "={{ 'contract' }}",
+            "customer_id": "={{ $('접수 응답 구성').first().json.customer_id }}",
+            "consultation_id": "={{ '' }}",
+            "document_id": "={{ '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "cc7f3741-9834-4805-afb6-4a928eed1070",
+      "position": [
+        1820,
+        0
+      ],
+      "name": "접수: F02 고객 분석",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NGN6YgDidp9E3vtf",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $('접수 응답 구성').first().json.customer_id }}",
+            "consultation_id": "={{ '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "접수 Webhook": {
+      "main": [
+        [
+          {
+            "node": "F01 고객 및 동의 정보 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F01 고객 및 동의 정보 저장": {
+      "main": [
+        [
+          {
+            "node": "접수 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "접수 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 응답": {
+      "main": [
+        [
+          {
+            "node": "접수: 저장 성공?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: 저장 성공?": {
+      "main": [
+        [
+          {
+            "node": "접수: 약정 만료일 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: 약정 만료일 있음?": {
+      "main": [
+        [
+          {
+            "node": "접수: F06 약정 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "접수: F02 고객 분석",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: F06 약정 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "접수: F02 고객 분석",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

@@ -24,8 +24,9 @@ function sendSteps(schedule: ScheduleItem, tracking: Tracking): Step[] {
     { label: "발송 요청", state: "done" },
     {
       label: "동의 재확인 · 처리 시작 (F07-S01)",
-      state: skipped ? "error" : started ? "done" : "active",
-      note: skipped ? "동의 조건 미충족으로 건너뜀" : undefined,
+      // 요청이 끝났는데도 예정 상태 그대로면 처리가 시작되지 못한 것이다.
+      state: skipped ? "error" : started ? "done" : tracking.requesting ? "active" : "error",
+      note: skipped ? "동의 조건 미충족으로 건너뜀" : !started && !tracking.requesting ? "처리가 시작되지 않았습니다" : undefined,
     },
     {
       label: "맞춤 문자 생성 (F07-S02)",

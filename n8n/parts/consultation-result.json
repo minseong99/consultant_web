@@ -1,0 +1,617 @@
+{
+  "nodes": [
+    {
+      "id": "24453369-138e-40b7-ac95-11da8d292f04",
+      "name": "안내: 상담 결과",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        728
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\n기존 워크플로우의 빈틈을 여기서 보완한다.\n- F04는 update만 하므로 **상담 행을 먼저 insert**\n- 재상담 예정일을 `reconsultation_at` 에 저장 (F06 재상담이 이 값을 요구)\n- F04의 `contract_expiry` → F06의 `contract` 로 매핑\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
+        "height": 300,
+        "width": 460
+      }
+    },
+    {
+      "id": "5ba09e06-831a-4236-a29e-7dc80c8a3e66",
+      "position": [
+        0,
+        768
+      ],
+      "name": "상담 결과 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "e5003623-d865-4cd9-aa35-2bf1d22da5bb",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/consultation-result",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "f744df3b-39e6-49fb-a5f1-9c57e5b6236f",
+      "position": [
+        260,
+        768
+      ],
+      "name": "상담 행 생성",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH inserted AS (\n    INSERT INTO public.consultations (\n        consultation_id,\n        customer_id,\n        consulted_at,\n        staff_id,\n        store_id,\n        summary,\n        reconsultation_at\n    )\n    SELECT\n        'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n        c.customer_id,\n        NOW(),\n        $2,\n        $3,\n        $4,\n        CASE\n            WHEN NULLIF($5, '') IS NULL THEN NULL\n            ELSE ((NULLIF($5, '')::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul')\n        END\n    FROM public.customers c\n    WHERE c.customer_id = $1\n    RETURNING consultation_id, customer_id\n)\nSELECT\n    i.consultation_id,\n    i.customer_id,\n    COALESCE((\n        SELECT analysis_id\n        FROM public.customer_analyses\n        WHERE customer_id = i.customer_id\n        ORDER BY created_at DESC\n        LIMIT 1\n    ), '') AS analysis_id\nFROM inserted i;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.body.customer_id,\n  $json.body.staff_id,\n  $json.body.store_id,\n  $json.body.notes,\n  $json.body.reconsultation_date ?? ''\n] }}"
+        }
+      }
+    },
+    {
+      "id": "aa6ac8c5-88b9-4782-a385-8d16042f720c",
+      "position": [
+        520,
+        768
+      ],
+      "name": "상담: 행 생성됨?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e93b9e6e-0701-45b7-ac28-6ec02b348839",
+              "leftValue": "={{ Boolean($json.consultation_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "110db564-3258-479b-a4ca-199489590bc2",
+      "position": [
+        780,
+        768
+      ],
+      "name": "F04 상담 결과 처리",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1cmpN1S79uDoS2xw",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $json.customer_id }}",
+            "consultation_id": "={{ $json.consultation_id }}",
+            "staff_id": "={{ $('상담 결과 Webhook').first().json.body.staff_id }}",
+            "analysis_id": "={{ $json.analysis_id }}",
+            "consultation_result": "={{ {\n  notes: $('상담 결과 Webhook').first().json.body.notes ?? '',\n  customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,\n  selected_product: $('상담 결과 Webhook').first().json.body.selected_product ?? null,\n  selected_plan: $('상담 결과 Webhook').first().json.body.selected_plan ?? null,\n  follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,\n  preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null\n} }}",
+            "recording_url": "={{ $('상담 결과 Webhook').first().json.body.recording_url ?? '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "staff_id",
+              "displayName": "staff_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "analysis_id",
+              "displayName": "analysis_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_result",
+              "displayName": "consultation_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "recording_url",
+              "displayName": "recording_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "4ff07024-d968-4835-ad75-b5c078c34ec4",
+      "position": [
+        1040,
+        768
+      ],
+      "name": "F04 결과 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\nconst body = $('상담 결과 Webhook').first().json.body ?? {};\nconst row = $('상담 행 생성').first().json;\nconst ok = result.success === true;\n\n// 직원이 재상담 예정일을 입력했다면 LLM 판단과 무관하게 재상담 일정을 만든다.\n// 그렇지 않고 F04가 약정 만료 안내가 필요하다고 판단하면 약정 일정을 만든다.\n// (F04는 'contract_expiry', F06은 'contract' 를 쓴다.)\nlet scheduleType = '';\nif (ok && body.reconsultation_date) scheduleType = 'reconsultation';\nelse if (ok && result.schedule_type === 'contract_expiry') scheduleType = 'contract';\n\nreturn [{ json: {\n  ok,\n  f04: result,\n  customer_id: row.customer_id,\n  consultation_id: row.consultation_id,\n  gateway_schedule_type: scheduleType,\n} }];"
+      }
+    },
+    {
+      "id": "8a810433-bb2f-406a-a48e-4b8b96de5137",
+      "position": [
+        1300,
+        768
+      ],
+      "name": "상담: 일정 필요?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5c1a1211-77e2-4c1e-a7b7-e08da7628dd4",
+              "leftValue": "={{ $('F04 결과 확인').first().json.gateway_schedule_type !== '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2e270cc5-8b6b-4f61-af10-f8b10e6409fd",
+      "position": [
+        1560,
+        912.0000000000001
+      ],
+      "name": "상담: F06 일정 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "j9aDZV3iDfCQaFsM",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_type": "={{ $('F04 결과 확인').first().json.gateway_schedule_type }}",
+            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
+            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}",
+            "document_id": "={{ '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "f2948341-eaaa-4e6f-aaad-12e9ac1df3a2",
+      "position": [
+        1820,
+        768
+      ],
+      "name": "상담: 생성된 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\nFROM public.message_schedules\nWHERE schedule_status = 'scheduled'\n  AND (\n      ($3 = 'reconsultation' AND consultation_id = $1)\n      OR ($3 = 'contract' AND customer_id = $2 AND schedule_type = 'contract')\n  )\nORDER BY scheduled_contact_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('F04 결과 확인').first().json.consultation_id,\n  $('F04 결과 확인').first().json.customer_id,\n  $('F04 결과 확인').first().json.gateway_schedule_type\n] }}"
+        }
+      }
+    },
+    {
+      "id": "ce79490f-1343-4ba6-a91c-57a039699f8c",
+      "position": [
+        2080,
+        768
+      ],
+      "name": "상담 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const checked = $('F04 결과 확인').first().json;\nconst schedules = $input.all().map((item) => item.json).filter((row) => row && row.schedule_id);\n\nif (!checked.ok) {\n  const error = checked.f04?.error;\n  return [{ json: {\n    success: false,\n    error_code: 'CONSULTATION_FAILED',\n    message: error\n      ? 'F04 실행 중 오류: ' + String(error.message ?? error)\n      : 'F04 상담 결과 처리가 결과를 반환하지 않았습니다. 상담 메모는 저장되었습니다.',\n    consultation_id: checked.consultation_id,\n  } }];\n}\n\nreturn [{ json: { ...checked.f04, success: true, schedules } }];"
+      }
+    },
+    {
+      "id": "5482b8bc-701f-4182-a11c-1ce571dc9a51",
+      "position": [
+        780,
+        912.0000000000001
+      ],
+      "name": "상담: 고객 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];"
+      }
+    },
+    {
+      "id": "90553da8-6daf-4445-a5c7-5fc8df7ee18b",
+      "position": [
+        2340,
+        768
+      ],
+      "name": "상담 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    },
+    {
+      "id": "47238ec4-8e0a-4d06-afff-dc5f86c028be",
+      "position": [
+        2600,
+        768
+      ],
+      "name": "상담: F04 성공?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "504712cf-093c-412c-a8a4-67627db0fb51",
+              "leftValue": "={{ $('F04 결과 확인').first().json.ok === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "674621f0-a939-4ef1-a7da-ee2ea713fd5d",
+      "position": [
+        2860,
+        768
+      ],
+      "name": "상담: F02 분석 갱신",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NGN6YgDidp9E3vtf",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
+            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "상담 결과 Webhook": {
+      "main": [
+        [
+          {
+            "node": "상담 행 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담 행 생성": {
+      "main": [
+        [
+          {
+            "node": "상담: 행 생성됨?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: 행 생성됨?": {
+      "main": [
+        [
+          {
+            "node": "F04 상담 결과 처리",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "상담: 고객 없음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F04 상담 결과 처리": {
+      "main": [
+        [
+          {
+            "node": "F04 결과 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F04 결과 확인": {
+      "main": [
+        [
+          {
+            "node": "상담: 일정 필요?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: 일정 필요?": {
+      "main": [
+        [
+          {
+            "node": "상담: F06 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "상담: 생성된 일정 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: F06 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "상담: 생성된 일정 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: 생성된 일정 조회": {
+      "main": [
+        [
+          {
+            "node": "상담 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "상담 응답",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "상담: F04 성공?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: 고객 없음": {
+      "main": [
+        [
+          {
+            "node": "상담 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담: F04 성공?": {
+      "main": [
+        [
+          {
+            "node": "상담: F02 분석 갱신",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

@@ -1,0 +1,317 @@
+{
+  "nodes": [
+    {
+      "id": "8621a5b3-75db-47e0-aefc-5ba0eadddabe",
+      "name": "안내: 즉시 발송",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        1208
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/send-now\n요청: `{ schedule_id }`\n\nF07 메인은 당일 예정분만 조회하므로, 시연에서는 일정 1건을 골라 F07-S01을 **현재 시각**으로 호출한다 (예약 시각 대기 없이 바로 처리).\n\n조회 쿼리는 F07 메인의 `[조회] 오늘의 메시지 발송 대상` 과 같은 형태다.\n\n응답: `{ success, schedule_id, schedule_status, message_id, send_status }`",
+        "height": 260,
+        "width": 460
+      }
+    },
+    {
+      "id": "c98cdfa8-b386-48f7-a7ca-566c652c1057",
+      "position": [
+        0,
+        1248
+      ],
+      "name": "즉시 발송 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "13bf3110-7f18-4c81-a19f-bb0012debfd1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/send-now",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "a4f4f6de-db6d-423d-a0cc-10c2f83bad84",
+      "position": [
+        260,
+        1248
+      ],
+      "name": "발송: 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n    con.summary AS consultation_summary\nFROM public.message_schedules AS ms\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\nWHERE ms.schedule_id = $1\n  AND ms.schedule_status = 'scheduled'\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.schedule_id ] }}"
+        }
+      }
+    },
+    {
+      "id": "6cb7d93c-3773-4af3-ad25-5216651fc64a",
+      "position": [
+        520,
+        1248
+      ],
+      "name": "발송: 예정 상태 일정 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "32889224-eb69-41f4-a3c9-0f487afbfc9f",
+              "leftValue": "={{ Boolean($json.schedule_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fdaf59db-6a73-4cdc-a750-a580d9fd19d7",
+      "position": [
+        780,
+        1248
+      ],
+      "name": "F07-S01 개별 메시지 처리",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "QFjC2ARP9Q6fCExH",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "scheduled_contact_at": "={{ $now.toISO() }}",
+            "message_data": "={{ {\n  customer_id: $json.customer_id,\n  schedule_type: $json.schedule_type,\n  schedule_subtype: $json.schedule_subtype ?? null,\n  contact_reason: $json.contact_reason ?? null,\n  customer_name: $json.customer_name,\n  phone: $json.phone,\n  current_device: $json.current_device ?? null,\n  current_plan: $json.current_plan ?? null,\n  usage_pattern: $json.usage_pattern ?? null,\n  contract_end_date: $json.contract_end_date ?? null,\n  device_use_months: $json.device_use_months ?? null,\n  preferred_brand: $json.preferred_brand ?? null,\n  target_monthly_budget: $json.target_monthly_budget ?? null,\n  interests: $json.interests ?? null,\n  consultation_summary: $json.consultation_summary ?? null,\n  document_id: $json.document_id ?? null\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "scheduled_contact_at",
+              "displayName": "scheduled_contact_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "1481fbff-9b28-45c1-afc9-8adae45d95ac",
+      "position": [
+        1040,
+        1248
+      ],
+      "name": "발송: 결과 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('즉시 발송 Webhook').first().json.body.schedule_id ] }}"
+        }
+      }
+    },
+    {
+      "id": "548ae974-ee00-4614-ad74-1f9738d76ca0",
+      "position": [
+        1300,
+        1248
+      ],
+      "name": "발송 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const row = $input.first()?.json ?? {};\nconst called = $('F07-S01 개별 메시지 처리').first()?.json ?? {};\nconst scheduleId = row.schedule_id ?? $('즉시 발송 Webhook').first().json.body.schedule_id;\n\n// 발송 여부는 n8n 실행 결과가 아니라 DB에 기록된 상태로 판단한다.\n// 호출 뒤에도 일정이 scheduled 그대로면 F07-S01이 시작되지 못한 것이다.\n// (예: 하위 워크플로우의 호출 허용 설정, 입력 오류) 원인을 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nif (called.error || row.schedule_status === 'scheduled') {\n  const detail = called.error ? String(called.error.message ?? called.error) : null;\n  return [{ json: {\n    success: false,\n    error_code: 'SEND_NOT_STARTED',\n    message: detail\n      ? 'F07-S01 실행 중 오류: ' + detail\n      : 'F07-S01 개별 메시지 처리가 일정을 처리하지 않았습니다. n8n 실행 기록을 확인하세요.',\n    schedule_id: scheduleId,\n    schedule_status: row.schedule_status ?? null,\n  } }];\n}\n\nreturn [{ json: {\n  success: true,\n  schedule_id: scheduleId,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
+      }
+    },
+    {
+      "id": "c584ef87-9c83-4fdf-a161-4a0dc2043299",
+      "position": [
+        780,
+        1392
+      ],
+      "name": "발송: 일정 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다.' } }];"
+      }
+    },
+    {
+      "id": "8e1558d4-a7d1-45d8-aa47-caf6fcf822cc",
+      "position": [
+        1560,
+        1248
+      ],
+      "name": "발송 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "즉시 발송 Webhook": {
+      "main": [
+        [
+          {
+            "node": "발송: 일정 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "발송: 일정 조회": {
+      "main": [
+        [
+          {
+            "node": "발송: 예정 상태 일정 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "발송: 예정 상태 일정 있음?": {
+      "main": [
+        [
+          {
+            "node": "F07-S01 개별 메시지 처리",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "발송: 일정 없음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F07-S01 개별 메시지 처리": {
+      "main": [
+        [
+          {
+            "node": "발송: 결과 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "발송: 결과 조회": {
+      "main": [
+        [
+          {
+            "node": "발송 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "발송 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "발송 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "발송: 일정 없음": {
+      "main": [
+        [
+          {
+            "node": "발송 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

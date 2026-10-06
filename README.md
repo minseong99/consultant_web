@@ -76,6 +76,8 @@ scripts/build-gateway.mjs    게이트웨이 JSON 생성·검증 스크립트
 
 > **이 게이트웨이는 n8n에서 실행해 보지 못한 상태로 작성되었습니다.** 스크립트로 확인한 것은 JSON 형식, 노드 연결, 호출 대상 워크플로우의 ID와 입력 필드명이 원본과 일치하는지까지입니다. import 후 아래 curl로 경로별로 한 번씩 확인하세요. 특히 Execute Workflow 노드에 객체(`customer`, `analysis`, `message_data` 등)를 넘기는 부분과 Respond to Webhook 뒤에 이어지는 실행은 n8n 버전에 따라 설정을 손봐야 할 수 있습니다.
 
+스크립트는 경로별 조각 파일도 함께 만듭니다(`n8n/parts/*.json`). 이미 import한 워크플로우에서 한 경로만 바꿀 때는, 그 경로의 기존 노드를 지우고 조각 파일의 내용을 n8n 캔버스에 붙여 넣으면 됩니다.
+
 게이트웨이를 고치려면 `scripts/build-gateway.mjs` 를 수정하고 다시 생성합니다. 원본 워크플로우 JSON 폴더를 넘기면 ID·입력 필드명을 대조합니다.
 
 ```bash

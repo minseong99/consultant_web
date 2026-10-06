@@ -12,6 +12,7 @@ export type FieldKey =
   | "contract_end_date"
   | "device_use_months"
   | "target_monthly_budget"
+  | "preferred_brand"
   | "interests";
 
 export type FieldDef = {
@@ -60,6 +61,7 @@ export const CUSTOMER_FIELDS: FieldDef[] = [
     suffix: "원",
     placeholder: "70000",
   },
+  { key: "preferred_brand", label: "선호 브랜드", type: "text", required: false, placeholder: "예: 삼성, 애플" },
   { key: "interests", label: "관심사", type: "text", required: false, placeholder: "예: 카메라, 갤럭시 신제품" },
 ];
 

@@ -84,6 +84,7 @@ export default function CustomerDetailPage({ params }: PageProps<"/staff/custome
               <Info label="약정 만료일" value={customer.contract_end_date ? formatDate(customer.contract_end_date) : null} />
               <Info label="기기 사용 기간" value={customer.device_use_months != null ? `${customer.device_use_months}개월` : null} />
               <Info label="희망 월 예산" value={customer.target_monthly_budget != null ? formatWon(customer.target_monthly_budget) : null} />
+              <Info label="선호 브랜드" value={customer.preferred_brand} />
               <Info label="관심사" value={customer.interests} />
             </dl>
           </Card>

@@ -51,6 +51,7 @@ export const PROMOTION_STATUS: LabelMap = {
   targeted: { label: "대상 선정 완료", tone: "green" },
   no_target: { label: "대상 없음", tone: "gray" },
   promotion_not_found: { label: "프로모션 없음", tone: "red" },
+  condition_not_found: { label: "조건 문서 없음", tone: "amber" },
 };
 
 export function lookup(map: LabelMap, value: string | null | undefined) {

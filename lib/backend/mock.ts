@@ -322,7 +322,7 @@ export const mockBackend: Backend = {
       age: input.age,
       contract_end_date: input.contract_end_date,
       device_use_months: input.device_use_months,
-      preferred_brand: existing?.preferred_brand ?? null,
+      preferred_brand: input.preferred_brand ?? existing?.preferred_brand ?? null,
       target_monthly_budget: input.target_monthly_budget,
       interests: input.interests,
     };
