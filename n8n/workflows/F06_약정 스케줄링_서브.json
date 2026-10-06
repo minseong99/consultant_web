@@ -1,0 +1,566 @@
+{
+  "id": "ToiPmysSaFmYC7p1",
+  "name": "F06_약정 스케줄링_서브",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 약정 기준 - 개인정보 및 재연락 동의 조회 노드\nprivacy_consent\nrecontact_consent\nwithdrawn_at (동의 철회 여부 확인)\n",
+        "height": 192,
+        "width": 208
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1216,
+        1024
+      ],
+      "typeVersion": 1,
+      "id": "ae507831-acab-4c48-ae06-3582736792e2",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 약정 문자 날짜 계산 노드\n남은 기간 D\n\nD >= 90일\n→ D의 1/3 지점\n→ D의 2/3 지점\n\n30 <= D < 90\n→ D의 1/3 지점\n→ 만료 7일 전\n\n15 <= D < 30\n→ D의 1/3 지점\n→ 만료 3일 전\n\n8 <= D < 15\n→ 만료 3일 전\n\n1 <= D <= 7\n→ 가능한 빨리 1회\n   - 2일 이상 남음: 다음 날\n   - 1일 남음: 오늘\n\n이미 만료됨\n→ 생성 X\n\n\n문자 보낼 시간은 오전 10시 통일",
+        "height": 704
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1008,
+        1392
+      ],
+      "typeVersion": 1,
+      "id": "fe25913b-2b91-4801-a825-9e3e0e359c35",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 약정 캘린더 일정 생성\n예시:\n[약정] 테스트고객 고객 · 약정 만료 예정 안내 1차\n\n고객 ID: CUST_TEST_001\n스케줄 유형: contract\n세부 유형: contract_1_3\n발송 사유: 약정 만료 예정 안내 1차\n약정 만료일: 2027-03-31\n스케줄 ID: xxxxxxxxx",
+        "height": 336
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        144,
+        1312
+      ],
+      "typeVersion": 1,
+      "id": "b851bdb1-8739-445a-a734-e75da8b01c59",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6c0e30d6-a749-4ed3-86ac-a7a6ff891504",
+              "leftValue": "={{ $json.calendar_event_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -368,
+        1136
+      ],
+      "id": "265df529-b7c3-45a2-bc9a-5984e416b3a6",
+      "name": "약정 캘린더 존재 여부 확인"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "<GOOGLE_CALENDAR_ID>",
+          "mode": "list",
+          "cachedResultName": "AI-Agent-Contact-Prototype"
+        },
+        "eventId": "={{ $json.calendar_event_id }}",
+        "updateFields": {
+          "end": "={{ DateTime.fromISO($json.scheduled_contact_at).plus({ minutes: 30 }).toISO() }}",
+          "showMeAs": "transparent",
+          "start": "={{ $json.scheduled_contact_at }}",
+          "summary": "={{ '[약정] ' + $json.customer_name + ' · ' + $json.contact_reason }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -96,
+        1328
+      ],
+      "id": "05ffdce0-5cec-44dd-b385-943535c7ee62",
+      "name": "약정 캘린더 일정 수정",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "2jUJLmk1C48sBuUe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1641fd9-9212-49b1-8fef-034381aa6dfc",
+              "leftValue": "={{ $json.expected_notice_count }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "9b2697cf-ebcd-4d80-84b0-d592c6066d23",
+              "leftValue": "={{ $json.schedule_subtype }}",
+              "rightValue": "contract_notice_1",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -384,
+        848
+      ],
+      "id": "214aa33e-501c-4b8f-91d1-ec082606f212",
+      "name": "약정 2차 안내 정리 필요 여부"
+    },
+    {
+      "parameters": {
+        "content": "필요하지 않은 약정 스케줄 취소 및 Calendar에도 제거하는 단계\n\n약정 만료일이 바뀌었을 때, 예전에 만들어 둔 2차 안내 삭제를 위한 과정",
+        "height": 192,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -544,
+        640
+      ],
+      "typeVersion": 1,
+      "id": "62573b97-e565-46db-8320-d21b20e2d9c0",
+      "name": "Sticky Note14"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason\nFROM public.message_schedules\nWHERE customer_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [   $json.customer_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -256,
+        672
+      ],
+      "id": "26b32f5d-4805-4bc6-8e9b-23a79ede61ea",
+      "name": "기존 약정 2차 안내 조회",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a845abab-d56d-4ee3-8130-d3b9c732d5ec",
+              "leftValue": "={{ $json.calendar_event_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -32,
+        672
+      ],
+      "id": "6cad400d-e022-4e78-b832-c9e9dd03ca53",
+      "name": "약정 2차 캘린더 존재 여부 확인"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "<GOOGLE_CALENDAR_ID>",
+          "mode": "list",
+          "cachedResultName": "AI-Agent-Contact-Prototype"
+        },
+        "eventId": "={{ $json.calendar_event_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        464
+      ],
+      "id": "cea234cd-4d2d-4bb2-9bb9-c34c9529cd5c",
+      "name": "약정 2차 캘린더 일정 삭제",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "2jUJLmk1C48sBuUe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET\n    schedule_status = 'cancelled',\n    calendar_event_id = NULL\nWHERE schedule_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "options": {
+          "queryReplacement": "={{ [   $('기존 약정 2차 안내 조회').item.json.schedule_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        368,
+        688
+      ],
+      "id": "93c57da8-f76a-4220-8f35-a900529166ac",
+      "name": "약정 2차 스케줄 취소 처리",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.contract_end_date,\n    cc.privacy_consent,\n    cc.recontact_consent,\n    'contract'::varchar AS schedule_type\nFROM public.customers c\nJOIN public.customer_consents cc\n    ON c.customer_id = cc.customer_id\nWHERE c.customer_id = $1\n  AND c.contract_end_date IS NOT NULL\n  AND cc.privacy_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.customer_id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -1136,
+        1232
+      ],
+      "id": "6ad7cca4-1a2c-4aa7-a673-a8e3144faf28",
+      "name": "약정 기준 - 개인정보 및 재연락 동의 조회",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst DAY_MS = 24 * 60 * 60 * 1000;\n\n// 한국 날짜 기준 오늘 YYYY-MM-DD\nfunction getTodayKST() {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Seoul',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(new Date());\n\n  const year = parts.find(p => p.type === 'year').value;\n  const month = parts.find(p => p.type === 'month').value;\n  const day = parts.find(p => p.type === 'day').value;\n\n  return `${year}-${month}-${day}`;\n}\n\nfunction parseDate(dateString) {\n  return new Date(`${dateString}T00:00:00Z`);\n}\n\nfunction formatDate(date) {\n  return date.toISOString().slice(0, 10);\n}\n\nfunction addDays(date, days) {\n  return new Date(date.getTime() + (days * DAY_MS));\n}\n\nconst todayString = getTodayKST();\nconst today = parseDate(todayString);\n\nfor (const item of items) {\n  const {\n    customer_id,\n    customer_name,\n    contract_end_date,\n    schedule_type,\n    privacy_consent,\n    recontact_consent,\n  } = item.json;\n\n  if (!contract_end_date) {\n    throw new Error(\n      `contract_end_date가 없습니다. customer_id=${customer_id}`\n    );\n  }\n\n  const contractEnd = parseDate(contract_end_date);\n\n  if (Number.isNaN(contractEnd.getTime())) {\n    throw new Error(\n      `contract_end_date 형식이 올바르지 않습니다. customer_id=${customer_id}`\n    );\n  }\n\n  const remainingDays = Math.round(\n    (contractEnd.getTime() - today.getTime()) / DAY_MS\n  );\n\n  if (remainingDays <= 0) {\n    continue;\n  }\n\n  const schedules = [];\n\n  // 1. 90일 이상\n  if (remainingDays >= 90) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(\n        today,\n        Math.ceil((remainingDays * 2) / 3)\n      ),\n      contact_reason: '약정 만료 예정 2차 안내',\n    });\n  }\n\n  // 2. 30 ~ 89일\n  else if (remainingDays >= 30) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -7),\n      contact_reason: '약정 만료 7일 전 안내',\n    });\n  }\n\n  // 3. 15 ~ 29일\n  else if (remainingDays >= 15) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n  // 4. 8 ~ 14일\n  else if (remainingDays >= 8) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n  // 5. 1 ~ 7일\n  else {\n    const urgentOffset = remainingDays >= 2 ? 1 : 0;\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(today, urgentOffset),\n      contact_reason: '약정 만료 임박 안내',\n    });\n  }\n\nfor (const schedule of schedules) {\n  output.push({\n    json: {\n      customer_id,\n      customer_name,\n      schedule_type,\n      contract_end_date,\n\n      privacy_consent,\n      recontact_consent,\n\n      reference_date: contract_end_date,\n\n      schedule_subtype: schedule.schedule_subtype,\n\n      scheduled_contact_date: formatDate(\n        schedule.scheduledDate\n      ),\n\n      contact_reason: schedule.contact_reason,\n\n      remaining_contract_days: remainingDays,\n\n      // 이번 약정 기준으로 필요한 전체 문자 횟수\n      expected_notice_count: schedules.length\n    }\n  });\n}\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        1232
+      ],
+      "id": "ce5b0e52-c4df-4a78-a0a3-ce6ed3bc608d",
+      "name": "약정 문자 날짜 계산"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $3::date,\n    (($5::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $6,\n    NULL,\n    $4,\n    NULL\n)\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason,\n    schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    $7::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype;",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ [\n  $json.customer_id,\n  $json.schedule_type,\n  $json.reference_date,\n  $json.schedule_subtype,\n  $json.scheduled_contact_date,\n  $json.contact_reason,\n  $json.customer_name\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -688,
+        1232
+      ],
+      "id": "80095ac4-5bb8-46aa-8e8d-c9aefd023179",
+      "name": "약정 스케줄 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "<GOOGLE_CALENDAR_ID>",
+          "mode": "list",
+          "cachedResultName": "AI-Agent-Contact-Prototype"
+        },
+        "start": "={{ $json.scheduled_contact_at }}",
+        "end": "={{ DateTime.fromISO($json.scheduled_contact_at).plus({ minutes: 30 }).toISO() }}",
+        "additionalFields": {
+          "description": "={{  '고객 ID: ' + $json.customer_id + '\\n스케줄 유형: ' + $json.schedule_type + '\\n세부 유형: ' + $json.schedule_subtype + '\\n발송 사유: ' + $json.contact_reason + '\\n약정 만료일: ' + $json.reference_date + '\\n스케줄 ID: ' + $json.schedule_id }}",
+          "showMeAs": "transparent",
+          "summary": "={{ '[약정] ' + $json.customer_name + ' · ' + $json.contact_reason }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        1120
+      ],
+      "id": "21294efd-4515-43c4-b6df-ae498d45c57e",
+      "name": "약정 캘린더 일정 생성",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "2jUJLmk1C48sBuUe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "options": {
+          "queryReplacement": "={{ [   $('약정 스케줄 저장').item.json.schedule_id,   $json.id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        192,
+        1120
+      ],
+      "id": "d89e6e5b-3e0b-4162-ae26-43cfc9d2cae7",
+      "name": "약정 캘린더 ID 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 과제\n약정 자체 만료/제거     \n동의 철회 후 기존 일정 \n이미 발송된 일정 재활성화",
+        "height": 128,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1664,
+        1344
+      ],
+      "typeVersion": 1,
+      "id": "50f3e6b3-5cf9-4314-b0ab-339afe6c07ed",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1376,
+        1248
+      ],
+      "id": "d0dbca57-b8c8-44fe-a8e1-9dac6e939978",
+      "name": "F06 약정분기 트리거"
+    }
+  ],
+  "connections": {
+    "약정 캘린더 존재 여부 확인": {
+      "main": [
+        [
+          {
+            "node": "약정 캘린더 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "약정 캘린더 일정 수정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 2차 안내 정리 필요 여부": {
+      "main": [
+        [
+          {
+            "node": "기존 약정 2차 안내 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "기존 약정 2차 안내 조회": {
+      "main": [
+        [
+          {
+            "node": "약정 2차 캘린더 존재 여부 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 2차 캘린더 존재 여부 확인": {
+      "main": [
+        [
+          {
+            "node": "약정 2차 캘린더 일정 삭제",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "약정 2차 스케줄 취소 처리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 2차 캘린더 일정 삭제": {
+      "main": [
+        [
+          {
+            "node": "약정 2차 스케줄 취소 처리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 기준 - 개인정보 및 재연락 동의 조회": {
+      "main": [
+        [
+          {
+            "node": "약정 문자 날짜 계산",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 문자 날짜 계산": {
+      "main": [
+        [
+          {
+            "node": "약정 스케줄 저장",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "약정 2차 안내 정리 필요 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 스케줄 저장": {
+      "main": [
+        [
+          {
+            "node": "약정 캘린더 존재 여부 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 캘린더 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "약정 캘린더 ID 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F06 약정분기 트리거": {
+      "main": [
+        [
+          {
+            "node": "약정 기준 - 개인정보 및 재연락 동의 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "any",
+    "availableInMCP": false
+  }
+}

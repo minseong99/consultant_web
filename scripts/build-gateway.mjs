@@ -1,6 +1,6 @@
 // n8n 게이트웨이 워크플로우(n8n/web-gateway.json)를 생성한다.
 //   node scripts/build-gateway.mjs [원본 워크플로우 JSON 폴더]
-// 폴더를 넘기면 호출 대상 워크플로우의 ID와 입력 필드명이 원본 트리거 정의와 맞는지 검증한다.
+// 호출 대상 워크플로우의 ID와 입력 필드명이 원본 트리거 정의와 맞는지 검증한다. 폴더를 생략하면 n8n/workflows 를 쓴다.
 //
 // 기존 워크플로우(F01~F07)에는 webhook이 없으므로, 이 게이트웨이가 웹사이트의 요청을 받아
 // Execute Workflow 노드로 기존 워크플로우를 호출한다. 기존 워크플로우는 수정하지 않는다.
@@ -1028,7 +1028,8 @@ for (const node of nodes.filter((n) => n.type === "n8n-nodes-base.webhook")) {
   if (!reachesRespond(node.name)) problems.push(`${node.name}: 응답 노드에 도달하지 못함`);
 }
 
-const sourceDir = process.argv[2];
+// 기본값은 n8n에서 내보낸 발행본(n8n/workflows, scripts/export-workflows.mjs 로 갱신)이다.
+const sourceDir = process.argv[2] ?? join(root, "n8n", "workflows");
 if (sourceDir && existsSync(sourceDir)) {
   const originals = new Map();
   for (const file of readdirSync(sourceDir).filter((f) => f.endsWith(".json"))) {

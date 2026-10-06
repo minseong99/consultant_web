@@ -1,0 +1,788 @@
+{
+  "id": "kSNl11r9lqQjBO5E",
+  "name": "F05프로모션 대상 고객 선정",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "document_id"
+            },
+            {
+              "name": "store_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2864,
+        -224
+      ],
+      "id": "bf8e9cee-0bf5-48d4-b3c2-eea72325c9a3",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst document_id = String(input.document_id ?? '').trim();\nconst store_id = String(input.store_id ?? '').trim();\n\nif (!document_id) {\n  throw new Error('document_id가 없습니다.');\n}\n\nif (!store_id) {\n  throw new Error('store_id가 없습니다.');\n}\n\nreturn [\n  {\n    json: {\n      ...input,\n      document_id,\n      store_id\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2656,
+        -176
+      ],
+      "id": "507fad71-7a07-4b73-948a-b4e7cf138e3b",
+      "name": "Validate Promotion Input"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "documents",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "document_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.document_id }}"
+            },
+            {
+              "keyName": "store_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.store_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2496,
+        -96
+      ],
+      "id": "02f44ce8-6c18-4547-bae0-cc28afeba9a4",
+      "name": "Get Promotion Data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "76f96f53-0c89-4e4c-9e12-22b4e20abf47",
+              "leftValue": "={{ $json.document_id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2448,
+        208
+      ],
+      "id": "b66ffaaf-bbeb-4102-bafb-20b06b2cabdf",
+      "name": "Promotion Exists?",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "04e8195e-e1c3-4e7a-9d3f-b65c20c5ed64",
+              "leftValue": "={{ \n  $json.condition_data === null ||\n  $json.condition_data === undefined ||\n  (\n    typeof $json.condition_data === 'object' &&\n    Object.keys($json.condition_data).length === 0\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2320,
+        -448
+      ],
+      "id": "7d597377-127d-48a4-8905-abb9f35048de",
+      "name": "Need RAG?"
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "tableName": {
+          "__rl": true,
+          "value": "kt_promotion_vectors",
+          "mode": "list",
+          "cachedResultName": "kt_promotion_vectors"
+        },
+        "prompt": "={{ $json.file_name }} 프로모션의\n대상 고객 조건, 대상 상품 및 요금제, 적용 기간,\n혜택, 기기 사용 조건, 고객 자격 조건을 찾아주세요.",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "document_id",
+                "value": "={{ $json.document_id }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -1824,
+        -352
+      ],
+      "id": "c6f178b6-cb10-4c7c-baea-0e7f0699ee51",
+      "name": "Get Promotion Document Context",
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1744,
+        -560
+      ],
+      "id": "0a53e022-1ba5-4b24-a330-8ebf05c1a8ca",
+      "name": "Embeddings OpenAI",
+      "alwaysOutputData": false,
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=다음 프로모션 정보를 분석하여 고객 타기팅 규칙을 구조화하세요.\n\n[프로모션 ID]\n{{ $json.document_id }}\n\n[매장 ID]\n{{ $json.store_id }}\n\n[프로모션명]\n{{ $json.file_name }}\n\n[프로모션 조건 원문]\n{{ $json.promotion_condition_text }}\n\n다음 기준으로 정리하세요.\n\n1. 최소 연령 조건이 명시되어 있으면 age_min에 기록합니다.\n2. 최대 연령 조건이 명시되어 있으면 age_max에 기록합니다.\n3. 최소 기기 사용 기간이 명시되어 있으면 개월 단위로 min_device_use_months에 기록합니다.\n4. 대상 단말이 있으면 target_device_keywords에 기록합니다.\n5. 특정 요금제가 대상이면 target_plan_keywords에 기록합니다.\n6. 고객 관심사 검색에 활용할 키워드는 interest_keywords에 기록합니다.\n7. 브랜드 조건이 명확하면 preferred_brand_keywords에 기록합니다.\n8. 위 필드로 표현하기 어려운 가입 유형, 기기변경 조건, 추가 확인 사항 등은 eligibility_notes에 기록합니다.\n9. 입력에 없는 조건은 만들지 마세요.\n10. 브랜드명은 원문에 브랜드가 명시적으로 적혀 있는 경우에만 preferred_brand_keywords에 기록합니다.\n11. 제품명으로부터 브랜드를 추론하지 않습니다.\n12. 프로모션 적용 기간은 eligibility_notes에 기록하지 않습니다.\n13. valid_from, valid_until은 별도 데이터로 관리합니다.\n14. interest_keywords에는 \"기기변경\", \"구매\", \"상담\", \"요금제\"처럼 대부분의 고객에게 해당하는 일반적인 말을 넣지 않습니다. 특정 상품·서비스·취향을 가리키는 말만 넣습니다.\n\n출력은 연결된 Structured Output Parser의 스키마를 정확히 따르세요.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "당신은 이동통신 매장의 프로모션 대상 조건을 구조화하는 AI Agent입니다.\n\n프로모션 정보 또는 검색된 프로모션 문서 내용을 읽고,\n고객 선별에 사용할 수 있는 조건만 구조화합니다.\n\n반드시 지켜야 할 원칙:\n- 입력에 실제로 존재하는 조건만 사용합니다.\n- 존재하지 않는 나이, 기기 사용 기간, 요금제 조건을 추측하지 않습니다.\n- 명확한 숫자 조건이 없으면 해당 숫자 필드는 null로 반환합니다.\n- 대상 기기, 브랜드, 요금제, 관심 키워드는 문서에 명시되거나 직접적으로 확인 가능한 경우에만 기록합니다.\n- \"상세 조건 확인 필요\"처럼 자동 필터링하기 어려운 조건은 eligibility_notes에 기록합니다.\n- 같은 의미의 키워드를 불필요하게 중복 생성하지 않습니다.\n- 출력은 Structured Output Parser의 구조를 정확히 따릅니다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -1056,
+        -336
+      ],
+      "id": "bca1d213-f0c4-40db-9f6b-29a5f4a559ab",
+      "name": "Build Targeting Rules"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"age_min\": null,\n  \"age_max\": null,\n  \"min_device_use_months\": null,\n  \"target_device_keywords\": [\"iPhone 17\"],\n  \"target_plan_keywords\": [],\n  \"interest_keywords\": [\"iPhone\", \"Apple\"],\n  \"preferred_brand_keywords\": [\"Apple\"],\n  \"eligibility_notes\": [\"프로모션 상세 조건 확인 필요\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -912,
+        -656
+      ],
+      "id": "b34cff9b-0661-4d84-a22a-18fe069b6003",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1088,
+        -672
+      ],
+      "id": "0c4d294a-5009-46ce-b252-f035cbc9ec19",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.consultation_goal,\n    c.age,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n\n    ca.analysis_id,\n    ca.analysis_data,\n\n    cc.marketing_consent,\n    cc.recontact_consent\n\nFROM public.customers c\n\nJOIN public.customer_consents cc\n    ON cc.customer_id = c.customer_id\n\nLEFT JOIN LATERAL (\n    SELECT\n        analysis_id,\n        analysis_data\n    FROM public.customer_analyses\n    WHERE customer_id = c.customer_id\n    ORDER BY created_at DESC\n    LIMIT 1\n) ca ON true\n\nWHERE\n    cc.privacy_consent = true\n    AND cc.marketing_consent = true\n    AND cc.recontact_consent = true\n    AND cc.withdrawn_at IS NULL;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -864,
+        -64
+      ],
+      "id": "5135e14b-3fd2-4311-8b36-34589058c329",
+      "name": "Get Eligible Customer Pool",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\n// 프로모션 기본 정보\nconst promotion = $('Get Promotion Data').first().json;\n\n// Build Targeting Rules의 구조화 결과\nconst rules = $('Resolve Targeting Rules').first().json.output ?? {};\n\n\n// 배열 또는 문자열을 검색 가능한 문자열로 변환\nfunction toText(value) {\n  if (value == null) return '';\n\n  if (Array.isArray(value)) {\n    return value.join(' ');\n  }\n\n  if (typeof value === 'object') {\n    return JSON.stringify(value);\n  }\n\n  return String(value);\n}\n\n\n// 대소문자 무시\nfunction normalize(value) {\n  return toText(value).toLowerCase().trim();\n}\n\n\n// 키워드가 하나라도 포함되는지 검사\nfunction containsAny(text, keywords) {\n  if (!Array.isArray(keywords) || keywords.length === 0) {\n    return true;\n  }\n\n  const normalizedText = normalize(text);\n\n  return keywords.some(keyword => {\n    const k = normalize(keyword);\n    return k && normalizedText.includes(k);\n  });\n}\n\n\n// 공백 제거 + 소문자\nfunction compact(value) {\n  return toText(value).toLowerCase().replace(/\\s+/g, '');\n}\n\n\n// 대부분의 고객에게 해당해서 대상을 가르지 못하는 말\nconst GENERIC_KEYWORDS = [\n  '기기변경', '구매', '상담', '휴대폰', '스마트폰', '핸드폰',\n  '프로모션', '요금제', '할인', '혜택', '변경', '교체', '고객', '신규', '가입'\n];\n\nfunction isGenericKeyword(keyword) {\n  const k = compact(keyword).replace(/관심|희망|예정/g, '');\n  return k.length < 2 || GENERIC_KEYWORDS.some(g => k === g || k === g + '고객');\n}\n\n\n// 같은 브랜드·제품군의 한글/영문 표기\nconst ALIAS_GROUPS = [\n  ['iphone', '아이폰', 'apple', '애플'],\n  ['galaxy', '갤럭시', 'samsung', '삼성'],\n  ['fold', '폴드'],\n  ['flip', '플립'],\n  ['watch', '워치']\n];\n\n// 키워드 중 하나라도 텍스트에 있으면 그 키워드를 돌려준다.\n// useAliases가 true면 \"iPhone 17\" 같은 기기명을 브랜드 표기(아이폰, Apple 등)로도 찾는다.\nfunction findKeyword(text, keywords, useAliases) {\n  for (const keyword of keywords) {\n    const k = compact(keyword);\n    if (!k) continue;\n\n    if (text.includes(k)) return String(keyword);\n\n    if (!useAliases) continue;\n\n    for (const group of ALIAS_GROUPS) {\n      if (!group.some(alias => k.includes(alias))) continue;\n\n      const alias = group.find(candidate => text.includes(candidate));\n      // 사유에는 고객 글에서 찾은 표기 대신 프로모션의 대상 기기 이름을 보여 준다.\n      if (alias) return String(keyword);\n    }\n  }\n\n  return null;\n}\n\n\nfor (const item of $input.all()) {\n  const customer = item.json;\n  const analysis = customer.analysis_data ?? {};\n\n  let matched = true;\n  const matchReasons = [];\n\n  // --------------------------------\n  // 1. 최소 나이\n  // --------------------------------\n  if (rules.age_min != null) {\n    if (\n      customer.age == null ||\n      Number(customer.age) < Number(rules.age_min)\n    ) {\n      matched = false;\n    } else {\n      matchReasons.push(`최소 연령 ${rules.age_min}세 이상 충족`);\n    }\n  }\n\n  // --------------------------------\n  // 2. 최대 나이\n  // --------------------------------\n  if (rules.age_max != null) {\n    if (\n      customer.age == null ||\n      Number(customer.age) > Number(rules.age_max)\n    ) {\n      matched = false;\n    } else {\n      matchReasons.push(`최대 연령 ${rules.age_max}세 이하 충족`);\n    }\n  }\n\n  // --------------------------------\n  // 3. 최소 기기 사용 기간\n  // --------------------------------\n  if (rules.min_device_use_months != null) {\n    if (\n      customer.device_use_months == null ||\n      Number(customer.device_use_months) <\n        Number(rules.min_device_use_months)\n    ) {\n      matched = false;\n    } else {\n      matchReasons.push(\n        `기기 사용 ${rules.min_device_use_months}개월 이상 충족`\n      );\n    }\n  }\n\n  // --------------------------------\n  // 4. 고객의 관심/분석 데이터 통합\n  // --------------------------------\n  const interestText = [\n    customer.interests,\n    customer.consultation_goal,\n    customer.usage_pattern,\n    customer.preferred_brand,\n\n    analysis.analysis_summary,\n    analysis.replacement_reason,\n    analysis.preferred_product_group,\n    analysis.important_features,\n    analysis.recommendation_factors\n  ]\n    .filter(v => v != null)\n    .map(toText)\n    .join(' ');\n\n\n  // --------------------------------\n  // 5. 프로모션 대상 기기 / 관심 조건\n  // --------------------------------\n  // 대상 기기가 명시된 프로모션은 그 기기(또는 같은 브랜드)에 관심을 보인 고객만 대상으로 한다.\n  // \"기기변경\", \"구매\"처럼 대부분의 고객에게 해당하는 말은 조건으로 쓰지 않는다.\n  const deviceKeywords = Array.isArray(rules.target_device_keywords)\n    ? rules.target_device_keywords\n    : [];\n\n  const interestKeywords = (Array.isArray(rules.interest_keywords)\n    ? rules.interest_keywords\n    : []\n  ).filter(keyword => !isGenericKeyword(keyword));\n\n  // 고객의 관심을 판단할 전체 텍스트\n  const targetingText = compact([\n    customer.interests,\n    customer.consultation_goal,\n    customer.usage_pattern,\n    customer.preferred_brand,\n\n    analysis.analysis_summary,\n    analysis.usage_profile,\n    analysis.replacement_reason,\n    analysis.preferred_product_group,\n    analysis.important_features,\n    analysis.recommendation_factors\n  ]\n    .filter(v => v != null)\n    .map(toText)\n    .join(' '));\n\n  if (deviceKeywords.length > 0) {\n    const hit = findKeyword(targetingText, deviceKeywords, true);\n\n    if (!hit) {\n      matched = false;\n    } else {\n      matchReasons.push(`대상 기기 관심 조건 충족 (${hit})`);\n    }\n  } else if (interestKeywords.length > 0) {\n    const hit = findKeyword(targetingText, interestKeywords, false);\n\n    if (!hit) {\n      matched = false;\n    } else {\n      matchReasons.push(`관심 조건 충족 (${hit})`);\n    }\n  }\n\n\n  // --------------------------------\n  // 7. 선호 브랜드\n  // --------------------------------\n  if (\n    Array.isArray(rules.preferred_brand_keywords) &&\n    rules.preferred_brand_keywords.length > 0\n  ) {\n    const brandText = [\n      customer.preferred_brand,\n      analysis.preferred_product_group\n    ]\n      .filter(Boolean)\n      .join(' ');\n\n    const found = containsAny(\n      brandText,\n      rules.preferred_brand_keywords\n    );\n\n    if (!found) {\n      matched = false;\n    } else {\n      matchReasons.push('선호 브랜드 조건 충족');\n    }\n  }\n\n\n  // --------------------------------\n  // 8. 대상 요금제\n  // --------------------------------\n  if (\n    Array.isArray(rules.target_plan_keywords) &&\n    rules.target_plan_keywords.length > 0\n  ) {\n    const found = containsAny(\n      customer.current_plan,\n      rules.target_plan_keywords\n    );\n\n    if (!found) {\n      matched = false;\n    } else {\n      matchReasons.push('대상 요금제 조건 충족');\n    }\n  }\n\n\n  // 하나라도 필수 조건 불일치\n  if (!matched) {\n    continue;\n  }\n\n\n  // --------------------------------\n  // 최종 대상 고객\n  // --------------------------------\n  results.push({\n    json: {\n      customer_id: customer.customer_id,\n      customer_name: customer.customer_name,\n      phone: customer.phone,\n\n      schedule_type: 'promotion',\n\n      reference_date:\n        promotion.valid_from ?? null,\n\n      contact_reason:\n        `${promotion.file_name || '프로모션'} 안내`,\n\n      document_id:\n        promotion.document_id ?? null,\n\n      store_id:\n        promotion.store_id ?? null,\n\n      consultation_id: null,\n\n      match_reasons: matchReasons,\n\n      eligibility_notes:\n        Array.isArray(rules.eligibility_notes)\n          ? rules.eligibility_notes\n          : []\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -64
+      ],
+      "id": "7edd4c09-4a3e-4128-a980-283e3be694dd",
+      "name": "Apply Promotion Target Conditions",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst seen = new Set();\nconst results = [];\n\nfor (const item of items) {\n  const customer = item.json;\n\n  // 필수값 확인\n  if (!customer.customer_id) {\n    continue;\n  }\n\n  if (!customer.document_id) {\n    continue;\n  }\n\n  if (!customer.schedule_type) {\n    continue;\n  }\n\n  // 동일 고객 중복 제거\n  if (seen.has(customer.customer_id)) {\n    continue;\n  }\n\n  seen.add(customer.customer_id);\n\n  results.push({\n    json: {\n      ...customer\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        -80
+      ],
+      "id": "de19c2d0-5019-4934-8c70-99a5db3a2c7e",
+      "name": "Validate Target Customers"
+    },
+    {
+      "parameters": {
+        "jsCode": "const customers = $input.all().map(item => item.json);\n\nconst promotion = $('Get Promotion Data').first().json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n\n      status:\n        customers.length > 0\n          ? 'targeted'\n          : 'no_target',\n\n      document_id:\n        promotion.document_id ?? null,\n\n      store_id:\n        promotion.store_id ?? null,\n\n      event_name:\n        promotion.file_name ?? null,\n\n      valid_from:\n        promotion.valid_from ?? null,\n\n      valid_until:\n        promotion.valid_until ?? null,\n\n      target_count:\n        customers.length,\n\n      target_customers:\n        customers\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -80
+      ],
+      "id": "fe0e8ab8-c4ce-432e-bb90-226be514439e",
+      "name": "Return F06 Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Validate Promotion Input').first().json;\n\nreturn [\n  {\n    json: {\n      success: false,\n      feature_id: 'F-06',\n      status: 'promotion_not_found',\n      document_id: input.document_id ?? null,\n      store_id: input.store_id ?? null,\n      target_count: 0,\n      target_customers: []\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1952,
+        256
+      ],
+      "id": "a66f5e55-54c3-4bfd-91a0-c3f668873b1f",
+      "name": "Return Promotion Not Found"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nlet rules = input.condition_data ?? {};\n\nif (typeof rules === 'string') {\n  try {\n    rules = JSON.parse(rules);\n  } catch {\n    rules = {};\n  }\n}\n\nreturn [\n  {\n    json: {\n      output: rules,\n      source: 'condition_data'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1296,
+        224
+      ],
+      "id": "a6b2b25e-67bb-4299-8452-33f4216b8958",
+      "name": "Use Existing Promotion Conditions"
+    },
+    {
+      "parameters": {
+        "jsCode": "const promotion = $('Get Promotion Data').first().json;\n\nconst text = $input.all()\n  .map((item) => item.json.document?.pageContent ?? item.json.pageContent ?? '')\n  .filter(Boolean)\n  .join('\\n\\n');\n\nreturn [\n  {\n    json: {\n      ...promotion,\n      promotion_condition_text: text,\n      condition_source: 'rag',\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        -192
+      ],
+      "id": "ac28797e-6118-414a-9407-724dc753ea7c",
+      "name": "Normalize RAG Promotion Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [\n  {\n    json: {\n      output: input.output ?? {},\n      source: input.source ?? 'rag'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        -64
+      ],
+      "id": "c4fa8434-5ff0-49ae-8141-13738fb1c4b0",
+      "name": "Resolve Targeting Rules"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d21fd237-88e6-4439-8596-9db5ad2f580b",
+              "leftValue": "={{ $json.customer_id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        -64
+      ],
+      "id": "22a958aa-d65a-4d6b-9f56-308f10bd9e4e",
+      "name": "Target Customers Exist?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const promotion = $('Get Promotion Data').first().json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'no_target',\n      document_id: promotion.document_id ?? null,\n      store_id: promotion.store_id ?? null,\n      target_count: 0,\n      target_customers: []\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        96
+      ],
+      "id": "36d8cf01-db61-4249-ade5-037065b1a554",
+      "name": "Return No Target"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4f462e5a-c5ec-4bc4-b772-d34c26f3960f",
+              "leftValue": "={{ $json.promotion_condition_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1360,
+        -288
+      ],
+      "id": "eb5a62be-79eb-4c0e-b569-5cab6a0c3256",
+      "name": "조건 문서 있음?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const promotion = $('Get Promotion Data').first().json;\n\nreturn [\n  {\n    json: {\n      success: false,\n      feature_id: 'F-06',\n      status: 'condition_not_found',\n      message: '프로모션 조건을 확인할 문서가 등록되어 있지 않습니다.',\n      document_id: promotion.document_id ?? null,\n      store_id: promotion.store_id ?? null,\n      target_count: 0,\n      target_customers: [],\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1344,
+        0
+      ],
+      "id": "51c609b9-e33c-4187-9bbd-efddffaaad2a",
+      "name": "Return Condition Not Found"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    $1::text AS document_id,\n    $2::text AS file_name,\n    (\n        SELECT count(*)::int\n        FROM public.kt_promotion_vectors v\n        WHERE v.metadata->>'document_id' = $1::text\n    ) AS chunk_count;",
+        "options": {
+          "queryReplacement": "={{ [ $json.document_id, $json.file_name ?? '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -2192,
+        -640
+      ],
+      "id": "4138cf6c-37ad-41b3-b035-93f8925052bb",
+      "name": "조건 문서 조각 확인",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "17e681af-8611-4165-b52e-3056d25ce348",
+              "leftValue": "={{ $json.chunk_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2064,
+        -80
+      ],
+      "id": "6a722877-62d5-4b46-9962-0719f865ae08",
+      "name": "조건 문서 조각 있음?"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Validate Promotion Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Promotion Input": {
+      "main": [
+        [
+          {
+            "node": "Get Promotion Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Promotion Data": {
+      "main": [
+        [
+          {
+            "node": "Promotion Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Promotion Exists?": {
+      "main": [
+        [
+          {
+            "node": "Need RAG?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Promotion Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need RAG?": {
+      "main": [
+        [
+          {
+            "node": "조건 문서 조각 확인",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Existing Promotion Conditions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Promotion Document Context": {
+      "main": [
+        [
+          {
+            "node": "Normalize RAG Promotion Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Get Promotion Document Context",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Targeting Rules": {
+      "main": [
+        [
+          {
+            "node": "Resolve Targeting Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Build Targeting Rules",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Build Targeting Rules",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Eligible Customer Pool": {
+      "main": [
+        [
+          {
+            "node": "Apply Promotion Target Conditions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Promotion Target Conditions": {
+      "main": [
+        [
+          {
+            "node": "Target Customers Exist?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Target Customers": {
+      "main": [
+        [
+          {
+            "node": "Return F06 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Existing Promotion Conditions": {
+      "main": [
+        [
+          {
+            "node": "Resolve Targeting Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize RAG Promotion Context": {
+      "main": [
+        [
+          {
+            "node": "조건 문서 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Targeting Rules": {
+      "main": [
+        [
+          {
+            "node": "Get Eligible Customer Pool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Target Customers Exist?": {
+      "main": [
+        [
+          {
+            "node": "Validate Target Customers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return No Target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "조건 문서 있음?": {
+      "main": [
+        [
+          {
+            "node": "Build Targeting Rules",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Condition Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "조건 문서 조각 확인": {
+      "main": [
+        [
+          {
+            "node": "조건 문서 조각 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "조건 문서 조각 있음?": {
+      "main": [
+        [
+          {
+            "node": "Get Promotion Document Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Condition Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

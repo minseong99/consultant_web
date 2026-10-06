@@ -100,7 +100,6 @@ export function ScheduleList({
         const type = lookup(SCHEDULE_TYPE, schedule.schedule_type);
         const track = tracking[schedule.schedule_id];
         const expanded = open.has(schedule.schedule_id);
-        const isPromotion = schedule.schedule_type === "promotion";
         return (
           <li
             key={schedule.schedule_id}
@@ -133,11 +132,9 @@ export function ScheduleList({
                 </span>
               </button>
               {schedule.schedule_status === "scheduled" && (
-                <span title={isPromotion ? "프로모션 문자는 현재 워크플로우에서 생성되지 않습니다 (프로모션 정보 조회 미구현)" : undefined}>
-                  <Button size="sm" variant="secondary" disabled={isPromotion} loading={track?.requesting} onClick={() => sendNow(schedule.schedule_id)}>
-                    지금 발송 (시연용)
-                  </Button>
-                </span>
+                <Button size="sm" variant="secondary" loading={track?.requesting} onClick={() => sendNow(schedule.schedule_id)}>
+                  지금 발송 (시연용)
+                </Button>
               )}
             </div>
 

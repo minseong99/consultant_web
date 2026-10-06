@@ -1,0 +1,545 @@
+{
+  "id": "QFjC2ARP9Q6fCExH",
+  "name": "F07_개별 메시지 처리",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "schedule_id"
+            },
+            {
+              "name": "scheduled_contact_at"
+            },
+            {
+              "name": "message_data",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a87174a3-75c8-466a-83af-66c5607ef184",
+      "name": "[시작] 개별 메시지 처리 요청 수신"
+    },
+    {
+      "parameters": {
+        "content": "## 필요 입력값 :\n| 필드 | 타입 | 용도 |\n|---|---|---|\n| `schedule_id` | String | 상태 변경 기준 |\n| `scheduled_contact_at` | String | 예약시간까지 Wait |\n| `message_data` | Object | 문자 생성/발송에 필요한 데이터 묶음 |",
+        "height": 384,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -272,
+        -384
+      ],
+      "typeVersion": 1,
+      "id": "3ad01a49-946c-4c3d-ab58-163fcee9034f",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## message_data 예시\n{\n  \"customer_id\": \"C001\",\n  \"schedule_type\": \"contract\",\n  \"schedule_subtype\": null,\n  \"contact_reason\": \"약정 만료 1개월 전 안내\",\n\n  \"customer_name\": \"김만용\",\n  \"phone\": \"01012345678\",\n\n  \"current_device\": \"Galaxy S24\",\n  \"current_plan\": \"5G 요금제\",\n  \"usage_pattern\": \"데이터 사용량 많음\",\n  \"contract_end_date\": \"2026-10-26\",\n  \"device_use_months\": 24,\n  \"preferred_brand\": \"Samsung\",\n  \"target_monthly_budget\": 70000,\n  \"interests\": \"기기 변경\",\n\n  \"consultation_summary\": null,\n  \"document_id\": null\n}",
+        "height": 560,
+        "width": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        32
+      ],
+      "id": "9bf5b4ae-342d-4d95-af63-dceb54e3c44e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $json.scheduled_contact_at }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        0
+      ],
+      "id": "6214789f-ae46-4e23-ad7e-a83ab47d271e",
+      "name": "[대기] 예약 발송 시간까지 대기",
+      "webhookId": "8f9c2835-20e9-4ade-86a1-ffb9edf6ca71"
+    },
+    {
+      "parameters": {
+        "content": "## [대기]예약 발송 시간까지 대기\n[역할]\n현재 메시지 스케줄의 scheduled_contact_at까지 실행을 대기한다.\n예약 시간이 되면 워크플로우를 재개하여 실제 메시지 생성·발송 처리를 시작한다.\n\n[운영 목적]\n각 스케줄을 독립 실행으로 관리하여 동일 시간대에 여러 발송 스케줄이 존재하더라도 각각 예약 시각에 처리할 수 있도록 한다.",
+        "height": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        208,
+        160
+      ],
+      "typeVersion": 1,
+      "id": "627aab5e-ee51-45c9-a623-2bd17387a38d",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH updated AS (\n    UPDATE public.message_schedules AS ms\n    SET schedule_status =\n        CASE\n            WHEN NULLIF(TRIM(c.phone), '') IS NOT NULL\n             AND cc.withdrawn_at IS NULL\n             AND cc.privacy_consent IS TRUE\n             AND cc.recontact_consent IS TRUE\n\n             AND ms.schedule_type IN (\n                 'contract',\n                 'reconsultation',\n                 'promotion'\n             )\n\n             AND (\n                 ms.schedule_type <> 'promotion'\n                 OR cc.marketing_consent IS TRUE\n             )\n\n            THEN 'processing'\n            ELSE 'skipped'\n        END\n\n    FROM public.customers AS c\n\n    LEFT JOIN public.customer_consents AS cc\n        ON cc.customer_id = c.customer_id\n\n    WHERE ms.schedule_id = $1\n      AND ms.customer_id = c.customer_id\n      AND ms.schedule_status = 'scheduled'\n\n    RETURNING\n        ms.schedule_id,\n        ms.schedule_status\n)\n\nSELECT\n    $1::varchar AS schedule_id,\n\n    COALESCE(\n        (SELECT schedule_status FROM updated),\n        'unchanged'\n    ) AS result_status,\n\n    EXISTS (\n        SELECT 1\n        FROM updated\n        WHERE schedule_status = 'processing'\n    ) AS processing_started,\n\n    $2::jsonb AS message_data;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.schedule_id,\n  JSON.stringify($json.message_data)\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        528,
+        0
+      ],
+      "id": "17418aaa-057a-4b98-854c-83eea0b55014",
+      "name": "[검증/선점] 발송 조건 확인 및 처리 시작",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "56c1dd80-4395-4813-8de6-820fa79a0b9c",
+              "leftValue": "={{ $json.processing_started }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        -144
+      ],
+      "id": "99889925-53a6-4812-bc9d-e43fa0708cc2",
+      "name": "[검증] 처리 시작 성공 여부"
+    },
+    {
+      "parameters": {
+        "content": "[역할]\n예약 발송 시점에 최신 고객 동의·전화번호·스케줄 상태를 확인한다. 발송 가능하면 processing, 불가능하면 skipped로 변경한다.\n[목적]\n오전 조회 이후 변경된 동의 상태를 반영하고, 상태 확인과 처리 선점을 한 번의 DB 요청으로 수행하여 중복 발송을 방지한다.",
+        "height": 288
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        464,
+        176
+      ],
+      "typeVersion": 1,
+      "id": "f45b1d05-0fd5-4a40-9dfd-4b157f563e54",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "[역할]\n현재 스케줄의 고객·상담 정보를 S02에 전달하여 맞춤형 메시지를 생성하고 결과를 반환받는다.\nS01은 생성된 메시지가 필요하므로 서브워크플로우 완료까지 대기한다.",
+        "height": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        928,
+        32
+      ],
+      "typeVersion": 1,
+      "id": "9ad5658a-cc27-4af7-a2d6-3fa6985ad1ad",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9aa23a17-8f5e-49ff-865f-898494d430cc",
+              "leftValue": "={{ $json.generation_success }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1232,
+        -256
+      ],
+      "id": "976309c8-631c-4026-9f6f-296b9267f067",
+      "name": "[검증] 메시지 생성 성공 여부"
+    },
+    {
+      "parameters": {
+        "content": "[역할]\nS02에서 반환된 generation_success를 확인하여 정상적으로 생성된 메시지만 발송 단계로 전달한다.\n[처리 기준]\n생성 성공 시 문자 발송 단계로 진행하고, 생성 실패 시 해당 스케줄을 실패 상태로 처리한다.",
+        "height": 240
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        -496
+      ],
+      "id": "5adc25c8-9725-4837-9d8d-61606fa6610b",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH inserted AS (\n    INSERT INTO public.messages (\n        message_id,\n        schedule_id,\n        message_content,\n        send_status,\n        sent_at,\n        send_channel\n    )\n    VALUES (\n        'MSG-' || $1,\n        $1,\n        $2,\n        'pending',\n        NULL,\n        'sms'\n    )\n    ON CONFLICT (schedule_id) DO NOTHING\n    RETURNING\n        message_id,\n        schedule_id,\n        message_content,\n        send_status\n)\n\nSELECT\n    message_id,\n    schedule_id,\n    message_content,\n    send_status,\n    TRUE AS newly_created\nFROM inserted\n\nUNION ALL\n\nSELECT\n    m.message_id,\n    m.schedule_id,\n    m.message_content,\n    m.send_status,\n    FALSE AS newly_created\nFROM public.messages m\nWHERE m.schedule_id = $1\n  AND NOT EXISTS (SELECT 1 FROM inserted)\n\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [   $json.schedule_id,   $json.message_text ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1552,
+        -352
+      ],
+      "id": "e4d32d0e-d47c-4b43-8abb-f5cf55c1a075",
+      "name": "[저장] 생성 메시지 적재",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "[역할]\nAI가 생성한 최종 메시지를 messages 테이블에 pending 상태로 저장한다.\n[중복 방지]\nschedule_id 기준으로 이미 메시지가 존재하면 새로 생성하거나 기존 상태를 덮어쓰지 않고 기존 메시지를 반환한다.\n[목적]\n생성 결과를 DB에 영속화하여 n8n 실행 데이터에 대한 의존도를 줄이고, 이후 발송 계층에서 저장된 메시지를 사용할 수 있도록 한다.",
+        "height": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        -736
+      ],
+      "id": "1dacecc1-9790-41e0-b58d-1ed6ac4dc615",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET schedule_status = 'failed'\nWHERE schedule_id = $1\n  AND schedule_status = 'processing'\nRETURNING\n    schedule_id,\n    schedule_status;",
+        "options": {
+          "queryReplacement": "={{ [ $json.schedule_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1568,
+        -48
+      ],
+      "id": "f9bf6284-4c22-406e-b267-fccd859fc414",
+      "name": "[상태변경] 메시지 생성 실패",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "[역할]\nS02에서 유효한 메시지를 생성하지 못한 경우 스케줄 상태를 processing → failed로 변경한다.\n생성 실패 건이 processing 상태로 남는 것을 방지한다.",
+        "height": 192,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        80
+      ],
+      "id": "f444e8a8-e131-4601-9d3c-e88f9f597f33",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "[역할]\nDB에 저장된 메시지의 message_id를 S03에 전달하여 실제 발송 및 결과 처리를 수행한다.\n[설정]\nS03의 완료까지 대기하며, 메시지 본문은 n8n 실행 데이터가 아닌 DB에 저장된 값을 기준으로 발송한다.",
+        "height": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1952,
+        -448
+      ],
+      "typeVersion": 1,
+      "id": "63575fc8-a963-4dff-9431-9f1ebe55c9ff",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      schedule_id: 'SCH_F07_TRUE_001',\n\n      message_data: {\n        customer_id: 'F07_TRUE_C001',\n\n        schedule_type: 'contract',\n        schedule_subtype: 'test_processing_true',\n        contact_reason: '약정 만료 예정 고객 안내',\n\n        customer_name: '처리성공테스트',\n        phone: '01077770001',\n\n        current_device: 'Galaxy S24',\n        current_plan: '5G 베이직',\n        usage_pattern: '데이터 사용량이 많음',\n\n        contract_end_date: '2026-10-31',\n        device_use_months: 23,\n\n        preferred_brand: 'Samsung',\n        target_monthly_budget: 70000,\n        interests: '기기 변경',\n\n        consultation_summary: null,\n        document_id: null\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -464
+      ],
+      "id": "2489ae79-4f0b-49ac-8a65-e6368feaf88f",
+      "name": "테스트 "
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        448,
+        -464
+      ],
+      "id": "c059ce39-93cb-4658-ae86-a0725d601a07",
+      "name": "테스트"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fT4gWUVbI5Hpuegq",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/fT4gWUVbI5Hpuegq",
+          "cachedResultName": "zF07_맞춤 메시지 생성_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "message_data": "={{ $json.message_data }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1008,
+        -160
+      ],
+      "id": "396068da-3db5-46a2-9c98-f86f3f4fad15",
+      "name": "Call 'zF07_맞춤 메시지 생성_서브'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "CfAOBLyDDNAD50yU",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/CfAOBLyDDNAD50yU",
+          "cachedResultName": "zF07_문자 발송 및 결과 처리_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message_id": "={{ $json.message_id }}"
+          },
+          "matchingColumns": [
+            "message_id "
+          ],
+          "schema": [
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1776,
+        -352
+      ],
+      "id": "2a17fead-d744-42de-b24b-39fd05d29809",
+      "name": "Call 'zF07_문자 발송 및 결과 처리_서브'"
+    }
+  ],
+  "connections": {
+    "[시작] 개별 메시지 처리 요청 수신": {
+      "main": [
+        [
+          {
+            "node": "[대기] 예약 발송 시간까지 대기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[대기] 예약 발송 시간까지 대기": {
+      "main": [
+        [
+          {
+            "node": "[검증/선점] 발송 조건 확인 및 처리 시작",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[검증/선점] 발송 조건 확인 및 처리 시작": {
+      "main": [
+        [
+          {
+            "node": "[검증] 처리 시작 성공 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[검증] 처리 시작 성공 여부": {
+      "main": [
+        [
+          {
+            "node": "Call 'zF07_맞춤 메시지 생성_서브'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[검증] 메시지 생성 성공 여부": {
+      "main": [
+        [
+          {
+            "node": "[저장] 생성 메시지 적재",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[상태변경] 메시지 생성 실패",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[저장] 생성 메시지 적재": {
+      "main": [
+        [
+          {
+            "node": "Call 'zF07_문자 발송 및 결과 처리_서브'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "테스트 ": {
+      "main": [
+        []
+      ]
+    },
+    "테스트": {
+      "main": [
+        [
+          {
+            "node": "테스트 ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'zF07_맞춤 메시지 생성_서브'": {
+      "main": [
+        [
+          {
+            "node": "[검증] 메시지 생성 성공 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "any",
+    "availableInMCP": false
+  }
+}

@@ -1,0 +1,417 @@
+{
+  "id": "DmykDmlhlWgPXYD5",
+  "name": "F01고객 및 동의 정보 저장",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "privacy-consent-check",
+              "leftValue": "={{ $json.privacy_consent }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5f2c5fdc-9d31-4a5c-ad4f-73d3a9ff1fb4",
+      "name": "개인정보 수집 동의 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_name"
+            },
+            {
+              "name": "phone"
+            },
+            {
+              "name": "age",
+              "type": "number"
+            },
+            {
+              "name": "current_device"
+            },
+            {
+              "name": "current_plan"
+            },
+            {
+              "name": "contract_end_date"
+            },
+            {
+              "name": "device_use_months",
+              "type": "number"
+            },
+            {
+              "name": "usage_pattern"
+            },
+            {
+              "name": "consultation_goal"
+            },
+            {
+              "name": "interests"
+            },
+            {
+              "name": "target_monthly_budget",
+              "type": "number"
+            },
+            {
+              "name": "privacy_consent",
+              "type": "boolean"
+            },
+            {
+              "name": "marketing_consent",
+              "type": "boolean"
+            },
+            {
+              "name": "recontact_consent",
+              "type": "boolean"
+            },
+            {
+              "name": "preferred_brand"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -736,
+        96
+      ],
+      "id": "71b265ec-e5cf-45ab-b599-6a965dae4128",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst consentToBoolean = (value) => {\n  if (\n    value === true ||\n    value === 'true' ||\n    value === '동의'\n  ) {\n    return true;\n  }\n\n  return false;\n};\n\nconst cleanPhone = (value) => {\n  if (!value) return null;\n  return String(value).replace(/[^0-9]/g, '');\n};\n\nconst toNumberOrNull = (value) => {\n  if (value === null || value === undefined || value === '') {\n    return null;\n  }\n\n  const number = Number(String(value).replace(/[^0-9]/g, ''));\n\n  return Number.isNaN(number) ? null : number;\n};\n\nreturn [{\n  json: {\n    customer_id: `CUST-${Date.now()}`,\n\n    customer_name: input.customer_name || null,\n\n    phone: cleanPhone(input.phone),\n\n    age: toNumberOrNull(input.age),\n\n    current_device: input.current_device || null,\n\n    current_plan: input.current_plan || null,\n\n    contract_end_date: input.contract_end_date || null,\n\n    device_use_months: toNumberOrNull(\n      input.device_use_months\n    ),\n\n    usage_pattern: input.usage_pattern || null,\n\n    consultation_goal: input.consultation_goal || null,\n\n    interests: input.interests || null,\n\n    preferred_brand: input.preferred_brand || null,\n\n    target_monthly_budget: toNumberOrNull(\n      input.target_monthly_budget\n    ),\n\n    privacy_consent: consentToBoolean(\n      input.privacy_consent\n    ),\n\n    marketing_consent: consentToBoolean(\n      input.marketing_consent\n    ),\n\n    recontact_consent: consentToBoolean(\n      input.recontact_consent\n    ),\n\n    consent_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "56211432-1910-46c2-884c-0586ebd18a27",
+      "name": "데이터 구조화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (\n    SELECT customer_id\n    FROM public.customers\n    WHERE phone = $1\n    LIMIT 1\n  ) AS customer_id,\n\n  EXISTS (\n    SELECT 1\n    FROM public.customers\n    WHERE phone = $1\n  ) AS customer_exists;",
+        "options": {
+          "queryReplacement": "={{ $json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -144,
+        80
+      ],
+      "id": "8cfae69f-4491-4cbf-8450-cb39684dceb4",
+      "name": "기존 고객 정보 조회",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7b0a7af2-689d-4c85-bcfd-e38253648eb4",
+              "leftValue": "={{ $json.customer_exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        64
+      ],
+      "id": "4dbbe44b-6b5c-4930-978e-b2a1bdbdbc44",
+      "name": "고객 정보 존재"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.customers\nSET\n    customer_name         = $2,\n    current_device        = $3,\n    current_plan          = $4,\n    usage_pattern         = $5,\n    consultation_goal     = $6,\n    age                   = COALESCE(NULLIF(NULLIF($7::text, ''), 'null')::int, age),\n    contract_end_date     = COALESCE(NULLIF(NULLIF($8::text, ''), 'null')::date, contract_end_date),\n    device_use_months     = COALESCE(NULLIF(NULLIF($9::text, ''), 'null')::int, device_use_months),\n    target_monthly_budget = COALESCE(NULLIF(NULLIF($10::text, ''), 'null')::int, target_monthly_budget),\n    interests             = COALESCE(NULLIF(NULLIF($11::text, ''), 'null'), interests),\n    preferred_brand       = COALESCE(NULLIF(NULLIF($12::text, ''), 'null'), preferred_brand)\nWHERE customer_id = $1\nRETURNING customer_id;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.customer_id,\n  $('데이터 구조화').item.json.customer_name,\n  $('데이터 구조화').item.json.current_device,\n  $('데이터 구조화').item.json.current_plan,\n  $('데이터 구조화').item.json.usage_pattern,\n  $('데이터 구조화').item.json.consultation_goal,\n  $('데이터 구조화').item.json.age,\n  $('데이터 구조화').item.json.contract_end_date,\n  $('데이터 구조화').item.json.device_use_months,\n  $('데이터 구조화').item.json.target_monthly_budget,\n  $('데이터 구조화').item.json.interests,\n  $('데이터 구조화').item.json.preferred_brand\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        336,
+        0
+      ],
+      "id": "42b73fe8-9a82-47ae-bb4d-098dcc3ec40d",
+      "name": "고객정보 업데이트",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.customers (\n  customer_id,\n  customer_name,\n  phone,\n  age,\n  current_device,\n  current_plan,\n  contract_end_date,\n  device_use_months,\n  usage_pattern,\n  consultation_goal,\n  interests,\n  preferred_brand,\n  target_monthly_budget\n)\nVALUES (\n  $1, $2, $3, $4, $5, $6, $7,\n  $8, $9, $10, $11, $12, $13\n)\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('데이터 구조화').item.json.customer_id,\n  $('데이터 구조화').item.json.customer_name,\n  $('데이터 구조화').item.json.phone,\n  $('데이터 구조화').item.json.age,\n  $('데이터 구조화').item.json.current_device,\n  $('데이터 구조화').item.json.current_plan,\n  $('데이터 구조화').item.json.contract_end_date,\n  $('데이터 구조화').item.json.device_use_months,\n  $('데이터 구조화').item.json.usage_pattern,\n  $('데이터 구조화').item.json.consultation_goal,\n  $('데이터 구조화').item.json.interests,\n  $('데이터 구조화').item.json.preferred_brand,\n  $('데이터 구조화').item.json.target_monthly_budget\n] }}"
+        }
+      },
+      "id": "889a60a7-b1b9-4147-84a9-970ed7c1dbde",
+      "name": "고객정보 저장",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        336,
+        224
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.customer_consents\n    (customer_id, privacy_consent, marketing_consent, recontact_consent, consent_at, withdrawn_at)\nVALUES\n    ($1, $2::boolean, $3::boolean, $4::boolean, $5::timestamptz, NULL)\nON CONFLICT (customer_id) DO UPDATE SET\n    privacy_consent   = EXCLUDED.privacy_consent,\n    marketing_consent = EXCLUDED.marketing_consent,\n    recontact_consent = EXCLUDED.recontact_consent,\n    consent_at        = EXCLUDED.consent_at,\n    withdrawn_at      = NULL\nRETURNING customer_id;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('기존 고객 정보 조회').item.json.customer_id || $('데이터 구조화').item.json.customer_id,\n  $('데이터 구조화').item.json.privacy_consent,\n  $('데이터 구조화').item.json.marketing_consent,\n  $('데이터 구조화').item.json.recontact_consent,\n  $('데이터 구조화').item.json.consent_at\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        528,
+        224
+      ],
+      "id": "3502739c-3eb6-4100-8b9a-eb655af652fd",
+      "name": "고객 동의 현황 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.customer_consents\n(\n  customer_id,\n  privacy_consent,\n  marketing_consent,\n  recontact_consent,\n  consent_at,\n  withdrawn_at\n)\nVALUES ($1, $2, $3, $4, $5, NULL)\n\nON CONFLICT (customer_id)\nDO UPDATE SET\n  privacy_consent = EXCLUDED.privacy_consent,\n  marketing_consent = EXCLUDED.marketing_consent,\n  recontact_consent = EXCLUDED.recontact_consent,\n  consent_at = EXCLUDED.consent_at,\n  withdrawn_at = NULL\n\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.customer_id,\n  $('데이터 구조화').item.json.privacy_consent,\n  $('데이터 구조화').item.json.marketing_consent,\n  $('데이터 구조화').item.json.recontact_consent,\n  $('데이터 구조화').item.json.consent_at\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        528,
+        0
+      ],
+      "id": "dbd2e6ce-66db-45f8-bae2-779fb2049e07",
+      "name": "고객동의 업데이트",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9cfbf528-cfcc-4144-bea8-26e1adc14b1e",
+              "name": "customer_id",
+              "value": "={{ $json.customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "12660526-c228-41a0-9c76-667d122311f6",
+              "name": "status",
+              "value": "saved",
+              "type": "string"
+            },
+            {
+              "id": "f2689aae-3dd0-400d-ade0-d751f3495b95",
+              "name": "=contract_end_date",
+              "value": "={{ $('데이터 구조화').item.json.contract_end_date }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        768,
+        80
+      ],
+      "id": "09696ff8-5766-4f28-98a6-620250dd4b28",
+      "name": "F01 결과 반환"
+    }
+  ],
+  "connections": {
+    "개인정보 수집 동의 확인": {
+      "main": [
+        [
+          {
+            "node": "기존 고객 정보 조회",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "데이터 구조화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "데이터 구조화": {
+      "main": [
+        [
+          {
+            "node": "개인정보 수집 동의 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "기존 고객 정보 조회": {
+      "main": [
+        [
+          {
+            "node": "고객 정보 존재",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "고객 정보 존재": {
+      "main": [
+        [
+          {
+            "node": "고객정보 업데이트",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "고객정보 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "고객정보 업데이트": {
+      "main": [
+        [
+          {
+            "node": "고객동의 업데이트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "고객정보 저장": {
+      "main": [
+        [
+          {
+            "node": "고객 동의 현황 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "고객 동의 현황 저장": {
+      "main": [
+        [
+          {
+            "node": "F01 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "고객동의 업데이트": {
+      "main": [
+        [
+          {
+            "node": "F01 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

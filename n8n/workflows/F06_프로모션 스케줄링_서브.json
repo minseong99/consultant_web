@@ -1,0 +1,452 @@
+{
+  "id": "ILuDzi3zxsuiZmgj",
+  "name": "F06_프로모션 스케줄링_서브",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    d.document_id,\n    d.store_id,\n    d.file_name AS promotion_name,\n    d.valid_from AS promotion_start_date,\n    d.valid_until AS promotion_end_date,\n\n    c.customer_id,\n    c.customer_name,\n\n    cc.privacy_consent,\n    cc.marketing_consent,\n    cc.recontact_consent,\n\n    'promotion'::varchar AS schedule_type\n\nFROM public.documents d\n\nCROSS JOIN public.customer_consents cc\n\nJOIN public.customers c\n    ON c.customer_id = cc.customer_id\n\nWHERE d.document_id = $1\n  AND d.document_type = 'promotion'\n  AND d.valid_from IS NOT NULL\n  AND d.valid_until IS NOT NULL\n\n  AND cc.privacy_consent = TRUE\n  AND cc.marketing_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL\n\n  AND (COALESCE($2, '') = '' OR c.customer_id = ANY(string_to_array($2, ',')));",
+        "options": {
+          "queryReplacement": "={{ [ $json.document_id, $json.customer_ids ?? '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -1344,
+        96
+      ],
+      "id": "c4d2f0e0-91b4-464e-acc9-d49ca0264576",
+      "name": "프로모션 정보 및 대상 고객 조회",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst TIME_ZONE = 'Asia/Seoul';\n\n// 한국 기준 오늘 YYYY-MM-DD\nfunction getKSTDateString(dateValue = new Date()) {\n  const date = new Date(dateValue);\n\n  if (Number.isNaN(date.getTime())) {\n    return null;\n  }\n\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return `${get('year')}-${get('month')}-${get('day')}`;\n}\n\n// YYYY-MM-DD에서 N일 더하기\nfunction addDays(dateString, days) {\n  const date = new Date(`${dateString}T00:00:00Z`);\n  date.setUTCDate(date.getUTCDate() + days);\n  return date.toISOString().slice(0, 10);\n}\n\nconst today = getKSTDateString();\n\nfor (const item of items) {\n  const {\n    document_id,\n    store_id,\n    promotion_name,\n    promotion_start_date,\n    promotion_end_date,\n\n    customer_id,\n    customer_name,\n\n    privacy_consent,\n    marketing_consent,\n    recontact_consent,\n\n    schedule_type,\n  } = item.json;\n\n  if (!promotion_start_date || !promotion_end_date) {\n    throw new Error(\n      `프로모션 시작일 또는 종료일이 없습니다. document_id=${document_id}`\n    );\n  }\n\n  // 종료일 2일 전\n  const endReminderDate = addDays(\n    promotion_end_date,\n    -2\n  );\n\n  // -----------------------------------\n  // 1. 프로모션 시작일 문자\n  // 시작일이 아직 지나지 않은 경우만 생성\n  // -----------------------------------\n  if (promotion_start_date >= today) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type,\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date: promotion_start_date,\n\n        schedule_subtype: 'promotion_start',\n\n        scheduled_contact_date: promotion_start_date,\n\n        contact_reason: '프로모션 시작 안내',\n      }\n    });\n  }\n\n  // -----------------------------------\n  // 2. 프로모션 종료 2일 전 문자\n  // 발송 예정일이 아직 지나지 않은 경우만 생성\n  // -----------------------------------\n  if (endReminderDate >= today) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type,\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date: promotion_end_date,\n\n        schedule_subtype: 'promotion_end_2d_before',\n\n        scheduled_contact_date: endReminderDate,\n\n        contact_reason: '프로모션 종료 2일 전 안내',\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        112
+      ],
+      "id": "e8085d6e-ab6f-46e6-8ac1-ba39ce840e47",
+      "name": "프로모션 문자 날짜 계산"
+    },
+    {
+      "parameters": {
+        "content": "## 프로모션 문자 발송 규칙\n\n프로모션 시작 날짜, \n프로모션 종료 2일전\n오전 10시\n",
+        "height": 128,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1136,
+        -32
+      ],
+      "typeVersion": 1,
+      "id": "2e4c4847-5173-4448-9a70-fb12e2d7e811",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $3::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $5::date,\n    (($6::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $7,\n    NULL,\n    $4,\n    $3\n)\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason,\n    schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    $8::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype,\n    document_id,\n    $9::text AS promotion_name,\n    $10::text AS store_id;",
+        "options": {
+          "queryReplacement": "={{ [   $json.customer_id,   $json.schedule_type,   $json.document_id,   $json.schedule_subtype,   $json.reference_date,   $json.scheduled_contact_date,   $json.contact_reason,   $json.customer_name,   $json.promotion_name,   $json.store_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -816,
+        160
+      ],
+      "id": "a0dc4ca7-abcc-4833-9634-0095092e194d",
+      "name": "프로모션 스케줄 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d71b1559-624b-48e0-bb47-6b4544f3a929",
+              "leftValue": "={{ $json.calendar_event_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -416,
+        160
+      ],
+      "id": "dbb550bf-2bcd-4566-b511-e995c042ff05",
+      "name": "프로모션 캘린더 존재 여부 확인"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst groups = {};\n\nfor (const item of items) {\n  const data = item.json;\n\n  const key = [\n    data.document_id,\n    data.schedule_subtype\n  ].join('|');\n\n  if (!groups[key]) {\n    groups[key] = {\n      document_id: data.document_id,\n      store_id: data.store_id,\n      promotion_name: data.promotion_name,\n\n      schedule_type: data.schedule_type,\n      schedule_subtype: data.schedule_subtype,\n\n      reference_date: data.reference_date,\n      scheduled_contact_at: data.scheduled_contact_at,\n      contact_reason: data.contact_reason,\n\n      target_customer_count: 0,\n\n      customer_names: [],\n      customer_ids: [],\n      schedule_ids: [],\n\n      // 기존 Calendar 이벤트가 있으면 여기에 보관\n      calendar_event_id: null\n    };\n  }\n\n  groups[key].target_customer_count += 1;\n\n  groups[key].customer_names.push(data.customer_name);\n  groups[key].customer_ids.push(data.customer_id);\n  groups[key].schedule_ids.push(data.schedule_id);\n\n  // 같은 그룹 중 하나라도 기존 Calendar ID가 있으면 사용\n  if (\n    !groups[key].calendar_event_id &&\n    data.calendar_event_id\n  ) {\n    groups[key].calendar_event_id =\n      data.calendar_event_id;\n  }\n}\n\nreturn Object.values(groups).map(group => {\n\n  const MAX_VISIBLE_CUSTOMERS = 5;\n\n  const visibleNames =\n    group.customer_names.slice(0, MAX_VISIBLE_CUSTOMERS);\n\n  let customerDisplay =\n    visibleNames\n      .map(name => `- ${name}`)\n      .join('\\n');\n\n  const remaining =\n    group.target_customer_count - visibleNames.length;\n\n  if (remaining > 0) {\n    customerDisplay += `\\n외 ${remaining}명`;\n  }\n\n  return {\n    json: {\n      ...group,\n      customer_display: customerDisplay\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        160
+      ],
+      "id": "67b1cc25-9511-49f4-ad0a-ba9cff619a5b",
+      "name": "프로모션 캘린더 표시용 집계"
+    },
+    {
+      "parameters": {
+        "content": "## 프로모션 캘린더 생성 예시 \n제목\n[프로모션] 갤럭시 프로모션 · 시작 안내 · 5명\n\n설명\n대상 고객:\n- 테스트고객\n- 김민수\n- 이지훈\n- 박서연\n- 최유진\n외95명\n\n발송 예정: 2026-10-01 10:00",
+        "height": 416,
+        "width": 288
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        288,
+        48
+      ],
+      "id": "f0686910-064f-48df-b802-f269f57ffee3",
+      "name": "Sticky Note11"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "<GOOGLE_CALENDAR_ID>",
+          "mode": "list",
+          "cachedResultName": "AI-Agent-Contact-Prototype"
+        },
+        "start": "={{ $json.scheduled_contact_at }}",
+        "end": "={{ DateTime.fromISO($json.scheduled_contact_at).plus({ minutes: 30 }).toISO() }}",
+        "additionalFields": {
+          "description": "={{ '대상 고객: ' + $json.target_customer_count + '명' + '\\n\\n' + $json.customer_display + '\\n\\n프로모션 기준일: ' + $json.reference_date + '\\n발송 예정: ' + $json.scheduled_contact_at + '\\n안내 사유: ' + $json.contact_reason + '\\n문서 ID: ' + $json.document_id }}",
+          "showMeAs": "transparent",
+          "summary": "={{ '[프로모션] ' + $json.promotion_name + ' · ' + $json.contact_reason + ' · ' + $json.target_customer_count + '명' }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        64
+      ],
+      "id": "d5ee9f36-f1d9-41b1-914f-aab8209e01da",
+      "name": "프로모션 캘린더 일정 생성",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "2jUJLmk1C48sBuUe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $1\nWHERE schedule_id IN (\n    SELECT jsonb_array_elements_text($2::jsonb)\n)\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    document_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "options": {
+          "queryReplacement": "={{ [   $json.id,   JSON.stringify(     $('프로모션 캘린더 표시용 집계').all()[$itemIndex].json.schedule_ids   ) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        64,
+        64
+      ],
+      "id": "083c31d8-db50-4ee5-bb77-8be5b91de3a2",
+      "name": "프로모션 캘린더 ID 일괄 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "<GOOGLE_CALENDAR_ID>",
+          "mode": "list",
+          "cachedResultName": "AI-Agent-Contact-Prototype"
+        },
+        "eventId": "={{ $json.calendar_event_id }}",
+        "updateFields": {
+          "description": "={{ '대상 고객: ' + $json.target_customer_count + '명' + '\\n\\n' + $json.customer_display + '\\n\\n프로모션 기준일: ' + $json.reference_date + '\\n발송 예정: ' + $json.scheduled_contact_at + '\\n안내 사유: ' + $json.contact_reason + '\\n문서 ID: ' + $json.document_id }}",
+          "end": "={{ DateTime.fromISO($json.scheduled_contact_at).plus({ minutes: 30 }).toISO() }}",
+          "showMeAs": "transparent",
+          "start": "={{ $json.scheduled_contact_at }}",
+          "summary": "={{ '[프로모션] ' + $json.promotion_name + ' · ' + $json.contact_reason + ' · ' + $json.target_customer_count + '명' }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        352
+      ],
+      "id": "29b3cb75-78cc-4a2a-88a4-5269d9c25cbc",
+      "name": "프로모션 캘린더 일정 수정",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "2jUJLmk1C48sBuUe",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "대상 프로모션에 신규고객이 추가되었을 경우 대비",
+        "height": 80,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        64
+      ],
+      "id": "a8155ed3-194c-438b-87c0-20af64d736a2",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $1\nWHERE schedule_id IN (\n    SELECT jsonb_array_elements_text($2::jsonb)\n)\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    document_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "options": {
+          "queryReplacement": "={{ [   $json.id,   JSON.stringify(     $('프로모션 캘린더 표시용 집계').all()[$itemIndex].json.schedule_ids   ) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        48,
+        352
+      ],
+      "id": "5da4354e-f3b5-48bb-99b4-f38fad5407f4",
+      "name": "프로모션 캘린더 ID 동기화",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "새로 해당 프로모션에 고객이 추가되면 calendar ID 동기화 시켜야함",
+        "height": 80
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        512
+      ],
+      "id": "89ed8556-e10b-4f5d-a10f-1aca31537d76",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "document_id"
+            },
+            {
+              "name": "customer_ids"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1616,
+        96
+      ],
+      "id": "f539449b-6a11-4706-a1ef-25b160a7f2cf",
+      "name": "F06 프로모션 스케줄링 트리거"
+    },
+    {
+      "parameters": {
+        "content": "## 프로모션 정보 및 동의 조회 노드\nprivacy_consent\nrecontact_consent\nmarketing_consent\nwithdrawn_at (동의 철회 여부 확인)\n",
+        "height": 192,
+        "width": 208
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1408,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "c0fcfd36-7770-4960-a945-8767bdb5088e",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "content": "## 과제\n프로모션 대상 고객이 빠졌을 때 기존 schedule 취소\n프로모션 자체가 취소됐을 때 Calendar/DB 일괄 취소\n이미 시작한 프로모션에 신규 고객이 들어왔을 때 어떤 메시지만 보낼지 세밀한 정책\n프로모션별 고객 타게팅 조건\n이미 발송된 스케줄 재수정 방지\n",
+        "height": 288,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        240
+      ],
+      "id": "74971588-dfff-40a2-bfd0-9233886d7351",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 논의점\n진행중인 프로모션이 있을 때, 신규 고객이 생긴 경우 어떻게 처리? \n\n\n",
+        "height": 128,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1616,
+        320
+      ],
+      "id": "77ba1692-326b-4606-bae4-e8658307ef27",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "프로모션 정보 및 대상 고객 조회": {
+      "main": [
+        [
+          {
+            "node": "프로모션 문자 날짜 계산",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 문자 날짜 계산": {
+      "main": [
+        [
+          {
+            "node": "프로모션 스케줄 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 스케줄 저장": {
+      "main": [
+        [
+          {
+            "node": "프로모션 캘린더 표시용 집계",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 캘린더 존재 여부 확인": {
+      "main": [
+        [
+          {
+            "node": "프로모션 캘린더 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "프로모션 캘린더 일정 수정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 캘린더 표시용 집계": {
+      "main": [
+        [
+          {
+            "node": "프로모션 캘린더 존재 여부 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 캘린더 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "프로모션 캘린더 ID 일괄 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 캘린더 일정 수정": {
+      "main": [
+        [
+          {
+            "node": "프로모션 캘린더 ID 동기화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F06 프로모션 스케줄링 트리거": {
+      "main": [
+        [
+          {
+            "node": "프로모션 정보 및 대상 고객 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "any",
+    "availableInMCP": false
+  }
+}

@@ -1,0 +1,341 @@
+{
+  "id": "j9aDZV3iDfCQaFsM",
+  "name": "F06일정 관리",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.schedule_type }}",
+                    "rightValue": "contract",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0cfe20cc-5c22-474d-8dcb-8dd842e3f6b5"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b78d9d25-5b19-4673-b3b4-245b8a1518aa",
+                    "leftValue": "={{ $json.schedule_type }}",
+                    "rightValue": "reconsultation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "887583b1-bcc9-4201-8cf3-bdf520ed3f52",
+                    "leftValue": "={{ $json.schedule_type }}",
+                    "rightValue": "promotion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        160
+      ],
+      "id": "6c2d4976-54a1-4f70-842e-ddff844e3d83",
+      "name": "약정/재상담/프로모션 스케줄 분기점"
+    },
+    {
+      "parameters": {
+        "content": "## 분기\ncontract 0\n\nreconsultation 1\n\npromotion 2\n\nfallback(예외 처리)",
+        "height": 272,
+        "width": 176,
+        "color": "#F8D8D8"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -544,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "482fb73f-2d90-4e40-898f-bf710094e92d",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "schedule_type"
+            },
+            {
+              "name": "customer_id"
+            },
+            {
+              "name": "consultation_id"
+            },
+            {
+              "name": "document_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -736,
+        192
+      ],
+      "id": "fcce4331-7c6f-415a-a377-1b3dea4a7833",
+      "name": "WF01, WF02, WF03트리거"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ToiPmysSaFmYC7p1",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ToiPmysSaFmYC7p1",
+          "cachedResultName": "zF06_약정 스케줄링_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $json.customer_id }}"
+          },
+          "matchingColumns": [
+            "customer_id"
+          ],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        -128
+      ],
+      "id": "b4e833b1-c283-4010-bccf-733cb88a9921",
+      "name": "Call 'F06_약정 스케줄링'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "xNdwg0CpkrO7UVTG",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/xNdwg0CpkrO7UVTG",
+          "cachedResultName": "zF06_재상담 스케줄링_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "consultation_id": "={{$json.consultation_id}}"
+          },
+          "matchingColumns": [
+            "consultation_id"
+          ],
+          "schema": [
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        80
+      ],
+      "id": "b1e3dcab-c9be-45d6-840a-ff45f34cae4c",
+      "name": "Call 'F06_재상담 스케줄링'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ILuDzi3zxsuiZmgj",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ILuDzi3zxsuiZmgj",
+          "cachedResultName": "F06_프로모션 스케줄링_서브"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "document_id": "={{$json.document_id}}",
+            "customer_ids": "={{ $json.customer_id }}"
+          },
+          "matchingColumns": [
+            "document_id"
+          ],
+          "schema": [
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_ids",
+              "displayName": "customer_ids",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        304
+      ],
+      "id": "c4e7b408-68ad-4442-83ce-8737ebedbf32",
+      "name": "Call 'F06_프로모션 스케줄링'"
+    },
+    {
+      "parameters": {
+        "content": "schedule_type(필수)\n\ncustomer_id(약정)\nconsultation_id(재상담)\ndocument_id(프로모션)\n\n\n\n",
+        "height": 112,
+        "width": 176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -800,
+        16
+      ],
+      "typeVersion": 1,
+      "id": "67b1e658-4646-4c13-8006-0812499282db",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "약정/재상담/프로모션 스케줄 분기점": {
+      "main": [
+        [
+          {
+            "node": "Call 'F06_약정 스케줄링'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'F06_재상담 스케줄링'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'F06_프로모션 스케줄링'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF01, WF02, WF03트리거": {
+      "main": [
+        [
+          {
+            "node": "약정/재상담/프로모션 스케줄 분기점",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "any",
+    "availableInMCP": false
+  }
+}

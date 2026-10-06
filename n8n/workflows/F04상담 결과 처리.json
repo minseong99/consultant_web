@@ -1,0 +1,440 @@
+{
+  "id": "1cmpN1S79uDoS2xw",
+  "name": "F04상담 결과 처리",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_id"
+            },
+            {
+              "name": "consultation_id"
+            },
+            {
+              "name": "staff_id"
+            },
+            {
+              "name": "analysis_id"
+            },
+            {
+              "name": "consultation_result",
+              "type": "object"
+            },
+            {
+              "name": "recording_url"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -880,
+        160
+      ],
+      "id": "b3d0db96-afcf-4c52-85e1-a7dd5dda957b",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst result = input.consultation_result ?? {};\n\nreturn [\n  {\n    json: {\n      customer_id: input.customer_id ?? null,\n      consultation_id: input.consultation_id ?? null,\n      staff_id: input.staff_id ?? null,\n      analysis_id: input.analysis_id ?? null,\n      recording_url: input.recording_url ?? null,\n\n      consultation_result: {\n        notes: result.notes ?? '',\n        customer_response: result.customer_response ?? null,\n\n        selected_product: result.selected_product ?? null,\n        selected_plan: result.selected_plan ?? null,\n\n        follow_up_requested:\n          typeof result.follow_up_requested === 'boolean'\n            ? result.follow_up_requested\n            : null,\n\n        preferred_follow_up_date:\n          result.preferred_follow_up_date ?? null\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        160
+      ],
+      "id": "b3ee9bce-71ec-4a28-a8d5-f89d2bb75284",
+      "name": "F05 입력 데이터 정리"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"customer_id\": {\n      \"type\": \"string\"\n    },\n    \"consultation_id\": {\n      \"type\": \"string\"\n    },\n    \"analysis_id\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"consultation_summary\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"result_status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"completed\",\n        \"pending\",\n        \"rejected\",\n        \"follow_up\"\n      ]\n    },\n    \"customer_response\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"interested_product\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"interested_plan\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"special_notes\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"follow_up_required\": {\n      \"type\": \"boolean\"\n    },\n    \"follow_up_reason\": {\n      \"type\": [\"string\", \"null\"]\n    },\n    \"schedule_type\": {\n      \"type\": [\"string\", \"null\"],\n      \"enum\": [\n        \"reconsultation\",\n        \"contract_expiry\",\n        \"other\",\n        null\n      ]\n    },\n    \"preferred_follow_up_date\": {\n      \"type\": [\"string\", \"null\"]\n    }\n  },\n  \"required\": [\n    \"customer_id\",\n    \"consultation_id\",\n    \"analysis_id\",\n    \"consultation_summary\",\n    \"result_status\",\n    \"customer_response\",\n    \"interested_product\",\n    \"interested_plan\",\n    \"special_notes\",\n    \"follow_up_required\",\n    \"follow_up_reason\",\n    \"schedule_type\",\n    \"preferred_follow_up_date\"\n  ],\n  \"additionalProperties\": false\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        352
+      ],
+      "id": "fffb8d0e-4f04-43a3-b176-b895d159cb5f",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        352
+      ],
+      "id": "972df1d8-dd35-4939-82b1-5c33fef8ebc6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "consultations",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "consultation_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.output.consultation_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.output.consultation_summary }}"
+            },
+            {
+              "fieldId": "result_status",
+              "fieldValue": "={{ $json.output.result_status }}"
+            },
+            {
+              "fieldId": "customer_response",
+              "fieldValue": "={{ $json.output.customer_response }}"
+            },
+            {
+              "fieldId": "interested_product",
+              "fieldValue": "={{ $json.output.interested_product }}"
+            },
+            {
+              "fieldId": "interested_plan",
+              "fieldValue": "={{ $json.output.interested_plan ?? null }}"
+            },
+            {
+              "fieldId": "special_notes",
+              "fieldValue": "={{ $json.output.special_notes ?? null }}"
+            },
+            {
+              "fieldId": "follow_up_required",
+              "fieldValue": "={{ $json.output.follow_up_required }}"
+            },
+            {
+              "fieldId": "follow_up_reason",
+              "fieldValue": "={{ $json.output.follow_up_reason ?? null }}"
+            },
+            {
+              "fieldId": "follow_up_type",
+              "fieldValue": "={{ $json.output.schedule_type ?? null }}"
+            },
+            {
+              "fieldId": "preferred_follow_up_date",
+              "fieldValue": "={{ $json.output.preferred_follow_up_date ?? null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        496,
+        176
+      ],
+      "id": "9648cbcf-436b-46a6-ad55-0325f8534249",
+      "name": "F05 상담 결과 저장",
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $input.first().json;\nconst aiResult = $('F05 상담 결과 구조화').first().json.output;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-05',\n\n      customer_id: saved.customer_id ?? aiResult.customer_id ?? null,\n      consultation_id: saved.consultation_id ?? aiResult.consultation_id ?? null,\n      analysis_id: aiResult.analysis_id ?? null,\n\n      summary: saved.summary ?? aiResult.consultation_summary ?? null,\n\n      result_status: saved.result_status ?? aiResult.result_status ?? null,\n\n      follow_up_required:\n        saved.follow_up_required ?? aiResult.follow_up_required ?? false,\n\n      follow_up_reason:\n        saved.follow_up_reason ?? aiResult.follow_up_reason ?? null,\n\n      schedule_type:\n        saved.follow_up_type ?? aiResult.schedule_type ?? null,\n\n      preferred_follow_up_date:\n        saved.preferred_follow_up_date ??\n        aiResult.preferred_follow_up_date ??\n        null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        176
+      ],
+      "id": "bda31b67-2979-4a21-a78c-03201f615c52",
+      "name": "F05 결과 반환"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=다음 상담 종료 정보를 바탕으로 상담 결과와 후속 연락 필요 여부를 구조화하세요.\n\n[고객 ID]\n{{ $json.customer_id }}\n\n[상담 ID]\n{{ $json.consultation_id }}\n\n[분석 ID]\n{{ $json.analysis_id }}\n\n[직원 ID]\n{{ $json.staff_id }}\n\n[상담 내용]\n{{ $json.consultation_text }}\n\n[상담사가 입력한 결과 정보]\n{{ JSON.stringify($json.consultation_result, null, 2) }}\n\n분석 규칙:\n\n1. 상담 내용과 상담사가 입력한 결과 정보에 실제로 존재하는 내용만 근거로 사용합니다.\n2. 고객의 구매 여부, 보류 여부, 거절 여부, 재상담 요청 여부를 구분합니다.\n3. 상담 내용을 상담사가 다시 확인하기 쉬운 형태로 간결하게 요약합니다.\n4. 고객이 관심을 보인 상품과 요금제가 입력에 존재하는 경우에만 기록합니다.\n5. 입력에 없는 상품명, 요금제명, 가격, 혜택은 추측하지 않습니다.\n6. 고객이 명시적으로 추후 연락 또는 재상담을 요청한 경우 follow_up_required는 true로 판단합니다.\n7. 구매를 보류했거나 추가 검토가 필요하며 추후 연락이 합리적으로 필요한 경우에도 follow_up_required를 true로 판단할 수 있습니다.\n8. 상담이 최종 완료되었고 추가 연락이 필요하지 않은 경우 follow_up_required는 false입니다.\n9. follow_up_required가 false이면 follow_up_reason과 schedule_type은 null로 반환합니다.\n10. follow_up_required가 true인 경우 후속 목적을 schedule_type으로 구분합니다.\n11. 일반적인 상담 후 재접촉은 reconsultation을 사용합니다.\n12. 약정 만료 관련 안내가 명확한 경우 contract_expiry를 사용할 수 있습니다.\n13. 그 외 후속 연락은 other를 사용합니다.\n14. 고객이 특정 후속 연락 날짜를 요청했다면 preferred_follow_up_date에 그대로 유지합니다.\n15. 실제 연락 날짜와 시간 계산은 F07에서 처리하므로 임의로 새로운 날짜를 생성하지 않습니다.\n\n출력은 연결된 Structured Output Parser의 스키마를 정확히 따르세요.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "당신은 이동통신 매장의 상담 결과를 정리하고 후속 조치 필요 여부를 판단하는 AI Agent입니다.\n\n상담 종료 후 입력된 상담 내용, 직원 기록 및 고객 반응을 바탕으로 상담 결과를 구조화합니다.\n\n반드시 지켜야 할 원칙:\n- 제공된 상담 내용과 상담 결과 입력 정보만 사용합니다.\n- 존재하지 않는 고객 의사나 상품 정보를 추측하지 않습니다.\n- 단순한 가능성을 고객의 확정 의사처럼 표현하지 않습니다.\n- 고객이 명시적으로 재연락을 요청한 경우 이를 우선 반영합니다.\n- follow_up_required는 후속 연락이 실제로 필요한지를 나타냅니다.\n- 고객의 일반적인 성향이나 구매 가능성을 새로 분석하지 않습니다. 고객 분석은 F02의 역할입니다.\n- F05에서는 연락 날짜를 새로 계산하지 않습니다. 일정 계산 및 등록은 F07의 책임입니다.\n- 고객이 직접 특정 후속 연락 날짜를 요청한 경우에만 preferred_follow_up_date에 해당 값을 유지합니다.\n- 후속 연락이 필요하지 않다면 follow_up_reason과 schedule_type은 null이어야 합니다.\n- 입력에 없는 값은 nullable 필드에서 null로 반환합니다.\n- 출력은 Structured Output Parser가 요구하는 구조를 정확하게 따릅니다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        128,
+        176
+      ],
+      "id": "ec5f9d45-4bf2-456c-b90f-eb8c34de939e",
+      "name": "F05 상담 결과 구조화"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a1b167c7-1232-427c-9a6d-1ca763e670ad",
+              "leftValue": "={{ $json.recording_url ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -432,
+        160
+      ],
+      "id": "0ea05fd6-58db-43c4-b90d-580d3bfcb398",
+      "name": "녹음 파일 존재 여부"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.recording_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -256,
+        -32
+      ],
+      "id": "eb3df82b-4e09-4aa4-b3c1-7b3633e1b1ec",
+      "name": "Download Recording"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {
+          "language": "ko"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -80,
+        -32
+      ],
+      "id": "79aaaf7a-8ec8-46a3-bff9-f3c678fb1531",
+      "name": "Transcribe Recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('F05 입력 데이터 정리').first().json;\n\nconst transcript =\n  $json.text ??\n  $json.transcript ??\n  $json.data?.text ??\n  null;\n\nreturn [\n  {\n    json: {\n      ...base,\n      transcription_text: transcript\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -32
+      ],
+      "id": "67462cce-86d8-4838-bff0-36b92dcabcf2",
+      "name": "녹음 전사 결과 정리"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst consultationText =\n  input.transcription_text ??\n  input.consultation_result?.notes ??\n  null;\n\nreturn [\n  {\n    json: {\n      ...input,\n      consultation_text: consultationText\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        176
+      ],
+      "id": "793e3c89-21e1-43b5-9d50-efd696768347",
+      "name": "상담 텍스트 설정"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "F05 입력 데이터 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 입력 데이터 정리": {
+      "main": [
+        [
+          {
+            "node": "녹음 파일 존재 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "F05 상담 결과 구조화",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "F05 상담 결과 구조화",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 상담 결과 저장": {
+      "main": [
+        [
+          {
+            "node": "F05 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 상담 결과 구조화": {
+      "main": [
+        [
+          {
+            "node": "F05 상담 결과 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "녹음 파일 존재 여부": {
+      "main": [
+        [
+          {
+            "node": "Download Recording",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "상담 텍스트 설정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Recording": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Recording": {
+      "main": [
+        [
+          {
+            "node": "녹음 전사 결과 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "녹음 전사 결과 정리": {
+      "main": [
+        [
+          {
+            "node": "상담 텍스트 설정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상담 텍스트 설정": {
+      "main": [
+        [
+          {
+            "node": "F05 상담 결과 구조화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
