@@ -56,7 +56,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 ring-1 ring-slate-200">
-        <p className="text-[14px] font-semibold text-brand-600">상담 지원 AI Agent</p>
+        <p className="text-[14px] font-semibold text-brand-600">KT 매장 상담 지원 AI Agent</p>
         <h1 className="mt-1 text-[24px] font-bold">직원 로그인</h1>
 
         {staff === null ? (

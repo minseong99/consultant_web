@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button, ErrorNote, inputClass } from "@/components/ui";
-import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, type ConsentKey, type FieldDef, type FieldKey } from "@/lib/fields";
+import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey } from "@/lib/fields";
 import { formatDate, formatPhone, formatWon } from "@/lib/format";
 
 type Values = Record<FieldKey, string>;
@@ -32,16 +32,18 @@ export default function JoinPage() {
   function validate() {
     const next: Partial<Record<FieldKey, string>> = {};
     for (const field of REQUIRED) {
-      if (!values[field.key].trim()) next[field.key] = `${field.label}을(를) 입력해 주세요.`;
+      if (!values[field.key].trim()) {
+        next[field.key] = field.type === "select" || field.type === "multi" ? `${field.label}을(를) 선택해 주세요.` : `${field.label}을(를) 입력해 주세요.`;
+      }
     }
-    if (values.phone.trim() && !isValidPhone(values.phone)) next.phone = "휴대폰 번호 형식을 확인해 주세요. (예: 010-1234-5678)";
+    if (values.phone.trim() && !isValidPhone(values.phone)) next.phone = "휴대폰 번호를 확인해 주세요. (예: 01012345678)";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
 
   async function submit() {
     if (!validate()) {
-      document.querySelector("[aria-invalid='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.querySelector("[aria-invalid='true'], [data-invalid='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setSubmitting(true);
@@ -65,7 +67,7 @@ export default function JoinPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white px-5 pb-10 pt-8">
       <header className="mb-7">
-        <p className="text-[14px] font-semibold text-brand-600">상담 정보 입력</p>
+        <p className="text-[14px] font-semibold text-brand-600">KT 매장 · 상담 정보 입력</p>
         <div className="mt-3 flex gap-1.5" aria-label={`3단계 중 ${step}단계`}>
           {[1, 2, 3].map((n) => (
             <span key={n} className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-brand-600" : "bg-slate-200"}`} />
@@ -179,7 +181,150 @@ export default function JoinPage() {
   );
 }
 
-function FieldInput({ field, value, error, onChange }: { field: FieldDef; value: string; error?: string; onChange: (value: string) => void }) {
+type FieldProps = { field: FieldDef; value: string; error?: string; onChange: (value: string) => void };
+
+function FieldInput(props: FieldProps) {
+  if (props.field.type === "select") return <SelectField {...props} />;
+  if (props.field.type === "multi") return <MultiField {...props} />;
+  return <TextField {...props} />;
+}
+
+function FieldFrame({ field, error, children, labelFor }: { field: FieldDef; error?: string; children: ReactNode; labelFor?: string }) {
+  const id = `field-${field.key}`;
+  const Label = labelFor ? "label" : "p";
+  return (
+    <div>
+      <Label {...(labelFor ? { htmlFor: labelFor } : { id: `${id}-label` })} className="mb-1.5 block text-[15px] font-semibold">
+        {field.label}
+        {field.required && <span className="ml-0.5 text-rose-500">*</span>}
+      </Label>
+      {children}
+      {field.hint && !error && <p className="mt-1 text-[13px] text-slate-500">{field.hint}</p>}
+      {error && (
+        <p id={`${id}-error`} className="mt-1 text-[13px] text-rose-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// 하나를 고르는 항목. "기타"를 고르면 직접 입력 칸이 열린다. 저장되는 값은 고른 선택지나 입력한 글자다.
+function SelectField({ field, value, error, onChange }: FieldProps) {
+  const id = `field-${field.key}`;
+  const options = field.options ?? [];
+  const [other, setOther] = useState(value !== "" && !options.includes(value));
+  const fieldClass = `${inputClass} !py-3 !text-[16px] ${error ? "!border-rose-400" : ""}`;
+  return (
+    <FieldFrame field={field} error={error} labelFor={id}>
+      <select
+        id={id}
+        className={`${fieldClass} ${!other && value === "" ? "text-slate-400" : ""}`}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        value={other ? OTHER_OPTION : value}
+        onChange={(e) => {
+          const isOther = e.target.value === OTHER_OPTION;
+          setOther(isOther);
+          onChange(isOther ? "" : e.target.value);
+        }}
+      >
+        <option value="" disabled>
+          {field.placeholder ?? "선택해 주세요"}
+        </option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
+      </select>
+      {other && (
+        <input
+          className={`${fieldClass} mt-2`}
+          aria-label={`${field.label} 직접 입력`}
+          placeholder={field.otherPlaceholder}
+          value={value}
+          autoFocus
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </FieldFrame>
+  );
+}
+
+// 여러 개를 고르는 항목. 저장되는 값은 고른 선택지와 직접 입력한 내용을 ", " 로 이은 글자다.
+function MultiField({ field, value, error, onChange }: FieldProps) {
+  const id = `field-${field.key}`;
+  const options = field.options ?? [];
+  const initial = value ? value.split(", ") : [];
+  const [selected, setSelected] = useState<string[]>(initial.filter((item) => options.includes(item)));
+  const [otherOpen, setOtherOpen] = useState(initial.some((item) => !options.includes(item)));
+  const [otherText, setOtherText] = useState(initial.filter((item) => !options.includes(item)).join(", "));
+
+  function emit(nextSelected: string[], nextOpen: boolean, nextText: string) {
+    // 선택지 순서대로 정리해, 고른 순서와 무관하게 같은 값이 저장되게 한다.
+    const ordered = options.filter((option) => nextSelected.includes(option));
+    const extra = nextOpen ? nextText.trim() : "";
+    onChange([...ordered, ...(extra ? [extra] : [])].join(", "));
+  }
+
+  const chip = (active: boolean) =>
+    `rounded-full px-3.5 py-2 text-[15px] font-medium ring-1 ring-inset transition-colors ${
+      active ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300"
+    }`;
+
+  return (
+    <FieldFrame field={field} error={error}>
+      <div role="group" aria-labelledby={`${id}-label`} aria-describedby={error ? `${id}-error` : undefined} data-invalid={Boolean(error)} className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = selected.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={active}
+              className={chip(active)}
+              onClick={() => {
+                const next = active ? selected.filter((item) => item !== option) : [...selected, option];
+                setSelected(next);
+                emit(next, otherOpen, otherText);
+              }}
+            >
+              {option}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          aria-pressed={otherOpen}
+          className={chip(otherOpen)}
+          onClick={() => {
+            setOtherOpen(!otherOpen);
+            emit(selected, !otherOpen, otherText);
+          }}
+        >
+          {OTHER_OPTION}
+        </button>
+      </div>
+      {otherOpen && (
+        <input
+          className={`${inputClass} mt-2 !py-3 !text-[16px]`}
+          aria-label={`${field.label} 직접 입력`}
+          placeholder={field.otherPlaceholder}
+          value={otherText}
+          autoFocus
+          onChange={(e) => {
+            setOtherText(e.target.value);
+            emit(selected, true, e.target.value);
+          }}
+        />
+      )}
+    </FieldFrame>
+  );
+}
+
+function TextField({ field, value, error, onChange }: FieldProps) {
   const id = `field-${field.key}`;
   const common = {
     id,
@@ -189,32 +334,24 @@ function FieldInput({ field, value, error, onChange }: { field: FieldDef; value:
     "aria-describedby": error ? `${id}-error` : undefined,
     className: `${inputClass} !py-3 !text-[16px] ${error ? "!border-rose-400" : ""}`,
   };
+  // 휴대폰 번호는 숫자만 받는다. 붙여 넣은 값에 '-' 나 공백이 있어도 지운다.
+  const digitsOnly = field.type === "number" || field.type === "tel";
   return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-[15px] font-semibold">
-        {field.label}
-        {field.required && <span className="ml-0.5 text-rose-500">*</span>}
-      </label>
+    <FieldFrame field={field} error={error} labelFor={id}>
       {field.type === "textarea" ? (
         <textarea {...common} rows={2} onChange={(e) => onChange(e.target.value)} />
       ) : (
         <div className="flex items-center gap-2">
           <input
             {...common}
-            type={field.type === "number" ? "text" : field.type}
-            inputMode={field.type === "number" ? "numeric" : field.type === "tel" ? "tel" : undefined}
-            autoComplete={field.key === "customer_name" ? "name" : field.key === "phone" ? "tel" : "off"}
-            onChange={(e) => onChange(field.type === "number" ? e.target.value.replace(/[^0-9]/g, "") : e.target.value)}
+            type={field.type === "number" || field.type === "tel" ? "text" : field.type === "date" ? "date" : "text"}
+            inputMode={digitsOnly ? "numeric" : undefined}
+            autoComplete={field.key === "customer_name" ? "name" : field.key === "phone" ? "tel-national" : "off"}
+            onChange={(e) => onChange(digitsOnly ? e.target.value.replace(/[^0-9]/g, "").slice(0, field.type === "tel" ? 11 : undefined) : e.target.value)}
           />
           {field.suffix && <span className="shrink-0 text-[15px] text-slate-500">{field.suffix}</span>}
         </div>
       )}
-      {field.hint && !error && <p className="mt-1 text-[13px] text-slate-500">{field.hint}</p>}
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-[13px] text-rose-600">
-          {error}
-        </p>
-      )}
-    </div>
+    </FieldFrame>
   );
 }

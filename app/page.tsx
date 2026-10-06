@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-16">
       <header>
-        <p className="text-[15px] font-semibold text-brand-600">통신 매장 상담 지원 AI Agent</p>
+        <p className="text-[15px] font-semibold text-brand-600">KT 매장 상담 지원 AI Agent</p>
         <h1 className="mt-2 text-[34px] font-bold leading-tight">시연 화면 선택</h1>
         <p className="mt-3 text-[16px] text-slate-600">
           고객이 정보를 입력하면 AI가 분석·추천하고, 상담 결과에 따라 후속 연락 일정과 문자를 자동으로 준비합니다.
