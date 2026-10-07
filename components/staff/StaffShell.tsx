@@ -168,7 +168,7 @@ function Shell({ staffId, storeName, children }: Props) {
         onKeyDown={(event) => {
           if (event.key === "Escape" && !pinned) setPeek(false);
         }}
-        className={`fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-stone-200 bg-white px-2 py-4 transition-[translate,box-shadow] duration-200 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-stone-100 bg-white px-2 py-4 transition-[translate,box-shadow] duration-200 ${
           visible ? "translate-x-0" : "-translate-x-full"
         } ${visible && !pinned ? "shadow-xl" : ""}`}
       >
@@ -227,7 +227,7 @@ function Shell({ staffId, storeName, children }: Props) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-12 items-center gap-3 border-b border-stone-200 bg-white/95 px-8 backdrop-blur">
+        <header className="sticky top-0 z-20 flex h-12 items-center gap-3 bg-canvas/85 px-8 backdrop-blur">
           {!pinned && (
             <button
               type="button"

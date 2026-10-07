@@ -108,19 +108,20 @@ export default function JoinPage() {
         </div>
         <div className="mt-3 flex gap-1.5" aria-label={step === 3 ? "접수 완료" : `2단계 중 ${step}단계`}>
           {[1, 2].map((n) => (
-            <span key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-ink" : "bg-stone-200"}`} />
+            <span key={n} className={`h-1 flex-1 rounded-full transition-colors duration-500 ${n <= step ? "bg-brand-600" : "bg-stone-200"}`} />
           ))}
         </div>
       </header>
 
       {step === 1 && (
-        <section className="flex flex-1 flex-col">
-          <h1 className="text-[26px] font-bold leading-snug">
+        <section className="flex flex-1 animate-rise-in flex-col">
+          <h1 className="text-[28px] font-bold leading-snug">
             상담 전에
             <br />
             동의가 필요해요
           </h1>
-          <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-xl bg-stone-50 px-4 py-4">
+          <p className="mt-2 text-[15px] text-stone-600">상담에 필요한 정보만 받을게요.</p>
+          <label className="mt-7 flex cursor-pointer items-center gap-3 rounded-2xl bg-stone-50 px-4 py-4">
             <input
               type="checkbox"
               className="size-6 accent-stone-900"
@@ -153,7 +154,7 @@ export default function JoinPage() {
             ))}
           </ul>
           <div className="mt-auto pt-8">
-            <Button size="lg" className="w-full" disabled={!consents.privacy_consent} onClick={() => setStep(2)}>
+            <Button size="lg" className="w-full !rounded-full" disabled={!consents.privacy_consent} onClick={() => setStep(2)}>
               다음
             </Button>
             {/* 동의 여부에 따라 버튼이 움직이지 않도록 안내 자리는 늘 남긴다. */}
@@ -165,8 +166,13 @@ export default function JoinPage() {
       )}
 
       {step === 2 && (
-        <section className="flex flex-1 flex-col">
-          <h1 className="text-[26px] font-bold leading-snug">상담에 필요한 정보를 알려 주세요</h1>
+        <section className="flex flex-1 animate-rise-in flex-col">
+          <h1 className="text-[28px] font-bold leading-snug">
+            어떤 상담이 필요하신지
+            <br />
+            알려 주세요
+          </h1>
+          <p className="mt-2 text-[15px] text-stone-600">아는 만큼만 적어 주셔도 괜찮아요.</p>
           <div className="mt-6 flex flex-col gap-8">
             {GROUPS.map((group) => {
               const fields = (
@@ -177,7 +183,7 @@ export default function JoinPage() {
                 </div>
               );
               return (
-                <fieldset key={group.title} className="border-t border-stone-200 pt-5">
+                <fieldset key={group.title} className="pt-2">
                   <legend className="float-left mb-4 w-full text-[13px] font-bold text-stone-500">{group.title}</legend>
                   <div className="clear-both">
                     {group.collapsed ? (
@@ -192,7 +198,7 @@ export default function JoinPage() {
           </div>
           <div className="mt-8 flex flex-col gap-3">
             {submitError && <ErrorNote>{submitError}</ErrorNote>}
-            <Button size="lg" className="w-full" loading={submitting} onClick={submit}>
+            <Button size="lg" className="w-full !rounded-full" loading={submitting} onClick={submit}>
               {submitting ? "접수하는 중" : "제출하기"}
             </Button>
             <Button variant="ghost" className="w-full" disabled={submitting} onClick={() => setStep(1)}>
@@ -203,11 +209,15 @@ export default function JoinPage() {
       )}
 
       {step === 3 && (
-        <section className="flex flex-1 flex-col">
-          <div className="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-[28px] font-bold text-success">✓</div>
-          <h1 className="mt-5 text-[26px] font-bold leading-snug">접수가 완료됐어요</h1>
-          <p className="mt-2 text-[16px] text-stone-600">잠시 후 직원이 입력하신 내용을 바탕으로 상담을 도와드립니다.</p>
-          <dl className="mt-7 divide-y divide-stone-100 rounded-xl ring-1 ring-stone-200">
+        <section className="flex flex-1 animate-rise-in flex-col">
+          <div className="flex size-16 animate-pop-in items-center justify-center rounded-full bg-emerald-50 text-[30px] font-bold text-success">✓</div>
+          <h1 className="mt-5 text-[28px] font-bold leading-snug">
+            {values.customer_name.trim()}님,
+            <br />
+            접수가 완료됐어요
+          </h1>
+          <p className="mt-2 text-[16px] leading-relaxed text-stone-600">잠시만 기다려 주세요. 직원이 적어 주신 내용을 살펴보고 곧 상담을 도와드릴게요.</p>
+          <dl className="mt-7 divide-y divide-white rounded-2xl bg-stone-50">
             {CUSTOMER_FIELDS.filter((f) => values[f.key].trim()).map((field) => (
               <div key={field.key} className="flex gap-4 px-4 py-3 text-[15px]">
                 <dt className="w-28 shrink-0 text-stone-500">{field.label}</dt>
@@ -226,7 +236,7 @@ export default function JoinPage() {
           <div className="mt-auto pt-8">
             <Link
               href="/"
-              className="flex h-13 w-full items-center justify-center rounded-lg bg-white text-[16px] font-semibold text-ink ring-1 ring-inset ring-stone-300 transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              className="flex h-13 w-full items-center justify-center rounded-full bg-white text-[16px] font-semibold text-ink ring-1 ring-inset ring-stone-200 transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               처음 화면으로
             </Link>
@@ -443,7 +453,7 @@ function PickerField({ field, value, error, onChange }: FieldProps) {
           {shown.map((group) => (
             <section key={group.label} className="mb-4">
               <h3 className="mb-1 text-[13px] font-semibold text-stone-500">{group.label}</h3>
-              <ul className="divide-y divide-stone-100 rounded-xl ring-1 ring-stone-200">
+              <ul className="divide-y divide-white overflow-hidden rounded-2xl bg-stone-50">
                 {group.options.map((option) => (
                   <li key={option}>
                     <button

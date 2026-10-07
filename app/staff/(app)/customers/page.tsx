@@ -70,7 +70,7 @@ export default function CustomersPage() {
                 setPage(1);
               }}
               className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
-                selected ? "bg-ink text-white" : "bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50"
+                selected ? "bg-ink text-white" : "bg-white text-stone-700 ring-1 ring-inset ring-stone-200 hover:bg-stone-50"
               }`}
             >
               {f.label}
@@ -88,7 +88,7 @@ export default function CustomersPage() {
         <EmptyState>{keyword ? "검색 결과가 없습니다." : filter === "all" ? "아직 등록된 고객이 없습니다." : "해당하는 고객이 없습니다."}</EmptyState>
       ) : (
         <>
-        <ul className="divide-y divide-stone-200 rounded-xl bg-white ring-1 ring-stone-200">
+        <ul className="surface divide-y divide-stone-100 overflow-hidden">
           {customers.map((customer) => (
             <li key={customer.customer_id} className={fresh.has(customer.customer_id) ? "animate-flash" : ""}>
               <Link

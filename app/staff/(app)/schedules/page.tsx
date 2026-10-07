@@ -144,7 +144,7 @@ function CalendarView({
 
   return (
     <div className="mt-5 flex flex-col gap-5">
-      <section className="rounded-xl bg-white p-5 ring-1 ring-stone-200">
+      <section className="surface p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[17px] font-bold tabular-nums" aria-live="polite">
             {year}년 {monthNumber}월
@@ -162,9 +162,9 @@ function CalendarView({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-7 border-l border-t border-stone-200">
+        <div className="mt-4 grid grid-cols-7 overflow-hidden rounded-xl border-l border-t border-stone-100">
           {WEEKDAYS.map((name, index) => (
-            <div key={name} className={`border-b border-r border-stone-200 bg-stone-50 px-2 py-1.5 text-[12px] font-semibold ${index === 0 ? "text-danger" : "text-stone-500"}`}>
+            <div key={name} className={`border-b border-r border-stone-100 px-2 py-1.5 text-[12px] font-semibold ${index === 0 ? "text-danger" : "text-stone-500"}`}>
               {name}
             </div>
           ))}
@@ -192,7 +192,7 @@ function CalendarView({
                   // 그날의 일정은 달력 아래에 나온다. 일정이 있으면 보이는 곳으로 옮긴다.
                   if (items.length > 0) window.setTimeout(() => detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
                 }}
-                className={`relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-stone-200 p-2 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
+                className={`relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-stone-100 p-2 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
                   isSelected ? "bg-stone-100 ring-2 ring-inset ring-ink" : "hover:bg-stone-50"
                 } ${hasFresh ? "animate-flash" : ""} ${inMonth ? "" : "bg-stone-50/60"}`}
               >

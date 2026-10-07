@@ -74,7 +74,7 @@ export default function TodayPage() {
           {waiting.length === 0 ? (
             <Empty>대기 중인 고객이 없습니다. 고객이 접수하면 여기에 바로 나타납니다.</Empty>
           ) : (
-            <ul className="divide-y divide-stone-200">
+            <ul className="divide-y divide-stone-100">
               {waiting.slice(0, LIST_LIMIT).map((customer) => (
                 <li key={customer.customer_id} className={fresh.has(customer.customer_id) ? "animate-flash" : ""}>
                   <Row href={`/staff/customers/${customer.customer_id}`}>
@@ -110,7 +110,7 @@ export default function TodayPage() {
           {upcomingByDay.size === 0 ? (
             <Empty>앞으로 7일 동안 예정된 연락이 없습니다.</Empty>
           ) : (
-            <ul className="divide-y divide-stone-200">
+            <ul className="divide-y divide-stone-100">
               {[...upcomingByDay.entries()].map(([day, items]) => {
                 const kinds = new Map<string, number>();
                 for (const item of items) {
@@ -203,7 +203,7 @@ function ScheduleRows({
   overdue?: (schedule: ScheduleItem) => boolean;
 }) {
   return (
-    <ul className="divide-y divide-stone-200">
+    <ul className="divide-y divide-stone-100">
       {items.map((schedule) => {
         const status = lookup(SCHEDULE_STATUS, schedule.schedule_status);
         return (

@@ -10,7 +10,7 @@ function Step({ label, tone = "plain", children }: { label: string; tone?: "plai
     <li className="hero-card relative pl-9">
       {/* 왼쪽 줄 위의 점 */}
       <span className={`absolute left-[7px] top-4 size-2.5 rounded-full ring-4 ring-canvas ${tone === "ai" ? "bg-info" : "bg-stone-400"}`} />
-      <div className={`rounded-2xl px-4 py-3.5 shadow-sm ring-1 ${tone === "ai" ? "bg-ai-surface ring-ai-line" : "bg-white ring-stone-200"}`}>
+      <div className={`rounded-2xl px-4 py-3.5 ${tone === "ai" ? "bg-ai-surface ring-1 ring-ai-line" : "surface !rounded-2xl"}`}>
         <p className={`text-[12px] font-semibold ${tone === "ai" ? "text-info" : "text-stone-500"}`}>{label}</p>
         {children}
       </div>
