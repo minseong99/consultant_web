@@ -25,11 +25,7 @@ export default function Home() {
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-16 pt-6">
         <div className="flex items-center justify-between gap-12">
         <section className="max-w-xl">
-          <p className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3.5 py-1.5 text-[13px] font-semibold text-stone-700 shadow-sm">
-            <span aria-hidden className="size-1.5 rounded-full bg-brand-600" />
-            어서 오세요, 반갑습니다
-          </p>
-          <h1 className="mt-5 text-[34px] font-bold leading-[1.2] sm:text-[46px]">
+          <h1 className="text-[34px] font-bold leading-[1.2] sm:text-[46px]">
             기다리는 동안,
             <br />
             상담 준비를 마쳐 둘게요

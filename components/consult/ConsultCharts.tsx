@@ -262,14 +262,17 @@ function UsageMonths({ months, device }: { months: number; device: string }) {
   );
 }
 
-/** 약정 만료까지 남은 기간과 기기 사용 기간. 둘 다 없으면 그리지 않는다. */
-export function ConsultTimeline({ view }: { view: ConsultView }) {
+// 약정 만료까지 남은 기간과 기기 사용 기간. 둘 다 없으면 그리지 않는다.
+function Timeline({ view }: { view: ConsultView }) {
   const hasUsage = view.device_use_months != null && view.device_use_months >= 0;
   if (!view.contract_end_date && !hasUsage) return null;
   return (
-    <section aria-label="약정과 사용 기간" className="surface px-6 py-5">
-      <SourceLabel source="customer" label="접수할 때 알려 주신 내용으로 계산" />
-      <div className={`mt-3 grid gap-x-10 gap-y-7 ${view.contract_end_date && hasUsage ? "sm:grid-cols-2" : ""}`}>
+    <section className="surface p-6">
+      <h3 className="text-[17px] font-bold">약정과 사용 기간</h3>
+      <p className="mt-1.5">
+        <SourceLabel source="customer" label="접수할 때 알려 주신 내용으로 계산" />
+      </p>
+      <div className={`mt-5 grid gap-x-10 gap-y-7 ${view.contract_end_date && hasUsage ? "sm:grid-cols-2" : ""}`}>
         {view.contract_end_date && <ContractBand endDate={view.contract_end_date} />}
         {hasUsage && <UsageMonths months={view.device_use_months!} device={view.current_device} />}
       </div>
@@ -277,16 +280,13 @@ export function ConsultTimeline({ view }: { view: ConsultView }) {
   );
 }
 
-/** 추천끼리, 그리고 지금과의 비교. 비교할 값이 둘 이상일 때만 그린다. */
-export function ConsultCompare({ view }: { view: ConsultView }) {
-  const fee = FeeCompare({ view });
-  const price = DevicePriceCompare({ view });
-  if (!fee && !price) return null;
-  return (
-    <section aria-label="비교" className="space-y-4">
-      <h2 className="text-[20px] font-bold">한눈에 비교</h2>
-      {fee}
-      {price}
-    </section>
-  );
+export type ConsultSlide = { key: string; label: string; node: ReactNode };
+
+/** 상담 화면에서 한 장씩 넘겨 보는 그래프. 그릴 값이 있는 것만 돌려준다(비교는 값이 둘 이상일 때). */
+export function consultChartSlides(view: ConsultView): ConsultSlide[] {
+  return [
+    { key: "fee", label: "월 요금", node: FeeCompare({ view }) },
+    { key: "price", label: "기기 가격", node: DevicePriceCompare({ view }) },
+    { key: "timeline", label: "약정", node: Timeline({ view }) },
+  ].filter((slide) => slide.node !== null);
 }
