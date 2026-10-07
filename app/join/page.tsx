@@ -104,10 +104,10 @@ export default function JoinPage() {
       <header className="mb-7">
         <div className="flex items-center justify-between">
           <Wordmark size="sm" label="상담 접수" />
-          <p className="text-[13px] font-semibold tabular-nums text-stone-500">{step} / 3</p>
+          <p className="text-[13px] font-semibold tabular-nums text-stone-500">{step === 3 ? "접수 완료" : `${step} / 2`}</p>
         </div>
-        <div className="mt-3 flex gap-1.5" aria-label={`3단계 중 ${step}단계`}>
-          {[1, 2, 3].map((n) => (
+        <div className="mt-3 flex gap-1.5" aria-label={step === 3 ? "접수 완료" : `2단계 중 ${step}단계`}>
+          {[1, 2].map((n) => (
             <span key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-ink" : "bg-stone-200"}`} />
           ))}
         </div>

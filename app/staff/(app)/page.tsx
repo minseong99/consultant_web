@@ -61,14 +61,16 @@ export default function TodayPage() {
       <h1 className="text-[24px] font-bold">오늘</h1>
       <p className="mt-1 text-[14px] text-stone-600">{formatDate(today)}</p>
 
-      <div className="mt-5 grid grid-cols-3 gap-4">
-        <Tile href="#waiting" label="상담 대기" count={waiting.length} unit="명" emphasis={waiting.length > 0} />
-        <Tile href="#to-send" label="오늘 나갈 연락" count={toSend.length} unit="건" note={sentToday > 0 ? `오늘 발송 완료 ${sentToday}건` : undefined} />
-        <Tile href="#attention" label="확인 필요" count={attention.length} unit="건" warning={attention.length > 0} />
-      </div>
+      <div className="mt-5 grid grid-cols-1 items-start gap-5 md:grid-cols-2">
+        {/* 문제가 있을 때만 맨 위에 보여 준다. */}
+        {attention.length > 0 && (
+          <Section id="attention" title="확인 필요" count={attention.length} unit="건" warning wide note="어제와 오늘 발송되지 않았거나 예약 시각이 지난 연락">
+              <ScheduleRows items={attention.slice(0, LIST_LIMIT)} fresh={fresh} showStatus overdue={isOverdue} showDate />
+            {attention.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {attention.length - LIST_LIMIT}건</p>}
+          </Section>
+        )}
 
-      <div className="mt-6 grid grid-cols-2 items-start gap-5">
-        <Section id="waiting" title="상담 대기" note="오늘 접수했고 아직 상담 기록이 없는 고객" more={{ href: "/staff/customers", label: "고객 전체 보기" }}>
+        <Section id="waiting" title="상담 대기" count={waiting.length} unit="명" emphasis note="오늘 접수했고 아직 상담 기록이 없는 고객" more={{ href: "/staff/customers", label: "고객 전체 보기" }}>
           {waiting.length === 0 ? (
             <Empty>대기 중인 고객이 없습니다. 고객이 접수하면 여기에 바로 나타납니다.</Empty>
           ) : (
@@ -95,7 +97,7 @@ export default function TodayPage() {
           {waiting.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {waiting.length - LIST_LIMIT}명</p>}
         </Section>
 
-        <Section id="to-send" title="오늘 나갈 연락" note="예약 시각에 자동으로 작성·발송됩니다" more={{ href: "/staff/schedules", label: "일정 전체 보기" }}>
+        <Section id="to-send" title="오늘 나갈 연락" count={toSend.length} unit="건" note={sentToday > 0 ? `예약 시각에 자동으로 발송됩니다 · 오늘 발송 완료 ${sentToday}건` : "예약 시각에 자동으로 작성·발송됩니다"} more={{ href: "/staff/schedules", label: "일정 전체 보기" }}>
           {toSend.length === 0 ? (
             <Empty>{sentToday > 0 ? `오늘 예정된 연락 ${sentToday}건을 모두 보냈습니다.` : "오늘 나갈 연락이 없습니다."}</Empty>
           ) : (
@@ -104,16 +106,7 @@ export default function TodayPage() {
           {toSend.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {toSend.length - LIST_LIMIT}건</p>}
         </Section>
 
-        <Section id="attention" title="확인 필요" note="어제와 오늘 발송되지 않았거나 예약 시각이 지난 연락">
-          {attention.length === 0 ? (
-            <Empty>확인할 것이 없습니다.</Empty>
-          ) : (
-            <ScheduleRows items={attention.slice(0, LIST_LIMIT)} fresh={fresh} showStatus overdue={isOverdue} showDate />
-          )}
-          {attention.length > LIST_LIMIT && <p className="mt-2 text-[13px] text-stone-500">외 {attention.length - LIST_LIMIT}건</p>}
-        </Section>
-
-        <Section id="upcoming" title="이번 주" note="앞으로 7일 동안 예정된 연락" more={{ href: "/staff/schedules", label: "일정 전체 보기" }}>
+        <Section id="upcoming" title="이번 주" count={upcoming.length} unit="건" note="앞으로 7일 동안 예정된 연락" wide more={{ href: "/staff/schedules", label: "일정 전체 보기" }}>
           {upcomingByDay.size === 0 ? (
             <Empty>앞으로 7일 동안 예정된 연락이 없습니다.</Empty>
           ) : (
@@ -141,30 +134,42 @@ export default function TodayPage() {
   );
 }
 
-function Tile({ href, label, count, unit, note, emphasis, warning }: { href: string; label: string; count: number; unit: string; note?: string; emphasis?: boolean; warning?: boolean }) {
+function Section({
+  id,
+  title,
+  count,
+  unit,
+  note,
+  more,
+  emphasis,
+  warning,
+  wide,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  unit: string;
+  note?: string;
+  more?: { href: string; label: string };
+  /** 처리할 것이 있으면 숫자를 포인트 색으로 */
+  emphasis?: boolean;
+  warning?: boolean;
+  /** 두 칸을 모두 차지 */
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  const tone = warning ? "text-danger" : count === 0 ? "text-stone-400" : emphasis ? "text-brand-600" : "text-ink";
   return (
-    <a
-      href={href}
-      className="rounded-xl bg-white px-5 py-4 ring-1 ring-stone-200 transition-shadow hover:ring-stone-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-    >
-      <span className="text-[13px] font-semibold text-stone-500">{label}</span>
-      <span className="mt-1 flex items-baseline gap-1">
-        <span className={`text-[28px] font-bold tabular-nums leading-none ${warning ? "text-danger" : emphasis ? "text-brand-600" : count === 0 ? "text-stone-400" : "text-ink"}`}>{count}</span>
-        <span className="text-[14px] font-semibold text-stone-600">{unit}</span>
-        {warning && <span className="ml-1 text-[12px] font-semibold text-danger">! 확인하세요</span>}
-      </span>
-      {note && <span className="mt-1 block text-[12px] text-stone-500">{note}</span>}
-    </a>
-  );
-}
-
-function Section({ id, title, note, more, children }: { id: string; title: string; note?: string; more?: { href: string; label: string }; children: ReactNode }) {
-  return (
-    <section id={id} className="scroll-mt-16 rounded-xl bg-white p-5 ring-1 ring-stone-200">
+    <section id={id} className={`scroll-mt-16 rounded-xl bg-white p-5 ring-1 ${warning ? "ring-red-200" : "ring-stone-200"} ${wide ? "md:col-span-2" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[16px] font-bold">{title}</h2>
+        <h2 className="flex items-baseline gap-2 text-[16px] font-bold">
+          {title}
+          <span className={`text-[20px] tabular-nums leading-none ${tone}`}>{count}</span>
+          <span className="-ml-1 text-[13px] font-semibold text-stone-500">{unit}</span>
+        </h2>
         {more && (
-          <Link href={more.href} className="text-[13px] font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-ink">
+          <Link href={more.href} className="shrink-0 text-[13px] font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-ink">
             {more.label}
           </Link>
         )}
