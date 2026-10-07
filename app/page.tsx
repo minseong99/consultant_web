@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroFlow } from "@/components/HeroFlow";
 import { Wordmark } from "@/components/Wordmark";
 
 const STEPS = [
@@ -22,6 +23,7 @@ export default function Home() {
       </header>
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-16 pt-6">
+        <div className="flex items-center justify-between gap-12">
         <section className="max-w-xl">
           <h1 className="text-[32px] font-bold leading-tight sm:text-[40px]">
             매장 상담,
@@ -39,6 +41,11 @@ export default function Home() {
           </Link>
           <p className="mt-3 text-[13px] text-stone-500">개인정보 수집·이용 동의 후 진행됩니다.</p>
         </section>
+          {/* 넓은 화면에서만 보인다. 휴대폰으로 접수하는 고객에게는 글과 버튼만 보여 준다. */}
+          <div className="hidden shrink-0 lg:block">
+            <HeroFlow />
+          </div>
+        </div>
 
         <ol className="mt-14 grid gap-6 border-t border-stone-200 pt-8 sm:grid-cols-3">
           {STEPS.map((step, index) => (
