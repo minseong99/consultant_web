@@ -303,21 +303,28 @@ function CustomerHeader({
     ? daysUntil(customer.contract_end_date)
     : null;
   return (
-    <header className="mt-3 rounded-xl bg-white px-6 pb-2 pt-5 ring-1 ring-stone-200">
+    <header className="surface mt-3 px-6 pb-3 pt-6">
       <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          <h1 className="text-[20px] font-bold leading-tight">
-            {customer.customer_name}
-          </h1>
-          <p className="mt-1 text-[15px] text-stone-700">
-            <Clamp lines={2}>{customer.consultation_goal}</Clamp>
-          </p>
+        <div className="flex min-w-0 items-center gap-4">
+          {/* 사진 대신 이름 첫 글자. 고객을 번호가 아닌 사람으로 보이게 한다. */}
+          <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[22px] font-bold text-brand-700">
+            {customer.customer_name.trim().charAt(0)}
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-[24px] font-bold leading-tight">
+              {customer.customer_name}
+              <span className="ml-1 text-[16px] font-semibold text-stone-500">님</span>
+            </h1>
+            <p className="mt-1 text-[15px] text-stone-600">
+              <Clamp lines={2}>{customer.consultation_goal}</Clamp>
+            </p>
+          </div>
         </div>
         <TextButton onClick={onOpenAll} className="shrink-0">
           고객 정보 전체
         </TextButton>
       </div>
-      <dl className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-stone-200 py-3 text-[14px]">
+      <dl className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-[14px]">
         <HeaderItem label="현재 기기" value={customer.current_device} />
         <HeaderItem label="현재 요금제" value={customer.current_plan} />
         <HeaderItem
@@ -531,7 +538,7 @@ function CustomerBrief({
       <section aria-busy="true">
         <SourceLabel source="ai" />
         <h2 className="mt-1 text-[17px] font-bold">고객 브리프</h2>
-        <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
+        <div className="mt-3 surface p-6">
           <StatusLine
             state="active"
             label="AI가 고객 정보를 분석하고 있습니다"
@@ -560,13 +567,13 @@ function CustomerBrief({
         </span>
       </div>
       <h2 className="mt-1 text-[17px] font-bold">고객 브리프</h2>
-      <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
+      <div className="mt-3 surface p-6">
       {data.analysis_summary && (
-        <p className="rounded-lg border-l-[3px] border-info bg-ai-surface px-4 py-3 text-[15px] leading-relaxed">
+        <p className="rounded-2xl bg-ai-surface px-5 py-4 text-[16px] leading-relaxed">
           <Clamp lines={3}>{data.analysis_summary}</Clamp>
         </p>
       )}
-      <dl className="mt-4 flex flex-col divide-y divide-stone-200 border-b border-stone-200">
+      <dl className="mt-3 flex flex-col">
         <BriefRow label="기기 교체 의향" value={data.device_change_signal} />
         <BriefRow label="중요하게 보는 것" value={firstFew(features, 3)} lines={1} />
         <BriefRow label="가격 민감도" value={data.price_sensitivity} />
@@ -592,7 +599,7 @@ function BriefRow({
   // 분석에 없는 항목은 줄째로 숨긴다.
   if (!value) return null;
   return (
-    <div className="flex gap-4 py-3">
+    <div className="flex gap-4 py-2.5">
       <dt className="w-28 shrink-0 text-[13px] font-semibold text-stone-500">
         {label}
       </dt>
@@ -700,7 +707,7 @@ function AsideSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl bg-white p-5 ring-1 ring-stone-200">
+    <section className="surface p-5">
       <h2 className="text-[13px] font-semibold text-stone-500">{title}</h2>
       <div className="mt-2">{children}</div>
     </section>
@@ -994,7 +1001,7 @@ function RecommendationPanel({
             {[0, 1].map((i) => (
               <div
                 key={i}
-                className="rounded-xl bg-white p-5 ring-1 ring-stone-200"
+                className="surface p-5"
               >
                 <div className="flex items-center gap-4">
                   <Skeleton className="h-28 w-24 shrink-0 !rounded-lg" />
@@ -1074,7 +1081,7 @@ function RecommendationPanel({
 function RecommendationCard({ item, rank, primary, onOpenEvidence }: { item: Recommendation; rank: number; primary: boolean; onOpenEvidence: () => void }) {
   const benefit = item.benefit_info ?? item.expected_benefit;
   return (
-    <li className={`flex flex-col rounded-xl bg-white p-5 ${primary ? "ring-2 ring-brand-600" : "ring-1 ring-stone-200"}`}>
+    <li className={`surface flex flex-col p-5 ${primary ? "ring-2 ring-brand-600" : ""}`}>
       <div className="flex items-center gap-4">
         {item.device_name && <DeviceVisual productId={item.product_id} deviceName={item.device_name} />}
         <div className="min-w-0">
@@ -1287,7 +1294,7 @@ function ConsultationForm({
     <section>
       <SourceLabel source="staff" />
       <h2 className="mt-1 text-[17px] font-bold">상담 기록</h2>
-      <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
+      <div className="mt-3 surface p-6">
         <form onSubmit={submit} className="flex flex-col gap-5">
           <div>
             <label
@@ -1516,7 +1523,7 @@ function ConsultationHistory({
   consultations: Consultation[];
 }) {
   return (
-    <aside className="rounded-xl bg-white p-5 ring-1 ring-stone-200">
+    <aside className="surface p-5">
       <h2 className="text-[13px] font-semibold text-stone-500">
         상담 이력{" "}
         {consultations.length > 0 && (

@@ -150,7 +150,7 @@ export function ScheduleList({
   if (items.length === 0) return <EmptyState>{emptyText}</EmptyState>;
 
   return (
-    <ul className="divide-y divide-stone-200 rounded-xl bg-white ring-1 ring-stone-200">
+    <ul className="surface divide-y divide-stone-100 overflow-hidden">
       {items.map((schedule) => {
         const status = lookup(SCHEDULE_STATUS, schedule.schedule_status);
         const type = lookup(SCHEDULE_TYPE, schedule.schedule_type);

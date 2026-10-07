@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 ring-1 ring-stone-200">
+      <form onSubmit={submit} className="w-full max-w-sm surface p-8">
         <Wordmark />
         <h1 className="mt-6 text-[22px] font-bold">직원 로그인</h1>
 

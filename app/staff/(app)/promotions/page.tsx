@@ -163,7 +163,7 @@ export default function PromotionsPage() {
               const status = result && "status" in result ? lookup(PROMOTION_STATUS, result.status) : null;
               const targets = result && "target_customers" in result ? result.target_customers : [];
               return (
-                <li key={promotion.document_id} className="flex flex-col overflow-hidden rounded-xl bg-white ring-1 ring-stone-200">
+                <li key={promotion.document_id} className="surface flex flex-col overflow-hidden">
                   <PromotionVisual cover name={promotion.file_name} summary={promotion.summary} devices={promotion.devices} />
                   <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
                     <p className="flex flex-wrap items-center gap-1.5">
@@ -181,7 +181,7 @@ export default function PromotionsPage() {
                     {/* 카드 높이가 달라도 버튼과 결과는 아래에 맞춘다 */}
                     <div className="mt-auto pt-4">
                       {state && (
-                        <div className="mb-3 border-t border-stone-200 pt-3" aria-live="polite">
+                        <div className="mb-3 border-t border-stone-100 pt-3" aria-live="polite">
                           {state.loading && <StatusLine state="active" label="대상 고객 선정 중" since={state.startedAt} note="보통 20초 안팎" />}
                           {!state.loading && result && !status && !result.success && "message" in result && <ErrorNote>{result.message}</ErrorNote>}
                           {!state.loading && result && status && "target_customers" in result && (
@@ -317,7 +317,7 @@ function TargetsDrawer({ promotion, result, onClose }: { promotion: PromotionLis
     <Drawer open={Boolean(promotion)} title={promotion?.file_name ?? ""} source="ai" onClose={onClose}>
       <p className="text-[15px] font-bold tabular-nums">대상 고객 {targets.length}명</p>
       <p className="mt-1 text-[13px] text-stone-600">프로모션 조건에 맞고 마케팅·재연락에 동의한 고객입니다.</p>
-      <ul className="mt-4 divide-y divide-stone-200 rounded-lg ring-1 ring-stone-200">
+      <ul className="mt-4 divide-y divide-stone-100 rounded-xl ring-1 ring-stone-200">
         {targets.map((target) => (
           <li key={target.customer_id} className="px-4 py-3">
             <p className="flex items-baseline justify-between gap-3">

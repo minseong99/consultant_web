@@ -30,7 +30,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function Button({ variant = "primary", size = "md", loading, disabled, children, className = "", ...rest }: ButtonProps) {
   const variants = {
     primary: "bg-brand-600 text-white hover:bg-brand-700 disabled:bg-stone-300",
-    secondary: "bg-white text-ink ring-1 ring-inset ring-stone-300 hover:bg-stone-50 disabled:text-stone-400",
+    secondary: "bg-white text-ink ring-1 ring-inset ring-stone-200 hover:bg-stone-50 disabled:text-stone-400",
     ghost: "text-stone-700 hover:bg-stone-100 disabled:text-stone-300",
   };
   const sizes = { sm: "h-9 px-3 text-[13px]", md: "h-10 px-4 text-[14px]", lg: "h-13 px-5 text-[16px]" };
@@ -38,7 +38,7 @@ export function Button({ variant = "primary", size = "md", loading, disabled, ch
     <button
       {...rest}
       disabled={disabled || loading}
-      className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl font-semibold transition-[background-color,transform] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {loading && <Spinner />}
       {children}
@@ -72,7 +72,7 @@ export function Spinner({ className = "" }: { className?: string }) {
 // 카드는 독립된 판단 단위(추천, 주요 입력, AI 결과)에만 쓴다. 관련 정보는 Section 으로 묶는다.
 export function Card({ title, action, children, className = "" }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-xl bg-white ring-1 ring-stone-200 ${className}`}>
+    <section className={`surface ${className}`}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 px-5 pt-4">
           <h2 className="text-[16px] font-bold">{title}</h2>
@@ -248,7 +248,7 @@ export function Drawer({ open, title, source, onClose, children }: { open: boole
         tabIndex={-1}
         className="relative flex h-full w-[30rem] max-w-full animate-drawer-in flex-col bg-white shadow-2xl outline-none"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-4">
           <div>
             {source && <SourceLabel source={source} />}
             <h2 id={titleId} className="text-[17px] font-bold">
