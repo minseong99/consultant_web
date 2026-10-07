@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useState } from "react";
 import { useStaffFeed } from "@/components/staff/FeedProvider";
 import { ScheduleList } from "@/components/staff/ScheduleList";
-import { Button, Spinner, Tabs } from "@/components/ui";
+import { Button, Drawer, Spinner, Tabs } from "@/components/ui";
 import { addDays, todayKST } from "@/lib/format";
 import { lookup, SCHEDULE_TYPE } from "@/lib/labels";
 import type { ScheduleItem } from "@/lib/types";
@@ -126,7 +126,8 @@ function CalendarView({
   const initialDay = focused ? dayOf(focused.scheduled_contact_at) : today;
   const [month, setMonth] = useState(initialDay.slice(0, 7));
   const [selected, setSelected] = useState(initialDay);
-  const detailRef = useRef<HTMLElement>(null);
+  // 날짜를 누르면 그날의 일정이 오른쪽 서랍으로 열린다. 다른 화면에서 일정을 지정해 들어온 경우에는 처음부터 열어 둔다.
+  const [dayOpen, setDayOpen] = useState(Boolean(focused));
 
   const byDay = new Map<string, ScheduleItem[]>();
   for (const schedule of schedules) {
@@ -140,6 +141,7 @@ function CalendarView({
   function goToday() {
     setMonth(today.slice(0, 7));
     setSelected(today);
+    setDayOpen(false);
   }
 
   return (
@@ -189,8 +191,8 @@ function CalendarView({
                 onClick={() => {
                   setSelected(day);
                   if (!inMonth) setMonth(day.slice(0, 7));
-                  // 그날의 일정은 달력 아래에 나온다. 일정이 있으면 보이는 곳으로 옮긴다.
-                  if (items.length > 0) window.setTimeout(() => detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
+                  // 일정이 없는 날은 선택 표시만 하고 서랍은 열지 않는다.
+                  setDayOpen(items.length > 0);
                 }}
                 className={`relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-stone-100 p-2 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
                   isSelected ? "bg-stone-100 ring-2 ring-inset ring-ink" : "hover:bg-stone-50"
@@ -221,15 +223,11 @@ function CalendarView({
         </div>
       </section>
 
-      <section ref={detailRef} className="scroll-mb-6">
-        <h2 className="text-[16px] font-bold">
-          {formatDay(selected)}
-          <span className="ml-2 text-[13px] font-medium text-stone-500">{dayItems.length > 0 ? `일정 ${dayItems.length}건` : "일정 없음"}</span>
-        </h2>
-        <div className="mt-3">
-          <ScheduleList key={`${selected}:${focused?.schedule_id ?? ""}`} items={dayItems} focusId={focused?.schedule_id} fresh={fresh} onChanged={onChanged} emptyText="이 날짜에 예정된 연락이 없습니다." />
-        </div>
-      </section>
+      <p className="text-[13px] text-stone-500">일정이 있는 날짜를 누르면 그날의 연락이 오른쪽에 열립니다.</p>
+
+      <Drawer open={dayOpen && dayItems.length > 0} wide title={`${formatDay(selected)} · 일정 ${dayItems.length}건`} onClose={() => setDayOpen(false)}>
+        <ScheduleList key={`${selected}:${focused?.schedule_id ?? ""}`} items={dayItems} focusId={focused?.schedule_id} fresh={fresh} timeOnly onChanged={onChanged} />
+      </Drawer>
     </div>
   );
 }

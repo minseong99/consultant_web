@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useStaffFeed } from "@/components/staff/FeedProvider";
-import { Badge, EmptyState, inputClass, Spinner, StatusLine } from "@/components/ui";
+import { Badge, EmptyState, inputClass, Pagination, Spinner, StatusLine } from "@/components/ui";
 import { formatDateTime, formatPhone, todayKST } from "@/lib/format";
 import type { CustomerListItem } from "@/lib/types";
 
@@ -121,58 +121,15 @@ export default function CustomersPage() {
             </li>
           ))}
         </ul>
-        <nav className="mt-4 flex items-center justify-between gap-4" aria-label="고객 목록 쪽 이동">
-          <p className="text-[13px] tabular-nums text-stone-600">
-            {matched.length}명 중 {(current - 1) * PAGE_SIZE + 1}–{Math.min(current * PAGE_SIZE, matched.length)}
-          </p>
-          {pageCount > 1 && (
-            <div className="flex items-center gap-1">
-              <PageButton label="이전 쪽" disabled={current === 1} onClick={() => setPage(current - 1)}>
-                ‹
-              </PageButton>
-              {pageNumbers(current, pageCount).map((n, index) =>
-                n === null ? (
-                  <span key={`gap-${index}`} className="w-6 text-center text-stone-400" aria-hidden>
-                    …
-                  </span>
-                ) : (
-                  <PageButton key={n} label={`${n}쪽`} selected={n === current} onClick={() => setPage(n)}>
-                    {n}
-                  </PageButton>
-                ),
-              )}
-              <PageButton label="다음 쪽" disabled={current === pageCount} onClick={() => setPage(current + 1)}>
-                ›
-              </PageButton>
-            </div>
-          )}
-        </nav>
+        <Pagination
+          label="고객 목록 쪽 이동"
+          summary={`${matched.length}명 중 ${(current - 1) * PAGE_SIZE + 1}–${Math.min(current * PAGE_SIZE, matched.length)}`}
+          current={current}
+          pageCount={pageCount}
+          onChange={setPage}
+        />
         </>
       )}
     </>
-  );
-}
-
-// 쪽 번호 목록. 많으면 처음·끝과 현재 주변만 남기고 사이는 null(…)로 둔다.
-function pageNumbers(current: number, count: number): (number | null)[] {
-  if (count <= 7) return Array.from({ length: count }, (_, i) => i + 1);
-  const keep = [...new Set([1, current - 1, current, current + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
-  return keep.flatMap((n, i) => (i > 0 && n - keep[i - 1] > 1 ? [null, n] : [n]));
-}
-
-function PageButton({ label, selected, disabled, onClick, children }: { label: string; selected?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-current={selected ? "page" : undefined}
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex size-11 items-center justify-center rounded-lg text-[14px] font-semibold tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:text-stone-300 ${
-        selected ? "bg-ink text-white" : "text-stone-700 hover:bg-stone-200"
-      }`}
-    >
-      {children}
-    </button>
   );
 }

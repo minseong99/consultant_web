@@ -220,7 +220,7 @@ export function Disclosure({
 // ---------------------------------------------------------------------------
 // 오른쪽에서 열리는 서랍. 상담 중 항상 볼 필요가 없는 전체 정보를 담는다.
 // ---------------------------------------------------------------------------
-export function Drawer({ open, title, source, onClose, children }: { open: boolean; title: string; source?: Source; onClose: () => void; children: ReactNode }) {
+export function Drawer({ open, title, source, wide, onClose, children }: { open: boolean; title: string; source?: Source; /** 목록처럼 가로로 긴 내용을 담을 때 */ wide?: boolean; onClose: () => void; children: ReactNode }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -246,7 +246,7 @@ export function Drawer({ open, title, source, onClose, children }: { open: boole
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative flex h-full w-[30rem] max-w-full animate-drawer-in flex-col bg-white shadow-2xl outline-none"
+        className={`relative flex h-full max-w-full animate-drawer-in flex-col bg-white shadow-2xl outline-none ${wide ? "w-[42rem]" : "w-[30rem]"}`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-4">
           <div>
@@ -317,7 +317,7 @@ export function Tabs<K extends string>({ tabs, active, onChange, idPrefix }: { t
 /** 탭 패널. 꺼진 탭도 내용은 유지해, 진행 중인 요청과 결과가 사라지지 않게 한다. */
 export function TabPanel({ idPrefix, tabKey, active, children }: { idPrefix: string; tabKey: string; active: boolean; children: ReactNode }) {
   return (
-    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="min-h-[calc(100dvh-7rem)] pt-6">
+    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="min-h-[calc(100dvh-4rem)] pt-6">
       {children}
     </div>
   );
@@ -327,4 +327,58 @@ export function TabPanel({ idPrefix, tabKey, active, children }: { idPrefix: str
 export function Clamp({ lines = 2, children, className = "" }: { lines?: 1 | 2 | 3; children: ReactNode; className?: string }) {
   const clamp = lines === 1 ? "line-clamp-1" : lines === 2 ? "line-clamp-2" : "line-clamp-3";
   return <span className={`${clamp} ${className}`}>{children}</span>;
+}
+
+// 쪽 번호 목록. 많으면 처음·끝과 현재 주변만 남기고 사이는 null(…)로 둔다.
+function pageNumbers(current: number, count: number): (number | null)[] {
+  if (count <= 7) return Array.from({ length: count }, (_, i) => i + 1);
+  const keep = [...new Set([1, current - 1, current, current + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
+  return keep.flatMap((n, i) => (i > 0 && n - keep[i - 1] > 1 ? [null, n] : [n]));
+}
+
+function PageButton({ label, selected, disabled, onClick, children }: { label: string; selected?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={selected ? "page" : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex size-11 items-center justify-center rounded-lg text-[14px] font-semibold tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:text-stone-300 ${
+        selected ? "bg-ink text-white" : "text-stone-700 hover:bg-stone-200"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** 목록 아래의 쪽 이동. 왼쪽에 "몇 건 중 몇–몇", 오른쪽에 쪽 번호(한 쪽뿐이면 번호는 숨김). */
+export function Pagination({ label, summary, current, pageCount, onChange }: { label: string; summary: string; current: number; pageCount: number; onChange: (page: number) => void }) {
+  return (
+    <nav className="mt-4 flex items-center justify-between gap-4" aria-label={label}>
+      <p className="text-[13px] tabular-nums text-stone-600">{summary}</p>
+      {pageCount > 1 && (
+        <div className="flex items-center gap-1">
+          <PageButton label="이전 쪽" disabled={current === 1} onClick={() => onChange(current - 1)}>
+            ‹
+          </PageButton>
+          {pageNumbers(current, pageCount).map((n, index) =>
+            n === null ? (
+              <span key={`gap-${index}`} className="w-6 text-center text-stone-400" aria-hidden>
+                …
+              </span>
+            ) : (
+              <PageButton key={n} label={`${n}쪽`} selected={n === current} onClick={() => onChange(n)}>
+                {n}
+              </PageButton>
+            ),
+          )}
+          <PageButton label="다음 쪽" disabled={current === pageCount} onClick={() => onChange(current + 1)}>
+            ›
+          </PageButton>
+        </div>
+      )}
+    </nav>
+  );
 }
