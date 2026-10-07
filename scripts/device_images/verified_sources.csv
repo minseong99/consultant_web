@@ -1,0 +1,44 @@
+﻿device_id,device_name,manufacturer,official_source_page,source_kind,expected_terms,confidence
+DEV-006,Galaxy S26+ 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s26/buy/?modelCode=SM-S947NZKAKOO,exact_product,Galaxy S26+|갤럭시 S26+|SM-S947,high
+DEV-007,Galaxy S26 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s26-ultra/specs/,model_page,Galaxy S26 Ultra|갤럭시 S26 울트라|S26 Ultra,high
+DEV-008,Galaxy S26 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s26-fe/,model_page,Galaxy S26 FE|갤럭시 S26 FE|S26 FE,high
+DEV-009,Galaxy Z Fold8 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-fold8-ultra/specs/,model_page,Galaxy Z Fold8 Ultra|갤럭시 Z 폴드8 울트라|Fold8 Ultra,high
+DEV-010,Galaxy S25 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25-s931/SM-S931NLBEKOO/,exact_product,Galaxy S25|갤럭시 S25|SM-S931,high
+DEV-011,Galaxy S25+ 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25/specs/,family_page,Galaxy S25+|갤럭시 S25+|S25+,medium
+DEV-012,Galaxy S25 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25-ultra-s938/SM-S938NZKAKOO/,exact_product,Galaxy S25 Ultra|갤럭시 S25 울트라|SM-S938,high
+DEV-013,Galaxy S25 Edge 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25-edge/,model_page,Galaxy S25 Edge|갤럭시 S25 엣지|S25 Edge,high
+DEV-014,Galaxy S25 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25-fe-s731/SM-S731NZKWKOO/,exact_product,Galaxy S25 FE|갤럭시 S25 FE|SM-S731,high
+DEV-015,Galaxy Z Fold7 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-fold7-f966v/SM-F966NZSPKOO/,exact_product,Galaxy Z Fold7|갤럭시 Z 폴드7|SM-F966,high
+DEV-016,Galaxy Z Flip7 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-flip7-f766/SM-F766NZKAKOO/,exact_product,Galaxy Z Flip7|갤럭시 Z 플립7|SM-F766,high
+DEV-017,Galaxy Z Flip7 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-flip7fe-f761v/SM-F761NZKVKOO/,exact_product,Galaxy Z Flip7 FE|갤럭시 Z 플립7 FE|SM-F761,high
+DEV-018,Galaxy A37 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a37-5g-a376/SM-A376NZWAKOO/,exact_product,Galaxy A37 5G|갤럭시 A37 5G|SM-A376,high
+DEV-019,Galaxy A36 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a36-5g-a366/SM-A366NZKAKOO/,exact_product,Galaxy A36 5G|갤럭시 A36 5G|SM-A366,high
+DEV-020,Galaxy A17 LTE 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a17-a175/SM-A175NZKAKOO/,exact_product,Galaxy A17|갤럭시 A17|SM-A175,high
+DEV-021,Galaxy A16 LTE 128GB,Samsung,https://www.samsung.com/br/smartphones/galaxy-a/galaxy-a16-black-128gb-sm-a165mzkdzto/,exact_product_global,Galaxy A16|SM-A165,high
+DEV-022,Galaxy Jump5 128GB,Samsung / KT,https://www.samsung.com/sec/smartphones/galaxy-a27-5g-a276-co/SM-A276KZKAKTC/,exact_product,Galaxy Jump5|갤럭시 Jump5|SM-A276,high
+DEV-023,Galaxy Jump4 128GB,Samsung / KT,https://www.samsung.com/sec/smartphones/galaxy-m36-5g-sm-m366/SM-M366KZKCKTC/,exact_product,Galaxy Jump4|갤럭시 Jump4|SM-M366,high
+DEV-024,Galaxy S24 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s24-fe-s721/SM-S721NZKWKOO/,exact_product,Galaxy S24 FE|갤럭시 S24 FE|SM-S721,high
+DEV-025,iPhone 16e 128GB,Apple,https://support.apple.com/ko-kr/122208,exact_support,iPhone 16e,high
+DEV-026,iPhone Air 256GB,Apple,https://www.apple.com/kr/iphone-air/,model_page,iPhone Air,high
+DEV-027,iPhone 17 Pro Max 256GB,Apple,https://www.apple.com/kr/iphone-17-pro/specs/,family_page,iPhone 17 Pro Max|17 Pro Max,medium
+DEV-028,iPhone 17e 256GB,Apple,https://www.apple.com/kr/iphone-17e/,model_page,iPhone 17e,high
+DEV-029,iPhone 18 Pro 256GB,Apple,https://www.apple.com/kr/iphone-18-pro/,family_page,iPhone 18 Pro,medium
+DEV-030,iPhone 18 Pro Max 256GB,Apple,https://www.apple.com/kr/iphone-18-pro/,family_page,iPhone 18 Pro Max|18 Pro Max,medium
+DEV-031,iPhone 15 128GB,Apple,https://support.apple.com/ko-kr/111831,exact_support,iPhone 15,high
+DEV-032,iPhone 15 Plus 128GB,Apple,https://support.apple.com/ko-kr/111830,exact_support,iPhone 15 Plus,high
+DEV-033,iPhone 15 Pro 128GB,Apple,https://support.apple.com/ko-kr/111829,exact_support,iPhone 15 Pro,high
+DEV-034,iPhone 15 Pro Max 256GB,Apple,https://support.apple.com/ko-kr/111828,exact_support,iPhone 15 Pro Max,high
+DEV-035,Galaxy S23 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s23-fe-5g-s711/SM-S711NZAWKOD/,exact_product,Galaxy S23 FE|갤럭시 S23 FE|SM-S711,high
+DEV-036,Galaxy Jump3 128GB,Samsung / KT,https://www.samsung.com/sec/support/model/SM-M446KZKAKTC/,exact_support,Galaxy Jump3|갤럭시 Jump3|SM-M446,medium
+DEV-037,Galaxy S24 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s24-s921/SM-S921NZKEKOO/,exact_product,Galaxy S24|갤럭시 S24|SM-S921,high
+DEV-038,Galaxy S24+ 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s24-plus-s926-cpo/SM-S926NLBAKOO/,exact_product,Galaxy S24+|갤럭시 S24+|SM-S926,high
+DEV-039,Galaxy S24 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s24-ultra/,model_page,Galaxy S24 Ultra|갤럭시 S24 울트라|S24 Ultra,high
+DEV-040,Galaxy A25 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a25-5g-a256/SM-A256NZKAKOO/,exact_product,Galaxy A25 5G|갤럭시 A25 5G|SM-A256,high
+DEV-041,Galaxy A35 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a35-5g-a356/SM-A356NLBWKOO/,exact_product,Galaxy A35 5G|갤럭시 A35 5G|SM-A356,high
+DEV-042,Galaxy Z Fold6 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-fold6/,model_page,Galaxy Z Fold6|갤럭시 Z 폴드6|Fold6,high
+DEV-043,Galaxy Z Flip6 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-flip6/specs/,model_page,Galaxy Z Flip6|갤럭시 Z 플립6|Flip6,high
+DEV-044,iPhone 16 128GB,Apple,https://support.apple.com/ko-kr/121029,exact_support,iPhone 16,high
+DEV-045,iPhone 16 Plus 128GB,Apple,https://support.apple.com/ko-kr/121030,exact_support,iPhone 16 Plus,high
+DEV-046,iPhone 16 Pro 128GB,Apple,https://support.apple.com/ko-kr/121031,exact_support,iPhone 16 Pro,high
+DEV-047,iPhone 16 Pro Max 256GB,Apple,https://support.apple.com/ko-kr/121032,exact_support,iPhone 16 Pro Max,high
+DEV-048,Galaxy A15 LTE 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a15-lte-a155/SM-A155NZKEKOO/,exact_product,Galaxy A15|갤럭시 A15|SM-A155,high
