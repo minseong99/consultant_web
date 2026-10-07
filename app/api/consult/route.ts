@@ -61,7 +61,8 @@ export async function GET() {
       return fail(404, "NOT_FOUND", "접수 내역을 찾을 수 없습니다.");
     }
     // 직원이 이 확인 뒤에 화면을 종료했으면 닫는다. 다시 보려면 본인 확인부터 한다.
-    if (state?.ended_at && state.ended_at > session.since) {
+    // DB의 시각(+00:00)과 쿠키의 시각(Z)은 적는 형식이 달라 글자로 견주지 않고 시각으로 견준다.
+    if (state?.ended_at && new Date(state.ended_at).getTime() > new Date(session.since).getTime()) {
       await clearConsultCustomerId();
       return fail(410, "ENDED", "상담 화면이 종료되었습니다.");
     }
