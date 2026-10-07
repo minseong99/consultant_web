@@ -158,6 +158,14 @@ export type CustomerDetail = {
   analysis: CustomerAnalysis | null;
   consultations: Consultation[];
   schedules: ScheduleItem[];
+  // 가장 최근에 받아 저장된 추천. 없으면 null.
+  saved_recommendation: SavedRecommendation | null;
+};
+
+// recommendations 테이블에 남은 최근 추천. 혜택·조건은 저장되지 않아 비어 있다.
+export type SavedRecommendation = {
+  recommendations: Recommendation[];
+  saved_at: string | null;
 };
 
 // F03 반환값

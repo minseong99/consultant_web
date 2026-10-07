@@ -1,6 +1,6 @@
 import "server-only";
 import { FALLBACK_DEVICE_GROUPS, FALLBACK_PLAN_GROUPS } from "../fields";
-import { addDays, todayKST } from "../format";
+import { addDays, todayKST, withObject } from "../format";
 import { matchDevices, type DeviceRef, type PromotionSummary } from "../promotion";
 import type {
   Consultation,
@@ -11,6 +11,7 @@ import type {
   Message,
   MessageSchedule,
   Recommendation,
+  SavedRecommendation,
   Staff,
   Store,
 } from "../types";
@@ -31,6 +32,7 @@ type Store_ = {
   documents: DocumentRow[];
   staff: Staff[];
   stores: Store[];
+  savedRecommendations?: Record<string, SavedRecommendation>;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -255,7 +257,7 @@ function analyze(c: Customer, consultation: Consultation | null) {
   if (c.age == null) missing.push("연령대");
   if (budget == null) missing.push("희망 월 예산");
   if (c.contract_end_date == null) missing.push("약정 만료일");
-  const summary = `${c.current_device}을(를) ${months ? `${months}개월째 ` : ""}사용 중이며 ${c.consultation_goal}을(를) 원합니다. ${c.usage_pattern}.`;
+  const summary = `${c.current_device} 기기를 ${months ? `${months}개월째 ` : ""}사용 중이며 ${withObject(c.consultation_goal)} 원합니다. ${c.usage_pattern}.`;
   return {
     customer_id: c.customer_id,
     analysis_summary: consultation ? `${summary} 최근 상담: ${consultation.summary}` : summary,
@@ -436,6 +438,7 @@ export const mockBackend: Backend = {
         s.messages,
         s.documents,
       ),
+      saved_recommendation: s.savedRecommendations?.[customerId] ?? null,
     };
   },
 
@@ -446,11 +449,22 @@ export const mockBackend: Backend = {
     if (!customer) return { success: false, error_code: "CUSTOMER_NOT_FOUND", message: "고객 정보를 찾을 수 없습니다." };
     const analysis = s.analyses.filter((a) => a.customer_id === customerId).at(-1);
     const missing = analysis?.analysis_data.missing_information ?? [];
+    const recommendations = recommendFor(customer);
+    // 실제 연동처럼 기기·요금제·이유만 남긴다(혜택·조건은 저장되지 않음).
+    (s.savedRecommendations ??= {})[customerId] = {
+      recommendations: recommendations.map((item) => ({
+        ...item,
+        expected_benefit: null,
+        benefit_info: null,
+        eligibility_condition: null,
+      })),
+      saved_at: new Date().toISOString(),
+    };
     return {
       success: true,
       customer_id: customerId,
       analysis_id: analysis?.analysis_id ?? null,
-      recommendations: recommendFor(customer),
+      recommendations,
       information_status: missing.length ? "partial" : "sufficient",
       missing_information: missing,
     };

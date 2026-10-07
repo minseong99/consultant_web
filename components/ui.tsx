@@ -317,7 +317,7 @@ export function Tabs<K extends string>({ tabs, active, onChange, idPrefix }: { t
 /** 탭 패널. 꺼진 탭도 내용은 유지해, 진행 중인 요청과 결과가 사라지지 않게 한다. */
 export function TabPanel({ idPrefix, tabKey, active, children }: { idPrefix: string; tabKey: string; active: boolean; children: ReactNode }) {
   return (
-    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="pt-6">
+    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="min-h-[calc(100dvh-7rem)] pt-6">
       {children}
     </div>
   );

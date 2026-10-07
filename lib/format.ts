@@ -65,3 +65,10 @@ export function addDays(dateString: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+/** 받침에 맞춰 목적격 조사를 붙인다. 한글로 끝나지 않으면 '을(를)'로 둔다. */
+export function withObject(word: string) {
+  const code = word.trim().charCodeAt(word.trim().length - 1) - 0xac00;
+  if (!(code >= 0 && code <= 11171)) return `${word}을(를)`;
+  return `${word}${code % 28 === 0 ? "를" : "을"}`;
+}

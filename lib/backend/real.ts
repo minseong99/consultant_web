@@ -18,7 +18,9 @@ import type {
   PromotionDraft,
   PromotionRegisterResult,
   PromotionResult,
+  Recommendation,
   RecommendResult,
+  SavedRecommendation,
   SendNowResult,
   Staff,
   Store,
@@ -44,6 +46,53 @@ async function rows<T>(query: PromiseLike<{ data: unknown; error: { message: str
   const { data, error } = await query;
   if (error) throw new Error(`Supabase 조회 실패: ${error.message}`);
   return (data ?? []) as T[];
+}
+
+type RecommendationRow = {
+  recommendation_id: string;
+  device_id: string | null;
+  plan_id: string | null;
+  recommendation_rank: number | null;
+  recommendation_reason: string | null;
+};
+
+// 추천 행에는 저장 시각 열이 없다. ID(REC-<밀리초>-<순위>)의 시각으로 가장 최근에 받은 한 묶음을 고른다.
+async function latestSavedRecommendation(all: RecommendationRow[]): Promise<SavedRecommendation | null> {
+  const stamped = all
+    .map((row) => ({ row, at: Number(/^REC-(\d{12,})-/.exec(row.recommendation_id)?.[1]) }))
+    .filter((item) => Number.isFinite(item.at));
+  if (stamped.length === 0) return null;
+  const latest = Math.max(...stamped.map((item) => item.at));
+  const picked = stamped
+    .filter((item) => latest - item.at < 10_000)
+    .map((item) => item.row)
+    .sort((a, b) => (a.recommendation_rank ?? 99) - (b.recommendation_rank ?? 99));
+
+  const deviceIds = [...new Set(picked.map((row) => row.device_id).filter((id): id is string => Boolean(id)))];
+  const planIds = [...new Set(picked.map((row) => row.plan_id).filter((id): id is string => Boolean(id)))];
+  const [devices, plans] = await Promise.all([
+    deviceIds.length
+      ? rows<{ device_id: string; device_name: string }>(db().from("devices").select("device_id, device_name").in("device_id", deviceIds))
+      : [],
+    planIds.length
+      ? rows<{ plan_id: string; plan_name: string }>(db().from("plans").select("plan_id, plan_name").in("plan_id", planIds))
+      : [],
+  ]);
+  const deviceNames = new Map(devices.map((d) => [d.device_id, d.device_name]));
+  const planNames = new Map(plans.map((p) => [p.plan_id, p.plan_name]));
+
+  const recommendations: Recommendation[] = picked.map((row) => ({
+    recommendation_rank: row.recommendation_rank,
+    product_id: row.device_id,
+    device_name: row.device_id ? (deviceNames.get(row.device_id) ?? null) : null,
+    plan_id: row.plan_id,
+    plan_name: row.plan_id ? (planNames.get(row.plan_id) ?? null) : null,
+    expected_benefit: null,
+    benefit_info: null,
+    eligibility_condition: null,
+    recommendation_reason: row.recommendation_reason,
+  }));
+  return { recommendations, saved_at: new Date(latest).toISOString() };
 }
 
 export const realBackend: Backend = {
@@ -86,7 +135,7 @@ export const realBackend: Backend = {
   },
 
   async customerDetail(customerId) {
-    const [customers, consents, analyses, consultations, schedules, documents] = await Promise.all([
+    const [customers, consents, analyses, consultations, schedules, documents, recommendations] = await Promise.all([
       rows<Customer>(db().from("customers").select("*").eq("customer_id", customerId).limit(1)),
       rows<CustomerConsent>(db().from("customer_consents").select("*").eq("customer_id", customerId)),
       rows<CustomerAnalysis>(
@@ -106,6 +155,12 @@ export const realBackend: Backend = {
       ),
       rows<MessageSchedule>(db().from("message_schedules").select("*").eq("customer_id", customerId)),
       rows<Pick<DocumentRow, "document_id" | "file_name">>(db().from("documents").select("document_id, file_name")),
+      rows<RecommendationRow>(
+        db()
+          .from("recommendations")
+          .select("recommendation_id, device_id, plan_id, recommendation_rank, recommendation_reason")
+          .eq("customer_id", customerId),
+      ),
     ]);
     const customer = customers[0];
     if (!customer) return null;
@@ -121,6 +176,7 @@ export const realBackend: Backend = {
       analysis: analyses[0] ?? null,
       consultations,
       schedules: buildScheduleItems(schedules, [customer], messages, documents),
+      saved_recommendation: await latestSavedRecommendation(recommendations),
     };
   },
 
