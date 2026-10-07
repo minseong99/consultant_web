@@ -9,8 +9,10 @@ import type {
   Feed,
   IntakeInput,
   IntakeResult,
+  PromotionDraft,
   PromotionRegisterInput,
   PromotionRegisterResult,
+  ApiFailure,
   PromotionResult,
   RecommendResult,
   SendNowResult,
@@ -33,6 +35,10 @@ export interface Backend {
   sendNow(scheduleId: string): Promise<SendNowResult>;
   listPromotions(storeId: string): Promise<DocumentRow[]>;
   registerPromotion(input: PromotionRegisterInput, storeId: string): Promise<PromotionRegisterResult>;
+  /** 프로모션 PDF 원본을 보관한다. 같은 경로가 있으면 덮어쓴다. */
+  storePromotionFile(path: string, bytes: Uint8Array): Promise<void>;
+  /** PDF에서 꺼낸 글자를 프로모션별로 나눈다. exists 는 호출한 쪽에서 채운다. */
+  parsePromotions(text: string, fileName: string): Promise<{ success: true; promotions: Omit<PromotionDraft, "exists">[] } | ApiFailure>;
   runPromotion(documentId: string, storeId: string): Promise<PromotionResult>;
 }
 

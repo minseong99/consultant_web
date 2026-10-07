@@ -29,6 +29,8 @@ export function POST(request: Request) {
           target_plan: textOrNull(body.target_plan),
           target_customer: textOrNull(body.target_customer),
           conditions: textOrNull(body.conditions),
+          // PDF에서 등록할 때만 온다. 업로드 API가 만든 경로 형식만 받는다.
+          file_path: /^promotions\/[0-9a-f]{24}\.pdf$/.test(text(body.file_path)) ? text(body.file_path) : null,
         },
         session.store_id,
       ),

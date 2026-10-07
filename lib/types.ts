@@ -249,10 +249,39 @@ export type PromotionRegisterInput = {
   target_plan: string | null;
   target_customer: string | null;
   conditions: string | null;
+  /** PDF에서 등록할 때 원본 파일이 보관된 경로 */
+  file_path?: string | null;
 };
 
 export type PromotionRegisterResult =
-  | { success: true; document_id: string; file_name: string; valid_from: string; valid_until: string }
+  | {
+      success: true;
+      document_id: string;
+      file_name: string;
+      valid_from: string;
+      valid_until: string;
+      /** 같은 이름의 프로모션이 이미 있어 새로 저장하지 않았다 */
+      already_exists?: boolean;
+    }
+  | ApiFailure;
+
+/** PDF에서 뽑은 프로모션 한 건. 직원이 확인·수정한 뒤 등록한다. 값이 없는 칸은 빈 글자다. */
+export type PromotionDraft = {
+  promotion_name: string;
+  promotion_type: string;
+  target_device: string;
+  target_plan: string;
+  target_customer: string;
+  benefit: string;
+  conditions: string;
+  valid_from: string;
+  valid_until: string;
+  /** 이 매장에 같은 이름의 프로모션이 이미 등록되어 있다 */
+  exists: boolean;
+};
+
+export type PromotionParseResult =
+  | { success: true; file_name: string; file_path: string; pages: number; promotions: PromotionDraft[] }
   | ApiFailure;
 
 export type PromotionTarget = {

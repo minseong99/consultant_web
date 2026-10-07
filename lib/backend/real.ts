@@ -13,6 +13,7 @@ import type {
   IntakeResult,
   Message,
   MessageSchedule,
+  PromotionDraft,
   PromotionRegisterResult,
   PromotionResult,
   RecommendResult,
@@ -157,6 +158,16 @@ export const realBackend: Backend = {
 
   async registerPromotion(input, storeId) {
     return (await callN8n(N8N_PATHS.promotionRegister, { ...input, store_id: storeId })) as PromotionRegisterResult;
+  },
+
+  async storePromotionFile(path, bytes) {
+    // 원본 PDF는 비공개 버킷 documents 에 둔다. DB 행은 만들지 않는다(등록은 n8n을 거친다).
+    const { error } = await db().storage.from("documents").upload(path, bytes, { contentType: "application/pdf", upsert: true });
+    if (error) throw new Error(`파일 보관 실패: ${error.message}`);
+  },
+
+  async parsePromotions(text, fileName) {
+    return callN8n<{ success: true; promotions: Omit<PromotionDraft, "exists">[] }>(N8N_PATHS.promotionParse, { text, file_name: fileName });
   },
 
   async runPromotion(documentId, storeId) {

@@ -542,6 +542,10 @@ export const mockBackend: Backend = {
 
   async registerPromotion(input, storeId) {
     await sleep(1200);
+    const same = store().documents.find((d) => d.store_id === storeId && d.document_type === "promotion" && d.file_name === input.promotion_name);
+    if (same) {
+      return { success: true, document_id: same.document_id, file_name: same.file_name, valid_from: same.valid_from ?? input.valid_from, valid_until: same.valid_until ?? input.valid_until, already_exists: true };
+    }
     const documentId = `PROMO-${Date.now()}`;
     // mock의 대상 선정은 condition_data의 키워드를 쓴다. 대상 기기를 관심 키워드로 넣어 둔다.
     const keyword = input.target_device?.split(/\s+/)[0];
@@ -550,12 +554,59 @@ export const mockBackend: Backend = {
       store_id: storeId,
       document_type: "promotion",
       file_name: input.promotion_name,
-      file_path: `web/${documentId}`,
+      file_path: input.file_path ?? `web/${documentId}`,
       valid_from: input.valid_from,
       valid_until: input.valid_until,
       condition_data: keyword ? { interest_keywords: [keyword] } : {},
     });
     return { success: true, document_id: documentId, file_name: input.promotion_name, valid_from: input.valid_from, valid_until: input.valid_until };
+  },
+
+  async storePromotionFile() {
+    await sleep(300);
+  },
+
+  async parsePromotions() {
+    await sleep(2500);
+    const month = todayKST().slice(0, 7);
+    return {
+      success: true,
+      promotions: [
+        {
+          promotion_name: "Galaxy Watch9 40mm 0원",
+          promotion_type: "2nd 디바이스",
+          target_device: "Galaxy Z Fold8 Ultra / Fold8 / Flip8",
+          target_plan: "월 69,000원 이상 요금제",
+          target_customer: "대상 갤럭시 구매 고객",
+          benefit: "Galaxy Watch9 40mm 0원",
+          conditions: "대상 갤럭시 주문/개통, 월 69,000원 이상 요금제",
+          valid_from: `${month}-01`,
+          valid_until: `${month}-28`,
+        },
+        {
+          promotion_name: "7% 다이렉트 요금할인",
+          promotion_type: "요금할인",
+          target_device: "KT 다이렉트샵 휴대폰",
+          target_plan: "대상 휴대폰 요금제",
+          target_customer: "KT 다이렉트샵 개인 고객",
+          benefit: "월정액 7% 추가 할인",
+          conditions: "KT 다이렉트샵 휴대폰/SIM 개통",
+          valid_from: "",
+          valid_until: "",
+        },
+        {
+          promotion_name: "요고61 페이백",
+          promotion_type: "요금제 페이백",
+          target_device: "자급제/기존 휴대폰",
+          target_plan: "요고61",
+          target_customer: "신규가입 또는 번호이동 고객",
+          benefit: "카카오페이 포인트 페이백",
+          conditions: "대상 신규가입/번호이동 조건",
+          valid_from: "2026-09-01",
+          valid_until: "2026-09-30",
+        },
+      ],
+    };
   },
 
   async runPromotion(documentId, storeId) {

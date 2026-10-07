@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "id": "6fd62ff9-722d-463d-a412-1bcb4b4f0261",
+      "name": "안내: 프로모션 PDF 분석",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        2336
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/promotion-parse\n요청: `{ text, file_name }` (웹사이트가 PDF에서 꺼낸 글자)\n\nAI가 문서 안의 프로모션을 하나씩 나눠 항목을 뽑는다. DB에는 쓰지 않는다.\n\n응답: `{ success, promotions: [{ promotion_name, promotion_type, target_device, target_plan, target_customer, benefit, conditions, valid_from, valid_until }] }`",
+        "height": 240,
+        "width": 460
+      }
+    },
+    {
+      "id": "0462958e-d1b0-4a7f-a2a6-a874118cc682",
+      "position": [
+        0,
+        2376
+      ],
+      "name": "프로모션 분석 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "e45872dd-a084-403b-ad32-2c5021cd92c2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/promotion-parse",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "0eb0e026-e398-41e4-ac68-b2f71082ae67",
+      "position": [
+        260,
+        2376
+      ],
+      "name": "분석 요청 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst text = typeof body.text === 'string' ? body.text.trim() : '';\nif (text.length < 20) {\n  return [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message: '분석할 내용이 없습니다.' } } }];\n}\n\nconst field = { type: 'string' };\nconst names = ['promotion_name', 'promotion_type', 'target_device', 'target_plan', 'target_customer', 'benefit', 'conditions', 'valid_from', 'valid_until'];\n\nconst system = [\n  '당신은 이동통신 매장의 프로모션 문서를 정리하는 도우미입니다.',\n  '문서에 들어 있는 프로모션을 하나씩 나눠, 주어진 형식으로 돌려줍니다.',\n  '',\n  '규칙:',\n  '- 문서에 실제로 적힌 내용만 씁니다. 없는 혜택, 조건, 날짜를 만들지 않습니다.',\n  '- 같은 프로모션이 목록과 상세에 두 번 나오면 한 건으로 합칩니다.',\n  '- promotion_name 에는 프로모션 이름만 넣습니다. P001 같은 문서 안의 번호는 넣지 않습니다.',\n  '- benefit 에는 혜택과 혜택 금액을 함께 적습니다.',\n  '- conditions 에는 조건과 제외 조건을 함께 적습니다.',\n  '- valid_from, valid_until 은 YYYY-MM-DD 형식입니다. 문서에 날짜가 없거나 \"-\" 이면 빈 문자열로 둡니다. 날짜를 추측하지 않습니다.',\n  '- 해당 값이 없는 칸은 빈 문자열로 둡니다.',\n  '- 문서에 나온 순서대로 돌려줍니다.',\n].join('\\n');\n\nreturn [{ json: {\n  valid: true,\n  request: {\n    model: 'gpt-5-mini',\n    reasoning_effort: 'minimal',\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user', content: '[파일 이름]\\n' + String(body.file_name ?? '') + '\\n\\n[문서 내용]\\n' + text },\n    ],\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'promotions',\n        strict: true,\n        schema: {\n          type: 'object',\n          additionalProperties: false,\n          required: ['promotions'],\n          properties: {\n            promotions: {\n              type: 'array',\n              items: {\n                type: 'object',\n                additionalProperties: false,\n                required: names,\n                properties: Object.fromEntries(names.map((name) => [name, field])),\n              },\n            },\n          },\n        },\n      },\n    },\n  },\n} }];"
+      }
+    },
+    {
+      "id": "dcd4ddca-12b6-4d21-a460-02b5589c899a",
+      "position": [
+        520,
+        2376
+      ],
+      "name": "분석: 입력 유효?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f7661f2f-8088-47a6-aebb-02908ad20dd0",
+              "leftValue": "={{ $json.valid === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3b73cd0d-21ab-48a9-a1e1-e3c5f4f68b5c",
+      "position": [
+        780,
+        2376
+      ],
+      "name": "분석: 프로모션 나누기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 95000
+        }
+      }
+    },
+    {
+      "id": "31172ffe-952d-4858-a0af-15c2524b6260",
+      "position": [
+        1040,
+        2376
+      ],
+      "name": "분석 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const input = $('분석 요청 구성').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst reply = $input.first()?.json ?? {};\nconst fail = (reason) => [{ json: { success: false, error_code: 'PARSE_FAILED', message: 'PDF 내용을 분석하지 못했습니다. ' + reason } }];\n\nconst content = reply.choices?.[0]?.message?.content;\nif (typeof content !== 'string') return fail(String(reply.error?.message ?? reply.error ?? '응답 없음'));\n\nlet parsed;\ntry { parsed = JSON.parse(content); } catch (error) { return fail('결과 형식 오류'); }\n\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst blank = (value) => (value === '-' ? '' : value);\nconst date = (value) => (/^\\d{4}-\\d{2}-\\d{2}$/.test(text(value)) ? text(value) : '');\n\nconst promotions = (Array.isArray(parsed.promotions) ? parsed.promotions : [])\n  .map((item) => ({\n    promotion_name: text(item.promotion_name),\n    promotion_type: blank(text(item.promotion_type)),\n    target_device: blank(text(item.target_device)),\n    target_plan: blank(text(item.target_plan)),\n    target_customer: blank(text(item.target_customer)),\n    benefit: blank(text(item.benefit)),\n    conditions: blank(text(item.conditions)),\n    valid_from: date(item.valid_from),\n    valid_until: date(item.valid_until),\n  }))\n  .filter((item) => item.promotion_name);\n\nreturn [{ json: { success: true, promotions } }];"
+      }
+    },
+    {
+      "id": "53b31f02-3915-4412-a0f3-2641edbe0fee",
+      "position": [
+        1300,
+        2376
+      ],
+      "name": "분석 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "프로모션 분석 Webhook": {
+      "main": [
+        [
+          {
+            "node": "분석 요청 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석 요청 구성": {
+      "main": [
+        [
+          {
+            "node": "분석: 입력 유효?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석: 입력 유효?": {
+      "main": [
+        [
+          {
+            "node": "분석: 프로모션 나누기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "분석 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석: 프로모션 나누기": {
+      "main": [
+        [
+          {
+            "node": "분석 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "분석 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

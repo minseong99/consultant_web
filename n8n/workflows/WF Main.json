@@ -13,8 +13,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -3376,
-        -1328
+        -4000,
+        32
       ]
     },
     {
@@ -27,8 +27,8 @@
       },
       "id": "37d769f0-3ff9-49d7-adcb-4b64621c718c",
       "position": [
-        -2848,
-        -1296
+        -3472,
+        64
       ],
       "name": "추천 Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -51,8 +51,8 @@
       },
       "id": "b7ef04a9-8d54-4c4e-b7c9-28c4ef6399d1",
       "position": [
-        -2592,
-        -1296
+        -3216,
+        64
       ],
       "name": "추천: 고객·최신 분석 조회",
       "type": "n8n-nodes-base.postgres",
@@ -92,8 +92,8 @@
       },
       "id": "f885bb2f-ce3c-467c-b3a2-33e9776302c9",
       "position": [
-        -2336,
-        -1296
+        -2960,
+        64
       ],
       "name": "추천: 고객 있음?",
       "type": "n8n-nodes-base.if",
@@ -105,8 +105,8 @@
       },
       "id": "f4abd7f0-5813-47fc-b261-f316d2a4cb4b",
       "position": [
-        -2016,
-        -1312
+        -2640,
+        48
       ],
       "name": "추천 입력 구성",
       "type": "n8n-nodes-base.code",
@@ -201,8 +201,8 @@
       },
       "id": "ab99f09f-a930-4852-becf-c192fd45b8d6",
       "position": [
-        -1680,
-        -1312
+        -2304,
+        48
       ],
       "name": "F03 맞춤 상품 추천",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -216,8 +216,8 @@
       },
       "id": "6d3c99f8-95a9-4148-9b2c-3f40fc6ea66f",
       "position": [
-        -1408,
-        -1312
+        -2032,
+        48
       ],
       "name": "추천 응답 구성",
       "type": "n8n-nodes-base.code",
@@ -229,8 +229,8 @@
       },
       "id": "a72182a6-df9a-4bc6-8257-46ef8a3a1d28",
       "position": [
-        -1840,
-        -1056
+        -2464,
+        304
       ],
       "name": "추천: 고객 없음",
       "type": "n8n-nodes-base.code",
@@ -242,8 +242,8 @@
       },
       "id": "b73c58c7-a29b-405d-91e9-581ebcaf58f0",
       "position": [
-        -1152,
-        -1312
+        -1776,
+        48
       ],
       "name": "추천 응답",
       "type": "n8n-nodes-base.respondToWebhook",
@@ -260,8 +260,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -3392,
-        -1904
+        -4016,
+        -544
       ]
     },
     {
@@ -274,8 +274,8 @@
       },
       "id": "2c553691-7e37-43e6-bb4c-05e98d0df4ee",
       "position": [
-        -2864,
-        -1856
+        -3488,
+        -496
       ],
       "name": "접수 Webhook1",
       "type": "n8n-nodes-base.webhook",
@@ -476,8 +476,8 @@
       },
       "id": "d11ba48b-3a07-4a67-b50e-dd8115240507",
       "position": [
-        -2608,
-        -1856
+        -3232,
+        -496
       ],
       "name": "F01 고객 및 동의 정보 저장1",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -491,8 +491,8 @@
       },
       "id": "8ea9e946-f3e2-42d4-b96e-9173763e66db",
       "position": [
-        -2352,
-        -1856
+        -2976,
+        -496
       ],
       "name": "접수 응답 구성1",
       "type": "n8n-nodes-base.code",
@@ -504,8 +504,8 @@
       },
       "id": "15f0a6c3-58ef-4a1c-aff3-42b1fd5d43fc",
       "position": [
-        -2080,
-        -1856
+        -2704,
+        -496
       ],
       "name": "접수 응답1",
       "type": "n8n-nodes-base.respondToWebhook",
@@ -538,8 +538,8 @@
       },
       "id": "f0c3f140-c7b1-4c60-b8f1-d2682272e16f",
       "position": [
-        -1824,
-        -1856
+        -2448,
+        -496
       ],
       "name": "접수: 저장 성공?1",
       "type": "n8n-nodes-base.if",
@@ -572,8 +572,8 @@
       },
       "id": "5927842b-f3a1-4be3-a2b9-339ab3cf02a7",
       "position": [
-        -1568,
-        -1856
+        -2192,
+        -496
       ],
       "name": "접수: 약정 만료일 있음?1",
       "type": "n8n-nodes-base.if",
@@ -666,8 +666,8 @@
       },
       "id": "28f96fe1-4fe0-4561-a5f6-71722f311892",
       "position": [
-        -1296,
-        -1952
+        -1920,
+        -592
       ],
       "name": "접수: F06 약정 일정 생성1",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -720,8 +720,8 @@
       },
       "id": "7b9767de-1404-4a56-9676-519e6dd03643",
       "position": [
-        -1040,
-        -1840
+        -1664,
+        -480
       ],
       "name": "접수: F02 고객 분석1",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -740,8 +740,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -3360,
-        48
+        -3984,
+        1408
       ]
     },
     {
@@ -754,8 +754,8 @@
       },
       "id": "6f5a81e1-403e-42fe-bafc-b714e2700acc",
       "position": [
-        -2848,
-        96
+        -3472,
+        1456
       ],
       "name": "프로모션 Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -813,8 +813,8 @@
       },
       "id": "a1bb6078-a65d-410f-83b9-87e187961ff4",
       "position": [
-        -2576,
-        96
+        -3200,
+        1456
       ],
       "name": "F05 프로모션 대상 고객 선정",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -828,8 +828,8 @@
       },
       "id": "f5028159-3a4a-4cc4-a7e0-81e90978357f",
       "position": [
-        -2320,
-        96
+        -2944,
+        1456
       ],
       "name": "F05 결과 확인",
       "type": "n8n-nodes-base.code",
@@ -862,8 +862,8 @@
       },
       "id": "04861140-1ce7-43e3-b11e-b880a7197583",
       "position": [
-        -2064,
-        96
+        -2688,
+        1456
       ],
       "name": "프로모션: 대상 있음?",
       "type": "n8n-nodes-base.if",
@@ -875,8 +875,8 @@
       },
       "id": "27ddac39-3331-4344-a2e1-4b56688fb045",
       "position": [
-        -1824,
-        -64
+        -2448,
+        1296
       ],
       "name": "프로모션: 대상 고객 나누기",
       "type": "n8n-nodes-base.code",
@@ -970,8 +970,8 @@
       },
       "id": "a94c95af-2c9d-4917-88d2-9f39fe056919",
       "position": [
-        -1552,
-        -64
+        -2176,
+        1296
       ],
       "name": "프로모션: F06 일정 생성",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -985,8 +985,8 @@
       },
       "id": "2605e536-e98a-4d35-add9-1a80e657fc42",
       "position": [
-        -1280,
-        96
+        -1904,
+        1456
       ],
       "name": "프로모션 응답 구성",
       "type": "n8n-nodes-base.code",
@@ -998,8 +998,8 @@
       },
       "id": "4779f755-2b12-4bd1-94d0-82ed96099dc7",
       "position": [
-        -1008,
-        96
+        -1632,
+        1456
       ],
       "name": "프로모션 응답",
       "type": "n8n-nodes-base.respondToWebhook",
@@ -1518,8 +1518,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -3360,
-        -720
+        -3984,
+        640
       ]
     },
     {
@@ -1532,8 +1532,8 @@
       },
       "id": "2a84b50b-af25-4cf5-990e-042e19bc7a53",
       "position": [
-        -2832,
-        -672
+        -3456,
+        688
       ],
       "name": "즉시 발송 Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -1556,8 +1556,8 @@
       },
       "id": "267081a6-10eb-410c-8b17-f832e20d13e2",
       "position": [
-        -2576,
-        -672
+        -3200,
+        688
       ],
       "name": "발송: 일정 조회",
       "type": "n8n-nodes-base.postgres",
@@ -1597,8 +1597,8 @@
       },
       "id": "e5ada41b-91ad-4088-a58d-6266228354ac",
       "position": [
-        -2320,
-        -672
+        -2944,
+        688
       ],
       "name": "발송: 예정 상태 일정 있음?",
       "type": "n8n-nodes-base.if",
@@ -1606,10 +1606,73 @@
     },
     {
       "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('즉시 발송 Webhook').first().json.body.schedule_id ] }}"
+        }
+      },
+      "id": "7e68ea3e-2d63-4cc3-a808-7664b1444a02",
+      "position": [
+        -2416,
+        688
+      ],
+      "name": "발송: 결과 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first()?.json ?? {};\nconst called = $('F07-개별 메시지 처리').first()?.json ?? {};\nconst scheduleId = row.schedule_id ?? $('즉시 발송 Webhook').first().json.body.schedule_id;\n\n// 발송 여부는 n8n 실행 결과가 아니라 DB에 기록된 상태로 판단한다.\n// 호출 뒤에도 일정이 scheduled 그대로면 F07-S01이 시작되지 못한 것이다.\n// (예: 하위 워크플로우의 호출 허용 설정, 입력 오류) 원인을 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nif (called.error || row.schedule_status === 'scheduled') {\n  const detail = called.error ? String(called.error.message ?? called.error) : null;\n  return [{ json: {\n    success: false,\n    error_code: 'SEND_NOT_STARTED',\n    message: detail\n      ? 'F07-S01 실행 중 오류: ' + detail\n      : 'F07-S01 개별 메시지 처리가 일정을 처리하지 않았습니다. n8n 실행 기록을 확인하세요.',\n    schedule_id: scheduleId,\n    schedule_status: row.schedule_status ?? null,\n  } }];\n}\n\nreturn [{ json: {\n  success: true,\n  schedule_id: scheduleId,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
+      },
+      "id": "257568d1-5f46-4cdb-8080-75b13b0499aa",
+      "position": [
+        -2160,
+        688
+      ],
+      "name": "발송 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다.' } }];"
+      },
+      "id": "eb7fe7fc-53ad-4ca1-ab1f-1c49035b04e5",
+      "position": [
+        -2672,
+        832
+      ],
+      "name": "발송: 일정 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a04a7ff7-12d9-473e-8b3a-7c75f901c07d",
+      "position": [
+        -1904,
+        688
+      ],
+      "name": "발송 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "QFjC2ARP9Q6fCExH",
-          "mode": "id"
+          "mode": "id",
+          "value": "QFjC2ARP9Q6fCExH"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -1660,10 +1723,10 @@
       },
       "id": "1bc2a537-67cd-4d21-a0de-e8a12dd2de3d",
       "position": [
-        -2048,
-        -672
+        -2672,
+        688
       ],
-      "name": "F07-S01 개별 메시지 처리",
+      "name": "F07-개별 메시지 처리",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "alwaysOutputData": true,
@@ -1671,80 +1734,17 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n    ms.schedule_id,\n    ms.schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
-        "options": {
-          "queryReplacement": "={{ [ $('즉시 발송 Webhook').first().json.body.schedule_id ] }}"
-        }
-      },
-      "id": "7e68ea3e-2d63-4cc3-a808-7664b1444a02",
-      "position": [
-        -1792,
-        -672
-      ],
-      "name": "발송: 결과 조회",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const row = $input.first()?.json ?? {};\nconst called = $('F07-S01 개별 메시지 처리').first()?.json ?? {};\nconst scheduleId = row.schedule_id ?? $('즉시 발송 Webhook').first().json.body.schedule_id;\n\n// 발송 여부는 n8n 실행 결과가 아니라 DB에 기록된 상태로 판단한다.\n// 호출 뒤에도 일정이 scheduled 그대로면 F07-S01이 시작되지 못한 것이다.\n// (예: 하위 워크플로우의 호출 허용 설정, 입력 오류) 원인을 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nif (called.error || row.schedule_status === 'scheduled') {\n  const detail = called.error ? String(called.error.message ?? called.error) : null;\n  return [{ json: {\n    success: false,\n    error_code: 'SEND_NOT_STARTED',\n    message: detail\n      ? 'F07-S01 실행 중 오류: ' + detail\n      : 'F07-S01 개별 메시지 처리가 일정을 처리하지 않았습니다. n8n 실행 기록을 확인하세요.',\n    schedule_id: scheduleId,\n    schedule_status: row.schedule_status ?? null,\n  } }];\n}\n\nreturn [{ json: {\n  success: true,\n  schedule_id: scheduleId,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
-      },
-      "id": "257568d1-5f46-4cdb-8080-75b13b0499aa",
-      "position": [
-        -1536,
-        -672
-      ],
-      "name": "발송 응답 구성",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다.' } }];"
-      },
-      "id": "eb7fe7fc-53ad-4ca1-ab1f-1c49035b04e5",
-      "position": [
-        -2048,
-        -528
-      ],
-      "name": "발송: 일정 없음",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "a04a7ff7-12d9-473e-8b3a-7c75f901c07d",
-      "position": [
-        -1280,
-        -672
-      ],
-      "name": "발송 응답",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1
-    },
-    {
-      "parameters": {
         "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, `document_id` 열과 메타데이터 양쪽에 문서 ID)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
         "height": 240,
         "width": 460
       },
-      "id": "43f8fc98-813d-40e7-a8e1-a7d7bcaba602",
-      "name": "안내: 프로모션 등록1",
+      "id": "b370ad10-188e-4968-ac5b-9c240512b495",
+      "name": "안내: 프로모션 등록",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -592,
-        -720
+        -1200,
+        688
       ]
     },
     {
@@ -1755,12 +1755,12 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "723eb11a-b3e0-40dc-bbf1-d3034bae21c0",
+      "id": "2686feb4-9508-41bf-bb22-eda01830c595",
       "position": [
-        -64,
-        -672
+        -672,
+        736
       ],
-      "name": "프로모션 등록 Webhook1",
+      "name": "프로모션 등록 Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "webhookId": "28968bdb-04bc-45ff-a6c1-271635b7171c",
@@ -1773,14 +1773,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body ?? {};\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst isDate = (value) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value);\n\nconst name = text(body.promotion_name);\nconst storeId = text(body.store_id);\nconst from = text(body.valid_from);\nconst until = text(body.valid_until);\nconst benefit = text(body.benefit);\n\nconst fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];\n\nif (!storeId) return fail('매장 정보가 없습니다.');\nif (!name) return fail('프로모션 이름을 입력해 주세요.');\nif (!isDate(from) || !isDate(until)) return fail('적용 기간을 입력해 주세요.');\nif (from > until) return fail('종료일이 시작일보다 빠릅니다.');\nif (!benefit) return fail('혜택 내용을 입력해 주세요.');\n\n// documents.document_id 는 varchar(20) 이다. 'PROMO-' + 13자리 = 19자.\nconst documentId = 'PROMO-' + Date.now();\n\n// F05(대상 조건 추출)와 F07(문자 생성)이 읽는 본문. 기존 프로모션 문서와 같은 형식으로 만든다.\nconst lines = [\n  ['프로모션 ID', documentId],\n  ['프로모션명', name],\n  ['프로모션 유형', text(body.promotion_type)],\n  ['대상 기기', text(body.target_device)],\n  ['대상 요금제', text(body.target_plan)],\n  ['대상 고객', text(body.target_customer)],\n  ['혜택', benefit],\n  ['조건', text(body.conditions)],\n  ['적용 기간', from + ' ~ ' + until],\n].filter(([, value]) => value).map(([label, value]) => label + ': ' + value);\n\nreturn [{ json: {\n  valid: true,\n  document_id: documentId,\n  store_id: storeId,\n  file_name: name,\n  file_path: 'web/' + documentId,\n  valid_from: from,\n  valid_until: until,\n  content: lines.join('\\n'),\n  metadata: JSON.stringify({\n    source: 'web',\n    store_id: storeId,\n    file_name: name,\n    document_id: documentId,\n    document_type: 'promotion',\n  }),\n} }];"
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst isDate = (value) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value);\n\nconst name = text(body.promotion_name);\nconst storeId = text(body.store_id);\nconst from = text(body.valid_from);\nconst until = text(body.valid_until);\nconst benefit = text(body.benefit);\n\nconst fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];\n\nif (!storeId) return fail('매장 정보가 없습니다.');\nif (!name) return fail('프로모션 이름을 입력해 주세요.');\nif (!isDate(from) || !isDate(until)) return fail('적용 기간을 입력해 주세요.');\nif (from > until) return fail('종료일이 시작일보다 빠릅니다.');\nif (!benefit) return fail('혜택 내용을 입력해 주세요.');\n\n// documents.document_id 는 varchar(20) 이다. 'PROMO-' + 13자리 = 19자.\nconst documentId = 'PROMO-' + Date.now();\n\n// F05(대상 조건 추출)와 F07(문자 생성)이 읽는 본문. 기존 프로모션 문서와 같은 형식으로 만든다.\nconst lines = [\n  ['프로모션 ID', documentId],\n  ['프로모션명', name],\n  ['프로모션 유형', text(body.promotion_type)],\n  ['대상 기기', text(body.target_device)],\n  ['대상 요금제', text(body.target_plan)],\n  ['대상 고객', text(body.target_customer)],\n  ['혜택', benefit],\n  ['조건', text(body.conditions)],\n  ['적용 기간', from + ' ~ ' + until],\n].filter(([, value]) => value).map(([label, value]) => label + ': ' + value);\n\nreturn [{ json: {\n  valid: true,\n  document_id: documentId,\n  store_id: storeId,\n  file_name: name,\n  // PDF에서 등록하면 원본이 보관된 경로가 온다. 직접 입력이면 web/<문서 ID>.\n  file_path: text(body.file_path) || 'web/' + documentId,\n  valid_from: from,\n  valid_until: until,\n  content: lines.join('\\n'),\n  metadata: JSON.stringify({\n    source: 'web',\n    store_id: storeId,\n    file_name: name,\n    document_id: documentId,\n    document_type: 'promotion',\n  }),\n} }];"
       },
-      "id": "8cf7b4c2-b0f9-403d-ba45-72a422362831",
+      "id": "be8e4e91-5054-4b71-bd02-03ae5a9a5862",
       "position": [
-        192,
-        -672
+        -416,
+        736
       ],
-      "name": "등록 입력 정리1",
+      "name": "등록 입력 정리",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2
     },
@@ -1809,12 +1809,12 @@
         },
         "options": {}
       },
-      "id": "1cc44705-d956-454f-aa8a-a539fca69c4e",
+      "id": "042eb714-1f86-4498-ab17-b0c5aaf7fa92",
       "position": [
-        448,
-        -672
+        -160,
+        736
       ],
-      "name": "등록: 입력 유효?1",
+      "name": "등록: 입력 유효?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2
     },
@@ -1829,12 +1829,12 @@
         "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.content }) }}",
         "options": {}
       },
-      "id": "59935e32-80ff-45f1-bd33-3eafe4004e27",
+      "id": "55b16b53-0da4-44f2-9f0e-54aef86a4028",
       "position": [
-        720,
-        -672
+        112,
+        736
       ],
-      "name": "등록: 본문 임베딩1",
+      "name": "등록: 본문 임베딩",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "alwaysOutputData": true,
@@ -1849,17 +1849,17 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)\n    SELECT $7, $8::jsonb, $9::vector, doc.document_id\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
+        "query": "-- 같은 매장에 같은 이름의 프로모션이 있으면 새로 만들지 않고 그것을 돌려준다.\nWITH existing AS (\n    SELECT document_id, file_name, valid_from, valid_until\n    FROM public.documents\n    WHERE store_id = $2\n      AND document_type = 'promotion'\n      AND file_name = $3\n    ORDER BY document_id\n    LIMIT 1\n),\ndoc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    SELECT $1, $2, 'promotion', $3, $4, $5::date, $6::date\n    WHERE NOT EXISTS (SELECT 1 FROM existing)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\n-- 문서에 연결되지 않은 본문 조각 중 같은 프로모션명이 있으면(예전에 CSV로 넣은 자료) 새로 넣지 않고 그 조각을 이 문서에 연결한다.\nlinked AS (\n    UPDATE public.kt_promotion_vectors v\n    SET document_id = doc.document_id,\n        metadata = COALESCE(v.metadata, '{}'::jsonb) || $8::jsonb\n    FROM doc\n    WHERE v.vector_id = (\n        SELECT c.vector_id\n        FROM public.kt_promotion_vectors c\n        WHERE c.document_id IS NULL\n          AND position('프로모션명: ' || $3::text || E'\\n' IN c.content || E'\\n') > 0\n        ORDER BY c.vector_id\n        LIMIT 1\n    )\n    RETURNING v.vector_id\n),\nvec AS (\n    -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)\n    SELECT $7, $8::jsonb, $9::vector, doc.document_id\n    FROM doc\n    WHERE NOT EXISTS (SELECT 1 FROM linked)\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    COALESCE((SELECT vector_id FROM linked), (SELECT vector_id FROM vec)) AS vector_id,\n    false AS already_exists\nFROM doc\nUNION ALL\nSELECT\n    existing.document_id,\n    existing.file_name,\n    existing.valid_from,\n    existing.valid_until,\n    NULL,\n    true\nFROM existing;",
         "options": {
-          "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리1').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
+          "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
         }
       },
-      "id": "40f09edd-2e06-4c4c-8bf9-47af0c7d96d6",
+      "id": "bf7055e9-8a06-470e-941d-307c128e32f1",
       "position": [
-        976,
-        -672
+        368,
+        736
       ],
-      "name": "등록: 문서·본문 저장1",
+      "name": "등록: 문서·본문 저장",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "alwaysOutputData": true,
@@ -1873,14 +1873,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $('등록 입력 정리1').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst saved = $input.first()?.json ?? {};\nif (saved.document_id && saved.vector_id) {\n  return [{ json: {\n    success: true,\n    document_id: saved.document_id,\n    file_name: input.file_name,\n    valid_from: input.valid_from,\n    valid_until: input.valid_until,\n  } }];\n}\n\n// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nlet embedding = {};\ntry { embedding = $('등록: 본문 임베딩1').first()?.json ?? {}; } catch (error) { embedding = {}; }\nconst reason = !Array.isArray(embedding.data)\n  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')\n  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');\n\nreturn [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];"
+        "jsCode": "const input = $('등록 입력 정리').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst saved = $input.first()?.json ?? {};\nif (saved.document_id && saved.already_exists === true) {\n  return [{ json: {\n    success: true,\n    already_exists: true,\n    document_id: saved.document_id,\n    file_name: saved.file_name,\n    valid_from: String(saved.valid_from ?? '').slice(0, 10),\n    valid_until: String(saved.valid_until ?? '').slice(0, 10),\n  } }];\n}\nif (saved.document_id && saved.vector_id) {\n  return [{ json: {\n    success: true,\n    document_id: saved.document_id,\n    file_name: input.file_name,\n    valid_from: input.valid_from,\n    valid_until: input.valid_until,\n  } }];\n}\n\n// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nlet embedding = {};\ntry { embedding = $('등록: 본문 임베딩').first()?.json ?? {}; } catch (error) { embedding = {}; }\nconst reason = !Array.isArray(embedding.data)\n  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')\n  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');\n\nreturn [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];"
       },
-      "id": "a02db6ac-ac41-4d04-910b-020d285ae101",
+      "id": "dcd1bb38-d387-455c-8601-5f7a7197bccf",
       "position": [
-        1232,
-        -672
+        624,
+        736
       ],
-      "name": "등록 응답 구성1",
+      "name": "등록 응답 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2
     },
@@ -1888,12 +1888,154 @@
       "parameters": {
         "options": {}
       },
-      "id": "22fae1fc-c253-47ae-833d-4959eae7c1cc",
+      "id": "e45e4fab-74f5-43dd-935d-10b3581c395e",
       "position": [
-        1488,
-        -672
+        880,
+        736
       ],
-      "name": "등록 응답1",
+      "name": "등록 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/promotion-parse\n요청: `{ text, file_name }` (웹사이트가 PDF에서 꺼낸 글자)\n\nAI가 문서 안의 프로모션을 하나씩 나눠 항목을 뽑는다. DB에는 쓰지 않는다.\n\n응답: `{ success, promotions: [{ promotion_name, promotion_type, target_device, target_plan, target_customer, benefit, conditions, valid_from, valid_until }] }`",
+        "height": 240,
+        "width": 460
+      },
+      "id": "78a06180-dd67-45a7-8bd9-e812d4f87122",
+      "name": "안내: 프로모션 PDF 분석",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/promotion-parse",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4f1d811f-1670-483f-8764-c1fcdfd251d1",
+      "position": [
+        -592,
+        1248
+      ],
+      "name": "프로모션 분석 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "e45872dd-a084-403b-ad32-2c5021cd92c2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst text = typeof body.text === 'string' ? body.text.trim() : '';\nif (text.length < 20) {\n  return [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message: '분석할 내용이 없습니다.' } } }];\n}\n\nconst field = { type: 'string' };\nconst names = ['promotion_name', 'promotion_type', 'target_device', 'target_plan', 'target_customer', 'benefit', 'conditions', 'valid_from', 'valid_until'];\n\nconst system = [\n  '당신은 이동통신 매장의 프로모션 문서를 정리하는 도우미입니다.',\n  '문서에 들어 있는 프로모션을 하나씩 나눠, 주어진 형식으로 돌려줍니다.',\n  '',\n  '규칙:',\n  '- 문서에 실제로 적힌 내용만 씁니다. 없는 혜택, 조건, 날짜를 만들지 않습니다.',\n  '- 같은 프로모션이 목록과 상세에 두 번 나오면 한 건으로 합칩니다.',\n  '- promotion_name 에는 프로모션 이름만 넣습니다. P001 같은 문서 안의 번호는 넣지 않습니다.',\n  '- benefit 에는 혜택과 혜택 금액을 함께 적습니다.',\n  '- conditions 에는 조건과 제외 조건을 함께 적습니다.',\n  '- valid_from, valid_until 은 YYYY-MM-DD 형식입니다. 문서에 날짜가 없거나 \"-\" 이면 빈 문자열로 둡니다. 날짜를 추측하지 않습니다.',\n  '- 해당 값이 없는 칸은 빈 문자열로 둡니다.',\n  '- 문서에 나온 순서대로 돌려줍니다.',\n].join('\\n');\n\nreturn [{ json: {\n  valid: true,\n  request: {\n    model: 'gpt-5-mini',\n    reasoning_effort: 'minimal',\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user', content: '[파일 이름]\\n' + String(body.file_name ?? '') + '\\n\\n[문서 내용]\\n' + text },\n    ],\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'promotions',\n        strict: true,\n        schema: {\n          type: 'object',\n          additionalProperties: false,\n          required: ['promotions'],\n          properties: {\n            promotions: {\n              type: 'array',\n              items: {\n                type: 'object',\n                additionalProperties: false,\n                required: names,\n                properties: Object.fromEntries(names.map((name) => [name, field])),\n              },\n            },\n          },\n        },\n      },\n    },\n  },\n} }];"
+      },
+      "id": "35cfdce2-9d1e-44ab-8825-47fb414d5256",
+      "position": [
+        -336,
+        1248
+      ],
+      "name": "분석 요청 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f7661f2f-8088-47a6-aebb-02908ad20dd0",
+              "leftValue": "={{ $json.valid === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "28fd8065-4c91-45be-bead-bc9fca8ff0de",
+      "position": [
+        -80,
+        1248
+      ],
+      "name": "분석: 입력 유효?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 95000
+        }
+      },
+      "id": "c51bee23-b67f-4b2c-ab45-6fafe4380283",
+      "position": [
+        192,
+        1248
+      ],
+      "name": "분석: 프로모션 나누기",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('분석 요청 구성').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst reply = $input.first()?.json ?? {};\nconst fail = (reason) => [{ json: { success: false, error_code: 'PARSE_FAILED', message: 'PDF 내용을 분석하지 못했습니다. ' + reason } }];\n\nconst content = reply.choices?.[0]?.message?.content;\nif (typeof content !== 'string') return fail(String(reply.error?.message ?? reply.error ?? '응답 없음'));\n\nlet parsed;\ntry { parsed = JSON.parse(content); } catch (error) { return fail('결과 형식 오류'); }\n\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst blank = (value) => (value === '-' ? '' : value);\nconst date = (value) => (/^\\d{4}-\\d{2}-\\d{2}$/.test(text(value)) ? text(value) : '');\n\nconst promotions = (Array.isArray(parsed.promotions) ? parsed.promotions : [])\n  .map((item) => ({\n    promotion_name: text(item.promotion_name),\n    promotion_type: blank(text(item.promotion_type)),\n    target_device: blank(text(item.target_device)),\n    target_plan: blank(text(item.target_plan)),\n    target_customer: blank(text(item.target_customer)),\n    benefit: blank(text(item.benefit)),\n    conditions: blank(text(item.conditions)),\n    valid_from: date(item.valid_from),\n    valid_until: date(item.valid_until),\n  }))\n  .filter((item) => item.promotion_name);\n\nreturn [{ json: { success: true, promotions } }];"
+      },
+      "id": "4299ea5d-2f1a-4f99-9dda-4ff9f328dbf0",
+      "position": [
+        448,
+        1248
+      ],
+      "name": "분석 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "61408c7a-c421-41fe-bf52-23bf2b1b0359",
+      "position": [
+        704,
+        1248
+      ],
+      "name": "분석 응답",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1
     }
@@ -2317,7 +2459,7 @@
       "main": [
         [
           {
-            "node": "F07-S01 개별 메시지 처리",
+            "node": "F07-개별 메시지 처리",
             "type": "main",
             "index": 0
           }
@@ -2325,17 +2467,6 @@
         [
           {
             "node": "발송: 일정 없음",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "F07-S01 개별 메시지 처리": {
-      "main": [
-        [
-          {
-            "node": "발송: 결과 조회",
             "type": "main",
             "index": 0
           }
@@ -2375,73 +2506,146 @@
         ]
       ]
     },
-    "프로모션 등록 Webhook1": {
+    "F07-개별 메시지 처리": {
       "main": [
         [
           {
-            "node": "등록 입력 정리1",
+            "node": "발송: 결과 조회",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "등록 입력 정리1": {
+    "프로모션 등록 Webhook": {
       "main": [
         [
           {
-            "node": "등록: 입력 유효?1",
+            "node": "등록 입력 정리",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "등록: 입력 유효?1": {
+    "등록 입력 정리": {
       "main": [
         [
           {
-            "node": "등록: 본문 임베딩1",
+            "node": "등록: 입력 유효?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록: 입력 유효?": {
+      "main": [
+        [
+          {
+            "node": "등록: 본문 임베딩",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "등록 응답 구성1",
+            "node": "등록 응답 구성",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "등록: 본문 임베딩1": {
+    "등록: 본문 임베딩": {
       "main": [
         [
           {
-            "node": "등록: 문서·본문 저장1",
+            "node": "등록: 문서·본문 저장",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "등록: 문서·본문 저장1": {
+    "등록: 문서·본문 저장": {
       "main": [
         [
           {
-            "node": "등록 응답 구성1",
+            "node": "등록 응답 구성",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "등록 응답 구성1": {
+    "등록 응답 구성": {
       "main": [
         [
           {
-            "node": "등록 응답1",
+            "node": "등록 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 분석 Webhook": {
+      "main": [
+        [
+          {
+            "node": "분석 요청 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석 요청 구성": {
+      "main": [
+        [
+          {
+            "node": "분석: 입력 유효?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석: 입력 유효?": {
+      "main": [
+        [
+          {
+            "node": "분석: 프로모션 나누기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "분석 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석: 프로모션 나누기": {
+      "main": [
+        [
+          {
+            "node": "분석 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "분석 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "분석 응답",
             "type": "main",
             "index": 0
           }
