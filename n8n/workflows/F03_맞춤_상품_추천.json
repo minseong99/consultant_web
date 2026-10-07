@@ -4,88 +4,6 @@
   "nodes": [
     {
       "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "customer_id"
-            },
-            {
-              "name": "analysis_id"
-            },
-            {
-              "name": "analysis",
-              "type": "object"
-            },
-            {
-              "name": "recommendation_request"
-            },
-            {
-              "name": "customer",
-              "type": "object"
-            },
-            {
-              "name": "consultation",
-              "type": "object"
-            }
-          ]
-        }
-      },
-      "id": "ae45afba-7ec5-46a3-bfae-3e964c041bcc",
-      "name": "When Executed by Another Workflow",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -128,
-        -144
-      ]
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
-        },
-        "builtInTools": {},
-        "options": {}
-      },
-      "id": "1e126ab6-7b12-4f61-840d-1822537980d6",
-      "name": "OpenAI Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1008,
-        16
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": null,
-          "name": "",
-          "__aiGatewayManaged": true
-        }
-      }
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
-      "typeVersion": 1.2,
-      "position": [
-        368,
-        256
-      ],
-      "id": "34a7830f-bab2-45fa-99f8-08d9e492aa46",
-      "name": "Embeddings OpenAI",
-      "credentials": {
-        "openAiApi": {
-          "id": "nIiZAyshbU5fsKDS",
-          "name": "OpenAI account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "SELECT *\nFROM devices;",
         "options": {}
@@ -107,34 +25,6 @@
     },
     {
       "parameters": {
-        "mode": "load",
-        "tableName": {
-          "__rl": true,
-          "value": "kt_promotion_vectors",
-          "mode": "list",
-          "cachedResultName": "kt_promotion_vectors"
-        },
-        "prompt": "=고객 맞춤 단말기 및 요금제 추천에 활용할 프로모션·이벤트 정보를 검색합니다.\n\n아래 고객 정보와 분석 결과를 바탕으로 고객에게 관련성이 높은 프로모션·이벤트 내용을 검색합니다.\n\n현재 단말기: {{ $json.customer.current_device }}\n현재 요금제: {{ $json.customer.current_plan }}\n사용 패턴: {{ $json.customer.usage_pattern }}\n상담 목적: {{ $json.customer.consultation_goal }}\n선호 브랜드: {{ $json.customer.preferred_brand }}\n월 예산: {{ $json.customer.target_monthly_budget }}원\n\n고객 분석 요약:\n{{ $json.analysis.analysis_summary }}\n\n교체 사유:\n{{ $json.analysis.replacement_reason }}\n\n중요 기능:\n{{ ($json.analysis.important_features ?? []).join(', ') }}\n\n선호 제품군:\n{{ $json.analysis.preferred_product_group }}\n\n추천 고려사항:\n{{ ($json.analysis.recommendation_factors ?? []).join(', ') }}",
-        "topK": 10,
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
-      "typeVersion": 1.3,
-      "position": [
-        368,
-        64
-      ],
-      "id": "8ba5bc06-651e-47f6-91de-f02d978d695e",
-      "name": "RAG 프로모션, 이벤트 조회",
-      "credentials": {
-        "supabaseApi": {
-          "id": "4cP1uNV1vcc3nrqf",
-          "name": "Supabase account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "jsCode": "const aiInput = $('AI 추천 생성').first().json;\nconst result = aiInput.output ?? aiInput;\n\nconst requestData = $('추천 요청 데이터 구성').first().json;\nconst saved = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    feature_id: 'F-03',\n\n    customer_id: requestData.customer_id ?? null,\n    analysis_id: requestData.analysis_id ?? null,\n\n    saved_count: saved.saved_count ?? 0,\n\n    recommendations: Array.isArray(result.recommendations)\n      ? result.recommendations.map(item => ({\n          recommendation_rank:\n            item.recommendation_rank ?? null,\n\n          device_id:\n            item.product_id ?? item.device_id ?? null,\n\n          device_name:\n            item.device_name ?? null,\n\n          plan_id:\n            item.plan_id ?? null,\n\n          plan_name:\n            item.plan_name ?? null,\n\n          expected_benefit:\n            item.expected_benefit ?? null,\n\n          benefit_info:\n            item.benefit_info ?? null,\n\n          eligibility_condition:\n            item.eligibility_condition ?? null,\n\n          recommendation_reason:\n            item.recommendation_reason ?? null\n        }))\n      : [],\n\n    information_status:\n      result.information_status ?? 'insufficient',\n\n    missing_information:\n      Array.isArray(result.missing_information)\n        ? result.missing_information\n        : []\n  }\n}];"
       },
       "id": "a684033e-bf4e-4130-8d08-ac16451ce80a",
@@ -149,7 +39,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=다음 고객 정보, 고객 분석 정보, 상품·요금제 후보와 프로모션·이벤트 정보를 바탕으로 F03 추천 결과를 생성하세요.\n\n[고객 ID]\n{{ $('추천 요청 데이터 구성').first().json.customer_id }}\n\n[분석 ID]\n{{ $('추천 요청 데이터 구성').first().json.analysis_id }}\n\n[고객 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.customer ?? {}, null, 2) }}\n\n[상담 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.consultation ?? {}, null, 2) }}\n\n[고객 분석 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.analysis ?? {}, null, 2) }}\n\n[기기·요금제 후보 정보]\n{{ JSON.stringify(\n  $('Build Recommendation Context').first().json.product_catalog ?? {},\n  null,\n  2\n) }}\n\n[프로모션·이벤트 정보]\n{{ JSON.stringify(\n  $('Build Recommendation Context').first().json.promotion_context ?? [],\n  null,\n  2\n) }}\n\n[추천 요청]\n{{ $('추천 요청 데이터 구성').first().json.recommendation_request }}\n\n추천 규칙:\n1. 고객 정보, 상담 정보, 고객 분석 정보에 실제로 포함된 내용만 근거로 사용합니다.\n2. 제공된 기기·요금제 후보 또는 프로모션·이벤트 정보에 존재하지 않는 상품, 요금제, 가격, 할인율, 프로모션, 혜택을 임의로 생성하지 않습니다.\n3. 필요한 정보가 부족하면 추천을 임의로 확정하지 말고 information_status와 missing_information에 기록합니다.\n4. 고객의 사용 성향, 가격 민감도, 선호 제품군, 교체 의향, 추천 고려요소를 반영합니다.\n5. 고객의 선호 브랜드와 중요 기능을 우선적으로 고려합니다.\n6. 여러 후보가 있으면 recommendation_rank를 1부터 부여합니다.\n7. 각 추천에는 고객 분석 정보의 어떤 요소를 근거로 했는지 연결하여 추천 사유를 작성합니다.\n8. 할인·혜택·프로모션과 적용 조건은 제공된 프로모션·이벤트 정보에서 실제 확인되는 경우에만 작성합니다.\n9. 고객이 프로모션 적용 조건을 충족하는지 확인할 수 없으면 적용 가능한 것으로 단정하지 않습니다.\n10. 특정 상품, 요금제, 가격, 혜택에 대한 근거가 부족하면 해당 nullable 필드는 null로 반환합니다.\n11. 동일하거나 사실상 같은 프로모션은 중복 추천하지 않습니다.\n12. 검색 score는 참고 지표일 뿐이며 추천 순위는 고객 조건과 실제 후보 정보의 적합성을 기준으로 판단합니다.\n13. 상담사가 바로 활용할 수 있도록 간결하고 명확하게 작성합니다.\n14. 기기와 요금제의 기본 정보는 기기·요금제 후보 정보를 우선 사용하고, 할인·혜택·적용 조건은 프로모션·이벤트 정보를 사용합니다. 서로 충돌하면 임의로 판단하지 말고 missing_information에 기록합니다.\n15. 사람이 읽는 문장에는 PLAN-006, DEV-001, DOC-PROMO-001 같은 내부 ID를 사용하지 않습니다. ID는 ID 전용 필드에만 기록합니다.\n16. 사람이 읽는 문장에는 RAG, 기준정보, 검색 결과 같은 시스템 내부 용어를 사용하지 않습니다.\n17. 사람이 읽는 문장에는 usage_profile, important_features, preferred_product_group, price_sensitivity 같은 데이터 항목의 영문 이름을 사용하지 않습니다. 근거를 밝힐 때는 \"유튜브·OTT 시청이 많아\", \"카메라를 중요하게 여겨\"처럼 내용으로 씁니다.\n18. 추천 후보가 없으면 recommendations를 빈 배열로 반환합니다.\n19. 출력은 연결된 Structured Output Parser의 스키마를 정확히 따릅니다.",
+        "text": "=다음 고객 정보, 고객 분석 정보, 상품·요금제 후보와 프로모션·이벤트 정보를 바탕으로 F03 추천 결과를 생성하세요.\n\n[고객 ID]\n{{ $('추천 요청 데이터 구성').first().json.customer_id }}\n\n[분석 ID]\n{{ $('추천 요청 데이터 구성').first().json.analysis_id }}\n\n[고객 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.customer ?? {}, null, 2) }}\n\n[상담 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.consultation ?? {}, null, 2) }}\n\n[고객 분석 정보]\n{{ JSON.stringify($('추천 요청 데이터 구성').first().json.analysis ?? {}, null, 2) }}\n\n[기기·요금제 후보 정보]\n{{ JSON.stringify(\n  $('추천 데이터 구성').first().json.product_catalog ?? {},\n  null,\n  2\n) }}\n\n[프로모션·이벤트 정보]\n{{ JSON.stringify(\n  $('추천 데이터 구성').first().json.promotion_context ?? [],\n  null,\n  2\n) }}\n\n[추천 요청]\n{{ $('추천 요청 데이터 구성').first().json.recommendation_request }}\n\n추천 규칙:\n1. 고객 정보, 상담 정보, 고객 분석 정보에 실제로 포함된 내용만 근거로 사용합니다.\n2. 제공된 기기·요금제 후보 또는 프로모션·이벤트 정보에 존재하지 않는 상품, 요금제, 가격, 할인율, 프로모션, 혜택을 임의로 생성하지 않습니다.\n3. 필요한 정보가 부족하면 추천을 임의로 확정하지 말고 information_status와 missing_information에 기록합니다.\n4. 고객의 사용 성향, 가격 민감도, 선호 제품군, 교체 의향, 추천 고려요소를 반영합니다.\n5. 고객의 선호 브랜드와 중요 기능을 우선적으로 고려합니다.\n6. 여러 후보가 있으면 recommendation_rank를 1부터 부여합니다.\n7. 각 추천에는 고객 분석 정보의 어떤 요소를 근거로 했는지 연결하여 추천 사유를 작성합니다.\n8. 할인·혜택·프로모션과 적용 조건은 제공된 프로모션·이벤트 정보에서 실제 확인되는 경우에만 작성합니다.\n9. 고객이 프로모션 적용 조건을 충족하는지 확인할 수 없으면 적용 가능한 것으로 단정하지 않습니다.\n10. 특정 상품, 요금제, 가격, 혜택에 대한 근거가 부족하면 해당 nullable 필드는 null로 반환합니다.\n11. 동일하거나 사실상 같은 프로모션은 중복 추천하지 않습니다.\n12. 검색 score는 참고 지표일 뿐이며 추천 순위는 고객 조건과 실제 후보 정보의 적합성을 기준으로 판단합니다.\n13. 상담사가 바로 활용할 수 있도록 간결하고 명확하게 작성합니다.\n14. 기기와 요금제의 기본 정보는 기기·요금제 후보 정보를 우선 사용하고, 할인·혜택·적용 조건은 프로모션·이벤트 정보를 사용합니다. 서로 충돌하면 임의로 판단하지 말고 missing_information에 기록합니다.\n15. 사람이 읽는 문장에는 PLAN-006, DEV-001, DOC-PROMO-001 같은 내부 ID를 사용하지 않습니다. ID는 ID 전용 필드에만 기록합니다.\n16. 사람이 읽는 문장에는 RAG, 기준정보, 검색 결과 같은 시스템 내부 용어를 사용하지 않습니다.\n17. 사람이 읽는 문장에는 usage_profile, important_features, preferred_product_group, price_sensitivity 같은 데이터 항목의 영문 이름을 사용하지 않습니다. 근거를 밝힐 때는 \"유튜브·OTT 시청이 많아\", \"카메라를 중요하게 여겨\"처럼 내용으로 씁니다.\n18. 추천 후보가 없으면 recommendations를 빈 배열로 반환합니다.\n19. 출력은 연결된 Structured Output Parser의 스키마를 정확히 따릅니다.",
         "hasOutputParser": true,
         "messages": {
           "messageValues": [
@@ -170,19 +60,6 @@
       ],
       "alwaysOutputData": false,
       "executeOnce": true
-    },
-    {
-      "parameters": {
-        "jsCode": "const base = $('추천 요청 데이터 구성').first().json;\n\nconst devices = $('기종 정보 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((d) => d.device_id);\n\nconst plans = $('요금제 정보 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((p) => p.plan_id);\n\nconst promotions = $('RAG 프로모션, 이벤트 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((item) => Object.keys(item).length > 0);\n\nreturn [{\n  json: {\n    ...base,\n\n    product_catalog: {\n      devices: devices.map((d) => ({\n        device_id: d.device_id,\n        device_name: d.device_name,\n        manufacturer: d.manufacturer,\n        device_price: d.device_price,\n      })),\n\n      plans: plans.map((p) => ({\n        plan_id: p.plan_id,\n        plan_name: p.plan_name,\n        monthly_fee: p.monthly_fee,\n        allowance_info: p.allowance_info,\n      })),\n    },\n\n    promotion_context: promotions.map((p) => ({\n      content: p.pageContent ?? p.content ?? p.text ?? null,\n      metadata: p.metadata ?? {},\n      document_id: p.document_id ?? p.metadata?.document_id ?? null,\n    })),\n  },\n}];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        832,
-        -176
-      ],
-      "id": "947e7bea-19b7-4a5a-aae8-69a576828493",
-      "name": "Build Recommendation Context"
     },
     {
       "parameters": {
@@ -247,8 +124,112 @@
     },
     {
       "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "customer_id"
+            },
+            {
+              "name": "analysis_id"
+            },
+            {
+              "name": "analysis",
+              "type": "object"
+            },
+            {
+              "name": "recommendation_request"
+            },
+            {
+              "name": "customer",
+              "type": "object"
+            },
+            {
+              "name": "consultation",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "ae45afba-7ec5-46a3-bfae-3e964c041bcc",
+      "name": "F03 추천 시작",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -128,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "tableName": {
+          "__rl": true,
+          "value": "kt_promotion_vectors",
+          "mode": "list",
+          "cachedResultName": "kt_promotion_vectors"
+        },
+        "prompt": "=고객 맞춤 단말기 및 요금제 추천에 활용할 프로모션·이벤트 정보를 검색합니다.\n\n아래 고객 정보와 분석 결과를 바탕으로 고객에게 관련성이 높은 프로모션·이벤트 내용을 검색합니다.\n\n현재 단말기: {{ $json.customer.current_device }}\n현재 요금제: {{ $json.customer.current_plan }}\n사용 패턴: {{ $json.customer.usage_pattern }}\n상담 목적: {{ $json.customer.consultation_goal }}\n선호 브랜드: {{ $json.customer.preferred_brand }}\n월 예산: {{ $json.customer.target_monthly_budget }}원\n\n고객 분석 요약:\n{{ $json.analysis.analysis_summary }}\n\n교체 사유:\n{{ $json.analysis.replacement_reason }}\n\n중요 기능:\n{{ ($json.analysis.important_features ?? []).join(', ') }}\n\n선호 제품군:\n{{ $json.analysis.preferred_product_group }}\n\n추천 고려사항:\n{{ ($json.analysis.recommendation_factors ?? []).join(', ') }}",
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        64
+      ],
+      "id": "8ba5bc06-651e-47f6-91de-f02d978d695e",
+      "name": "프로모션·이벤트 정보 조회",
+      "credentials": {
+        "supabaseApi": {
+          "id": "4cP1uNV1vcc3nrqf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('추천 요청 데이터 구성').first().json;\n\nconst devices = $('기종 정보 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((d) => d.device_id);\n\nconst plans = $('요금제 정보 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((p) => p.plan_id);\n\nconst promotions = $('프로모션·이벤트 정보 조회')\n  .all()\n  .map((item) => item.json)\n  .filter((item) => Object.keys(item).length > 0);\n\nreturn [{\n  json: {\n    ...base,\n\n    product_catalog: {\n      devices: devices.map((d) => ({\n        device_id: d.device_id,\n        device_name: d.device_name,\n        manufacturer: d.manufacturer,\n        device_price: d.device_price,\n      })),\n\n      plans: plans.map((p) => ({\n        plan_id: p.plan_id,\n        plan_name: p.plan_name,\n        monthly_fee: p.monthly_fee,\n        allowance_info: p.allowance_info,\n      })),\n    },\n\n    promotion_context: promotions.map((p) => ({\n      content: p.pageContent ?? p.content ?? p.text ?? null,\n      metadata: p.metadata ?? {},\n      document_id: p.document_id ?? p.metadata?.document_id ?? null,\n    })),\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -176
+      ],
+      "id": "947e7bea-19b7-4a5a-aae8-69a576828493",
+      "name": "추천 데이터 구성"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "1e126ab6-7b12-4f61-840d-1822537980d6",
+      "name": "OpenAI 추천 모델",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1008,
+        16
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "WITH deleted AS (\n    DELETE FROM public.recommendations\n    WHERE customer_id = $1::text\n      AND analysis_id = NULLIF($2::text, '')\n),\n\nrecs AS (\n    SELECT\n        value AS rec,\n        ordinality AS ord\n    FROM jsonb_array_elements(\n        COALESCE($3::jsonb, '[]'::jsonb)\n    ) WITH ORDINALITY\n),\n\ninserted AS (\n    INSERT INTO public.recommendations (\n        recommendation_id,\n        analysis_id,\n        customer_id,\n        device_id,\n        plan_id,\n        recommendation_rank,\n        recommendation_reason\n    )\n    SELECT\n        'REC-' ||\n        ((EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint)::text ||\n        '-' ||\n        ord::text,\n\n        NULLIF($2::text, ''),\n        $1::text,\n\n        NULLIF(rec ->> 'product_id', ''),\n        NULLIF(rec ->> 'plan_id', ''),\n\n        COALESCE(\n            NULLIF(rec ->> 'recommendation_rank', '')::int,\n            ord::int\n        ),\n\n        NULLIF(rec ->> 'recommendation_reason', '')\n\n    FROM recs\n\n    RETURNING recommendation_id\n)\n\nSELECT\n    $1::text AS customer_id,\n    NULLIF($2::text, '') AS analysis_id,\n    COUNT(*)::int AS saved_count\nFROM inserted;",
+        "query": "WITH deleted AS (\n    DELETE FROM public.recommendations\n    WHERE customer_id = $1::text\n      AND analysis_id = NULLIF($2::text, '')\n),\n\nrecs AS (\n    SELECT\n        value AS rec,\n        ordinality AS ord\n    FROM jsonb_array_elements(\n        COALESCE($3::jsonb, '[]'::jsonb)\n    ) WITH ORDINALITY\n),\n\ninserted AS (\n    INSERT INTO public.recommendations (\n        recommendation_id,\n        analysis_id,\n        customer_id,\n        device_id,\n        plan_id,\n        recommendation_rank,\n        recommendation_reason\n    )\n    SELECT\n        'REC-' ||\n        ((EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint)::text ||\n        '-' ||\n        ord::text,\n\n        NULLIF($2::text, ''),\n        $1::text,\n\n        -- AI 출력은 기기 ID를 device_id 로 준다. 예전 이름(product_id)도 받는다.\n        -- devices 테이블에 없는 ID가 오면 저장이 실패하지 않도록 비워 둔다.\n        (\n            SELECT d.device_id\n            FROM public.devices d\n            WHERE d.device_id = NULLIF(COALESCE(rec ->> 'device_id', rec ->> 'product_id'), '')\n        ),\n        NULLIF(rec ->> 'plan_id', ''),\n\n        COALESCE(\n            NULLIF(rec ->> 'recommendation_rank', '')::int,\n            ord::int\n        ),\n\n        NULLIF(rec ->> 'recommendation_reason', '')\n\n    FROM recs\n\n    RETURNING recommendation_id\n)\n\nSELECT\n    $1::text AS customer_id,\n    NULLIF($2::text, '') AS analysis_id,\n    COUNT(*)::int AS saved_count\nFROM inserted;",
         "options": {
           "queryReplacement": "={{ [\n  $('추천 요청 데이터 구성').first().json.customer_id,\n  $('추천 요청 데이터 구성').first().json.analysis_id ?? '',\n  JSON.stringify(\n    $('AI 추천 생성').first().json.output?.recommendations ?? []\n  )\n] }}"
         }
@@ -260,49 +241,35 @@
         -176
       ],
       "id": "7b3b6888-3f60-498f-822d-dd19f5bdba81",
-      "name": "Execute a SQL query",
+      "name": "추천 결과 저장",
       "credentials": {
         "postgres": {
           "id": "YVkzsBzhXmXxNLug",
           "name": "KT_Project_Supabase_Postgres"
         }
       }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        368,
+        256
+      ],
+      "id": "34a7830f-bab2-45fa-99f8-08d9e492aa46",
+      "name": "OpenAI 임베딩 모델",
+      "credentials": {
+        "openAiApi": {
+          "id": "nIiZAyshbU5fsKDS",
+          "name": "OpenAI account"
+        }
+      }
     }
   ],
   "connections": {
-    "When Executed by Another Workflow": {
-      "main": [
-        [
-          {
-            "node": "추천 요청 데이터 구성",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI 추천 생성",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Embeddings OpenAI": {
-      "ai_embedding": [
-        [
-          {
-            "node": "RAG 프로모션, 이벤트 조회",
-            "type": "ai_embedding",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "기종 정보 조회": {
       "main": [
         [
@@ -314,33 +281,11 @@
         ]
       ]
     },
-    "RAG 프로모션, 이벤트 조회": {
-      "main": [
-        [
-          {
-            "node": "추천 후보 통합",
-            "type": "main",
-            "index": 2
-          }
-        ]
-      ]
-    },
     "AI 추천 생성": {
       "main": [
         [
           {
-            "node": "Execute a SQL query",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Recommendation Context": {
-      "main": [
-        [
-          {
-            "node": "AI 추천 생성",
+            "node": "추천 결과 저장",
             "type": "main",
             "index": 0
           }
@@ -361,7 +306,7 @@
             "index": 0
           },
           {
-            "node": "RAG 프로모션, 이벤트 조회",
+            "node": "프로모션·이벤트 정보 조회",
             "type": "main",
             "index": 0
           }
@@ -383,7 +328,7 @@
       "main": [
         [
           {
-            "node": "Build Recommendation Context",
+            "node": "추천 데이터 구성",
             "type": "main",
             "index": 0
           }
@@ -401,12 +346,67 @@
         ]
       ]
     },
-    "Execute a SQL query": {
+    "F03 추천 시작": {
+      "main": [
+        [
+          {
+            "node": "추천 요청 데이터 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션·이벤트 정보 조회": {
+      "main": [
+        [
+          {
+            "node": "추천 후보 통합",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "추천 데이터 구성": {
+      "main": [
+        [
+          {
+            "node": "AI 추천 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI 추천 모델": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI 추천 생성",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "추천 결과 저장": {
       "main": [
         [
           {
             "node": "추천 결과 반환",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI 임베딩 모델": {
+      "ai_embedding": [
+        [
+          {
+            "node": "프로모션·이벤트 정보 조회",
+            "type": "ai_embedding",
             "index": 0
           }
         ]
