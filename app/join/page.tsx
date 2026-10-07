@@ -233,7 +233,14 @@ export default function JoinPage() {
               </dd>
             </div>
           </dl>
-          <div className="mt-auto pt-8">
+          <div className="mt-auto space-y-3 pt-8">
+            {/* 상담이 시작되면 같은 기기에서 자기 추천을 볼 수 있다. 이름과 번호를 다시 확인한다. */}
+            <Link
+              href="/consult"
+              className="flex h-13 w-full items-center justify-center rounded-full bg-brand-600 text-[16px] font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              상담 화면 보기
+            </Link>
             <Link
               href="/"
               className="flex h-13 w-full items-center justify-center rounded-full bg-white text-[16px] font-semibold text-ink ring-1 ring-inset ring-stone-200 transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
