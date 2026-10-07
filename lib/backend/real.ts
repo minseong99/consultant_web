@@ -200,14 +200,14 @@ export const realBackend: Backend = {
   },
 
   async consultView(customerId) {
-    type Shown = Pick<Customer, "customer_name" | "current_device" | "current_plan" | "contract_end_date" | "device_use_months">;
+    type Shown = Pick<Customer, "customer_name" | "current_device" | "current_plan" | "contract_end_date" | "device_use_months" | "target_monthly_budget">;
     type Device = NonNullable<ConsultRecommendation["device"]>;
     type Plan = NonNullable<ConsultRecommendation["plan"]> & { plan_id: string };
     const [customers, recommendations] = await Promise.all([
       rows<Shown>(
         db()
           .from("customers")
-          .select("customer_name, current_device, current_plan, contract_end_date, device_use_months")
+          .select("customer_name, current_device, current_plan, contract_end_date, device_use_months, target_monthly_budget")
           .eq("customer_id", customerId)
           .limit(1),
       ),
