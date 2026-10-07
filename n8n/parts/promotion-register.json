@@ -10,7 +10,7 @@
         1976
       ],
       "parameters": {
-        "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, 메타데이터에 `document_id`)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
+        "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, `document_id` 열과 메타데이터 양쪽에 문서 ID)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
         "height": 240,
         "width": 460
       }
@@ -132,7 +132,7 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding)\n    SELECT $7, $8::jsonb, $9::vector\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
+        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)\n    SELECT $7, $8::jsonb, $9::vector, doc.document_id\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
         "options": {
           "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
         }

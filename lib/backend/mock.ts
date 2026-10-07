@@ -1,4 +1,5 @@
 import "server-only";
+import { FALLBACK_DEVICE_GROUPS, FALLBACK_PLAN_GROUPS } from "../fields";
 import { addDays, todayKST } from "../format";
 import type {
   Consultation,
@@ -300,6 +301,10 @@ export const mockBackend: Backend = {
       ...row,
       store_name: s.stores.find((st) => st.store_id === row.store_id)?.store_name ?? row.store_id,
     }));
+  },
+
+  async joinOptions() {
+    return { current_device: FALLBACK_DEVICE_GROUPS, current_plan: FALLBACK_PLAN_GROUPS };
   },
 
   async intake(input) {

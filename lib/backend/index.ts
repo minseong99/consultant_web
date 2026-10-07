@@ -1,4 +1,5 @@
 import "server-only";
+import type { JoinOptions } from "../catalog";
 import { USE_MOCK } from "../config";
 import type {
   ConsultationInput,
@@ -22,6 +23,8 @@ import { realBackend } from "./real";
 // USE_MOCK 환경변수만 바꾸면 전환된다.
 export interface Backend {
   listStaff(): Promise<StaffOption[]>;
+  /** 접수 화면의 기기·요금제 선택지 */
+  joinOptions(): Promise<JoinOptions>;
   intake(input: IntakeInput): Promise<IntakeResult>;
   feed(): Promise<Feed>;
   customerDetail(customerId: string): Promise<CustomerDetail | null>;

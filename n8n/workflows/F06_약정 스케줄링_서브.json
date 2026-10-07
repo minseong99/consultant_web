@@ -38,8 +38,8 @@
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        144,
-        1312
+        704,
+        1536
       ],
       "typeVersion": 1,
       "id": "b851bdb1-8739-445a-a734-e75da8b01c59",
@@ -57,7 +57,7 @@
           "conditions": [
             {
               "id": "6c0e30d6-a749-4ed3-86ac-a7a6ff891504",
-              "leftValue": "={{ $json.calendar_event_id }}",
+              "leftValue": "={{ $json.calendar_event_id ?? '' }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -123,7 +123,7 @@
           "conditions": [
             {
               "id": "b1641fd9-9212-49b1-8fef-034381aa6dfc",
-              "leftValue": "={{ $json.expected_notice_count }}",
+              "leftValue": "={{ $json.expected_notice_count ?? 0 }}",
               "rightValue": 1,
               "operator": {
                 "type": "number",
@@ -132,7 +132,7 @@
             },
             {
               "id": "9b2697cf-ebcd-4d80-84b0-d592c6066d23",
-              "leftValue": "={{ $json.schedule_subtype }}",
+              "leftValue": "={{ $json.schedule_subtype ?? '' }}",
               "rightValue": "contract_notice_1",
               "operator": {
                 "type": "string",
@@ -172,7 +172,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason\nFROM public.message_schedules\nWHERE customer_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\nLIMIT 1;",
+        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason\nFROM public.message_schedules\nWHERE customer_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\n  AND schedule_status = 'scheduled'\nLIMIT 1;",
         "options": {
           "queryReplacement": "={{ [   $json.customer_id ] }}"
         }
@@ -204,7 +204,7 @@
           "conditions": [
             {
               "id": "a845abab-d56d-4ee3-8130-d3b9c732d5ec",
-              "leftValue": "={{ $json.calendar_event_id }}",
+              "leftValue": "={{ $json.calendar_event_id ?? '' }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -241,7 +241,7 @@
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
-        208,
+        160,
         464
       ],
       "id": "cea234cd-4d2d-4bb2-9bb9-c34c9529cd5c",
@@ -256,7 +256,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE public.message_schedules\nSET\n    schedule_status = 'cancelled',\n    calendar_event_id = NULL\nWHERE schedule_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "query": "UPDATE public.message_schedules\nSET\n    schedule_status = 'cancelled',\n    calendar_event_id = NULL\nWHERE schedule_id = $1\n  AND schedule_type = 'contract'\n  AND schedule_subtype = 'contract_notice_2'\n  AND schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
         "options": {
           "queryReplacement": "={{ [   $('기존 약정 2차 안내 조회').item.json.schedule_id ] }}"
         }
@@ -279,7 +279,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.contract_end_date,\n    cc.privacy_consent,\n    cc.recontact_consent,\n    'contract'::varchar AS schedule_type\nFROM public.customers c\nJOIN public.customer_consents cc\n    ON c.customer_id = cc.customer_id\nWHERE c.customer_id = $1\n  AND c.contract_end_date IS NOT NULL\n  AND cc.privacy_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL;",
+        "query": "SELECT\n    c.customer_id,\n    c.customer_name,\n    c.contract_end_date,\n    cc.privacy_consent,\n    cc.recontact_consent,\n    'contract'::varchar AS schedule_type\nFROM public.customers c\n\nJOIN LATERAL (\n    SELECT\n        privacy_consent,\n        recontact_consent,\n        withdrawn_at\n    FROM public.customer_consents\n    WHERE customer_id = c.customer_id\n    ORDER BY consent_at DESC\n    LIMIT 1\n) cc ON true\n\nWHERE c.customer_id = $1\n  AND c.contract_end_date IS NOT NULL\n  AND cc.privacy_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL;",
         "options": {
           "queryReplacement": "={{ [\n  $json.customer_id\n] }}"
         }
@@ -292,6 +292,7 @@
       ],
       "id": "6ad7cca4-1a2c-4aa7-a673-a8e3144faf28",
       "name": "약정 기준 - 개인정보 및 재연락 동의 조회",
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "YVkzsBzhXmXxNLug",
@@ -301,7 +302,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst DAY_MS = 24 * 60 * 60 * 1000;\n\n// 한국 날짜 기준 오늘 YYYY-MM-DD\nfunction getTodayKST() {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Seoul',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(new Date());\n\n  const year = parts.find(p => p.type === 'year').value;\n  const month = parts.find(p => p.type === 'month').value;\n  const day = parts.find(p => p.type === 'day').value;\n\n  return `${year}-${month}-${day}`;\n}\n\nfunction parseDate(dateString) {\n  return new Date(`${dateString}T00:00:00Z`);\n}\n\nfunction formatDate(date) {\n  return date.toISOString().slice(0, 10);\n}\n\nfunction addDays(date, days) {\n  return new Date(date.getTime() + (days * DAY_MS));\n}\n\nconst todayString = getTodayKST();\nconst today = parseDate(todayString);\n\nfor (const item of items) {\n  const {\n    customer_id,\n    customer_name,\n    contract_end_date,\n    schedule_type,\n    privacy_consent,\n    recontact_consent,\n  } = item.json;\n\n  if (!contract_end_date) {\n    throw new Error(\n      `contract_end_date가 없습니다. customer_id=${customer_id}`\n    );\n  }\n\n  const contractEnd = parseDate(contract_end_date);\n\n  if (Number.isNaN(contractEnd.getTime())) {\n    throw new Error(\n      `contract_end_date 형식이 올바르지 않습니다. customer_id=${customer_id}`\n    );\n  }\n\n  const remainingDays = Math.round(\n    (contractEnd.getTime() - today.getTime()) / DAY_MS\n  );\n\n  if (remainingDays <= 0) {\n    continue;\n  }\n\n  const schedules = [];\n\n  // 1. 90일 이상\n  if (remainingDays >= 90) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(\n        today,\n        Math.ceil((remainingDays * 2) / 3)\n      ),\n      contact_reason: '약정 만료 예정 2차 안내',\n    });\n  }\n\n  // 2. 30 ~ 89일\n  else if (remainingDays >= 30) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -7),\n      contact_reason: '약정 만료 7일 전 안내',\n    });\n  }\n\n  // 3. 15 ~ 29일\n  else if (remainingDays >= 15) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n  // 4. 8 ~ 14일\n  else if (remainingDays >= 8) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n  // 5. 1 ~ 7일\n  else {\n    const urgentOffset = remainingDays >= 2 ? 1 : 0;\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(today, urgentOffset),\n      contact_reason: '약정 만료 임박 안내',\n    });\n  }\n\nfor (const schedule of schedules) {\n  output.push({\n    json: {\n      customer_id,\n      customer_name,\n      schedule_type,\n      contract_end_date,\n\n      privacy_consent,\n      recontact_consent,\n\n      reference_date: contract_end_date,\n\n      schedule_subtype: schedule.schedule_subtype,\n\n      scheduled_contact_date: formatDate(\n        schedule.scheduledDate\n      ),\n\n      contact_reason: schedule.contact_reason,\n\n      remaining_contract_days: remainingDays,\n\n      // 이번 약정 기준으로 필요한 전체 문자 횟수\n      expected_notice_count: schedules.length\n    }\n  });\n}\n}\n\nreturn output;"
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst DAY_MS = 24 * 60 * 60 * 1000;\n\n\n// 한국 날짜 기준 오늘 YYYY-MM-DD\nfunction getTodayKST() {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Seoul',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(new Date());\n\n  const year = parts.find(p => p.type === 'year').value;\n  const month = parts.find(p => p.type === 'month').value;\n  const day = parts.find(p => p.type === 'day').value;\n\n  return `${year}-${month}-${day}`;\n}\n\n\nfunction parseDate(dateString) {\n  return new Date(`${dateString}T00:00:00Z`);\n}\n\n\nfunction formatDate(date) {\n  return date.toISOString().slice(0, 10);\n}\n\n\nfunction addDays(date, days) {\n  return new Date(date.getTime() + (days * DAY_MS));\n}\n\n\nconst todayString = getTodayKST();\nconst today = parseDate(todayString);\n\n\nfor (const item of items) {\n  const {\n    customer_id,\n    customer_name,\n    contract_end_date,\n    schedule_type,\n    privacy_consent,\n    recontact_consent,\n  } = item.json;\n\n\n  // 약정 종료일 없음\n  if (!contract_end_date) {\n    output.push({\n      json: {\n        success: true,\n        feature_id: 'F-06',\n        status: 'not_scheduled',\n        reason: 'contract_end_date_missing',\n        customer_id: customer_id ?? null,\n        schedule_type: 'contract'\n      }\n    });\n\n    continue;\n  }\n\n\n  const contractEnd = parseDate(contract_end_date);\n\n\n  // 약정 종료일 형식 오류\n  if (Number.isNaN(contractEnd.getTime())) {\n    output.push({\n      json: {\n        success: true,\n        feature_id: 'F-06',\n        status: 'not_scheduled',\n        reason: 'invalid_contract_end_date',\n        customer_id: customer_id ?? null,\n        schedule_type: 'contract',\n        contract_end_date\n      }\n    });\n\n    continue;\n  }\n\n\n  const remainingDays = Math.round(\n    (contractEnd.getTime() - today.getTime()) / DAY_MS\n  );\n\n\n  // 이미 약정 만료\n  if (remainingDays <= 0) {\n    output.push({\n      json: {\n        success: true,\n        feature_id: 'F-06',\n        status: 'not_scheduled',\n        reason: 'contract_expired',\n        customer_id,\n        schedule_type: 'contract',\n        contract_end_date\n      }\n    });\n\n    continue;\n  }\n\n\n  const schedules = [];\n\n\n  // 1. 90일 이상\n  if (remainingDays >= 90) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(\n        today,\n        Math.ceil((remainingDays * 2) / 3)\n      ),\n      contact_reason: '약정 만료 예정 2차 안내',\n    });\n  }\n\n\n  // 2. 30 ~ 89일\n  else if (remainingDays >= 30) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -7),\n      contact_reason: '약정 만료 7일 전 안내',\n    });\n  }\n\n\n  // 3. 15 ~ 29일\n  else if (remainingDays >= 15) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(\n        today,\n        Math.ceil(remainingDays / 3)\n      ),\n      contact_reason: '약정 만료 예정 1차 안내',\n    });\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_2',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n\n  // 4. 8 ~ 14일\n  else if (remainingDays >= 8) {\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(contractEnd, -3),\n      contact_reason: '약정 만료 3일 전 안내',\n    });\n  }\n\n\n  // 5. 1 ~ 7일\n  else {\n    const urgentOffset = remainingDays >= 2 ? 1 : 0;\n\n    schedules.push({\n      schedule_subtype: 'contract_notice_1',\n      scheduledDate: addDays(today, urgentOffset),\n      contact_reason: '약정 만료 임박 안내',\n    });\n  }\n\n\n  for (const schedule of schedules) {\n    output.push({\n      json: {\n        customer_id,\n        customer_name,\n\n        schedule_type:\n          schedule_type ?? 'contract',\n\n        contract_end_date,\n\n        privacy_consent,\n        recontact_consent,\n\n        reference_date:\n          contract_end_date,\n\n        schedule_subtype:\n          schedule.schedule_subtype,\n\n        scheduled_contact_date:\n          formatDate(schedule.scheduledDate),\n\n        contact_reason:\n          schedule.contact_reason,\n\n        remaining_contract_days:\n          remainingDays,\n\n        expected_notice_count:\n          schedules.length\n      }\n    });\n  }\n}\n\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -315,7 +316,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $3::date,\n    (($5::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $6,\n    NULL,\n    $4,\n    NULL\n)\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason,\n    schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    $7::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype;",
+        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $3::date,\n    (($5::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $6,\n    NULL,\n    $4,\n    NULL\n)\n\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason\nWHERE public.message_schedules.schedule_status = 'scheduled'\n\nRETURNING\n    schedule_id,\n    customer_id,\n    $7::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype;",
         "options": {
           "queryBatching": "independently",
           "queryReplacement": "={{ [\n  $json.customer_id,\n  $json.schedule_type,\n  $json.reference_date,\n  $json.schedule_subtype,\n  $json.scheduled_contact_date,\n  $json.contact_reason,\n  $json.customer_name\n] }}"
@@ -370,7 +371,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\n  AND schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
         "options": {
           "queryReplacement": "={{ [   $('약정 스케줄 저장').item.json.schedule_id,   $json.id ] }}"
         }
@@ -423,6 +424,45 @@
       ],
       "id": "d0dbca57-b8c8-44fe-a8e1-9dac6e939978",
       "name": "F06 약정분기 트리거"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'no_cleanup_required',\n      customer_id: input.customer_id ?? null,\n      schedule_type: 'contract',\n      message: '정리할 기존 약정 2차 안내 일정이 없습니다.'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        944
+      ],
+      "id": "bba5ea5c-af25-40e3-a4db-986e8c573e9c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('약정 스케줄 저장').item.json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'scheduled',\n\n      schedule_id: saved.schedule_id ?? null,\n      customer_id: saved.customer_id ?? null,\n\n      schedule_type: saved.schedule_type ?? 'contract',\n      schedule_subtype: saved.schedule_subtype ?? null,\n\n      scheduled_contact_at:\n        saved.scheduled_contact_at ?? null,\n\n      contact_reason:\n        saved.contact_reason ?? null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        1232
+      ],
+      "id": "62f7009a-a3e8-43f7-80e7-577bc6bf4fac",
+      "name": "약정 일정 생성 결과 반환"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $input.first().json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'cancelled',\n      reason: 'contract_second_notice_no_longer_required',\n\n      schedule_id: saved.schedule_id ?? null,\n      customer_id: saved.customer_id ?? null,\n\n      schedule_type: saved.schedule_type ?? 'contract',\n      schedule_subtype:\n        saved.schedule_subtype ?? 'contract_notice_2'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        688
+      ],
+      "id": "a679dc96-70a3-40a6-80b1-6af1676f7c43",
+      "name": "약정 2차 정리 결과 반환"
     }
   ],
   "connections": {
@@ -449,6 +489,13 @@
         [
           {
             "node": "기존 약정 2차 안내 조회",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
             "type": "main",
             "index": 0
           }
@@ -549,6 +596,39 @@
         [
           {
             "node": "약정 기준 - 개인정보 및 재연락 동의 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 캘린더 ID 저장": {
+      "main": [
+        [
+          {
+            "node": "약정 일정 생성 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 캘린더 일정 수정": {
+      "main": [
+        [
+          {
+            "node": "약정 일정 생성 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "약정 2차 스케줄 취소 처리": {
+      "main": [
+        [
+          {
+            "node": "약정 2차 정리 결과 반환",
             "type": "main",
             "index": 0
           }

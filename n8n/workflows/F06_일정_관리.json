@@ -1,6 +1,6 @@
 {
   "id": "j9aDZV3iDfCQaFsM",
-  "name": "F06일정 관리",
+  "name": "F06_일정_관리",
   "nodes": [
     {
       "parameters": {
@@ -120,6 +120,12 @@
             },
             {
               "name": "document_id"
+            },
+            {
+              "name": "preferred_follow_up_date"
+            },
+            {
+              "name": "contact_reason"
             }
           ]
         }
@@ -140,7 +146,7 @@
           "value": "ToiPmysSaFmYC7p1",
           "mode": "list",
           "cachedResultUrl": "/workflow/ToiPmysSaFmYC7p1",
-          "cachedResultName": "zF06_약정 스케줄링_서브"
+          "cachedResultName": "F06_약정 스케줄링_서브"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -185,20 +191,53 @@
           "value": "xNdwg0CpkrO7UVTG",
           "mode": "list",
           "cachedResultUrl": "/workflow/xNdwg0CpkrO7UVTG",
-          "cachedResultName": "zF06_재상담 스케줄링_서브"
+          "cachedResultName": "F06_재상담 스케줄링_서브"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "consultation_id": "={{$json.consultation_id}}"
+            "consultation_id": "={{$json.consultation_id}}",
+            "customer_id": "={{$json.customer_id}}",
+            "preferred_follow_up_date": "={{$json.preferred_follow_up_date}}",
+            "contact_reason": "={{$json.contact_reason}}"
           },
           "matchingColumns": [
             "consultation_id"
           ],
           "schema": [
             {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
               "id": "consultation_id",
               "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -236,7 +275,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "document_id": "={{$json.document_id}}",
-            "customer_ids": "={{ $json.customer_id }}"
+            "customer_id": "={{$json.customer_id}}"
           },
           "matchingColumns": [
             "document_id"
@@ -253,8 +292,8 @@
               "removed": false
             },
             {
-              "id": "customer_ids",
-              "displayName": "customer_ids",
+              "id": "customer_id",
+              "displayName": "customer_id",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -291,6 +330,19 @@
       "typeVersion": 1,
       "id": "67b1e658-4646-4c13-8006-0812499282db",
       "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [\n  {\n    json: {\n      success: false,\n      feature_id: 'F-06',\n      status: 'not_scheduled',\n      reason: 'unknown_type',\n      schedule_type: input.schedule_type ?? null,\n      customer_id: input.customer_id ?? null,\n      consultation_id: input.consultation_id ?? null,\n      document_id: input.document_id ?? null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        528
+      ],
+      "id": "00681a8a-4ee1-4d34-9e34-5154b02f9e75",
+      "name": "잘못된 일정 유형 반환"
     }
   ],
   "connections": {
@@ -313,6 +365,13 @@
         [
           {
             "node": "Call 'F06_프로모션 스케줄링'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "잘못된 일정 유형 반환",
             "type": "main",
             "index": 0
           }

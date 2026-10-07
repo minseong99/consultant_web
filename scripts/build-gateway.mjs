@@ -58,13 +58,21 @@ const WORKFLOWS = {
       analysis_id: "string",
       consultation_result: "object",
       recording_url: "string",
+      store_id: "string",
     },
   },
   F05: { id: "kSNl11r9lqQjBO5E", name: "F05 프로모션 대상 고객 선정", inputs: { document_id: "string", store_id: "string" } },
   F06: {
     id: "j9aDZV3iDfCQaFsM",
     name: "F06 일정 관리",
-    inputs: { schedule_type: "string", customer_id: "string", consultation_id: "string", document_id: "string" },
+    inputs: {
+      schedule_type: "string",
+      customer_id: "string",
+      consultation_id: "string",
+      document_id: "string",
+      preferred_follow_up_date: "string",
+      contact_reason: "string",
+    },
   },
   F07_S01: {
     id: "QFjC2ARP9Q6fCExH",
@@ -165,7 +173,8 @@ const postgres = (name, query, replacement) => ({
 
 // 하위 워크플로우가 실패하거나 아무것도 반환하지 않아도 webhook 응답까지 도달하도록
 // onError와 alwaysOutputData를 설정한다.
-function call(name, key, values) {
+// each 가 true 면 들어온 항목마다 하위 워크플로우를 한 번씩 실행한다(기본은 전체를 한 번에 넘김).
+function call(name, key, values, { each = false } = {}) {
   const workflow = WORKFLOWS[key];
   for (const field of Object.keys(values)) {
     if (!(field in workflow.inputs)) throw new Error(`${name}: ${key}에 없는 입력 필드 ${field}`);
@@ -178,6 +187,7 @@ function call(name, key, values) {
     onError: "continueRegularOutput",
     parameters: {
       workflowId: { __rl: true, value: workflow.id, mode: "id" },
+      ...(each ? { mode: "each" } : {}),
       workflowInputs: {
         mappingMode: "defineBelow",
         value: Object.fromEntries(Object.entries(values).map(([field, expr]) => [field, `={{ ${expr} }}`])),
@@ -412,7 +422,7 @@ return [{ json: {
   group = "consultation-result";
   note(
     "안내: 상담 결과",
-    "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\n기존 워크플로우의 빈틈을 여기서 보완한다.\n- F04는 update만 하므로 **상담 행을 먼저 insert**\n- 재상담 예정일을 `reconsultation_at` 에 저장 (F06 재상담이 이 값을 요구)\n- F04의 `contract_expiry` → F06의 `contract` 로 매핑\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
+    "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\nF04·F06의 입력에 맞춘다.\n- 상담 행을 먼저 만들어 ID를 정한다 (F04가 같은 ID로 다시 저장)\n- 메모는 `consultation_text` 로, 고른 기기·요금제 이름은 메모 끝에 붙여 넘긴다\n- 재상담 예정일이 있으면 F06(reconsultation)에 `preferred_follow_up_date`, `contact_reason` 을 넘긴다\n- F04가 비우는 `store_id` 를 일정 조회 때 되돌린다\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
     r,
     300,
   );
@@ -474,15 +484,21 @@ FROM inserted i;`,
       consultation_id: "$json.consultation_id",
       staff_id: "$('상담 결과 Webhook').first().json.body.staff_id",
       analysis_id: "$json.analysis_id",
+      // F04는 consultation_result 에서 consultation_text, customer_response, follow_up_requested, preferred_follow_up_date 만 읽는다.
+      // 화면에서 고른 기기·요금제는 이름이라(F04는 ID 칸만 있음) 상담 내용 끝에 붙여 LLM이 읽게 한다.
       consultation_result: `{
-  notes: $('상담 결과 Webhook').first().json.body.notes ?? '',
+  consultation_text: [
+    $('상담 결과 Webhook').first().json.body.notes ?? '',
+    $('상담 결과 Webhook').first().json.body.selected_product ? '선택한 기기: ' + $('상담 결과 Webhook').first().json.body.selected_product : '',
+    $('상담 결과 Webhook').first().json.body.selected_plan ? '선택한 요금제: ' + $('상담 결과 Webhook').first().json.body.selected_plan : ''
+  ].filter(Boolean).join('\\n'),
   customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,
-  selected_product: $('상담 결과 Webhook').first().json.body.selected_product ?? null,
-  selected_plan: $('상담 결과 Webhook').first().json.body.selected_plan ?? null,
   follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,
   preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null
 }`,
       recording_url: "$('상담 결과 Webhook').first().json.body.recording_url ?? ''",
+      // consultations.store_id 는 NOT NULL 이다. F04가 상담 행을 저장할 때 이 값을 쓴다.
+      store_id: "$('상담 결과 Webhook').first().json.body.store_id ?? ''",
     }),
     r,
     3,
@@ -495,12 +511,10 @@ const body = $('상담 결과 Webhook').first().json.body ?? {};
 const row = $('상담 행 생성').first().json;
 const ok = result.success === true;
 
-// 직원이 재상담 예정일을 입력했다면 LLM 판단과 무관하게 재상담 일정을 만든다.
-// 그렇지 않고 F04가 약정 만료 안내가 필요하다고 판단하면 약정 일정을 만든다.
-// (F04는 'contract_expiry', F06은 'contract' 를 쓴다.)
+// 직원이 재상담 예정일을 입력했으면 재상담 일정을 만든다.
+// (F04는 일정 유형을 정하지 않는다. 약정 일정은 접수 때 만든다.)
 let scheduleType = '';
 if (ok && body.reconsultation_date) scheduleType = 'reconsultation';
-else if (ok && result.schedule_type === 'contract_expiry') scheduleType = 'contract';
 
 return [{ json: {
   ok,
@@ -508,6 +522,8 @@ return [{ json: {
   customer_id: row.customer_id,
   consultation_id: row.consultation_id,
   gateway_schedule_type: scheduleType,
+  follow_up_date: body.reconsultation_date ?? '',
+  contact_reason: result.follow_up_reason || '재상담 안내',
 } }];`,
     ),
     r,
@@ -522,6 +538,8 @@ return [{ json: {
       customer_id: "$('F04 결과 확인').first().json.customer_id",
       consultation_id: "$('F04 결과 확인').first().json.consultation_id",
       document_id: "''",
+      preferred_follow_up_date: "$('F04 결과 확인').first().json.follow_up_date",
+      contact_reason: "$('F04 결과 확인').first().json.contact_reason",
     }),
     r + 0.6,
     6,
@@ -529,7 +547,16 @@ return [{ json: {
   const fetch = add(
     postgres(
       "상담: 생성된 일정 조회",
-      `SELECT
+      `-- F04가 상담 행을 다시 저장하면서 store_id 를 비우므로(F04 입력에 매장이 없음) 여기서 되돌린다.
+WITH kept AS (
+    UPDATE public.consultations
+    SET store_id = $4
+    WHERE consultation_id = $1
+      AND NULLIF($4, '') IS NOT NULL
+      AND store_id IS DISTINCT FROM $4
+    RETURNING consultation_id
+)
+SELECT
     schedule_id,
     customer_id,
     schedule_type,
@@ -551,7 +578,8 @@ ORDER BY scheduled_contact_at;`,
       `[
   $('F04 결과 확인').first().json.consultation_id,
   $('F04 결과 확인').first().json.customer_id,
-  $('F04 결과 확인').first().json.gateway_schedule_type
+  $('F04 결과 확인').first().json.gateway_schedule_type,
+  $('상담 결과 Webhook').first().json.body.store_id ?? ''
 ]`,
     ),
     r,
@@ -783,34 +811,48 @@ if (typeof result.status !== 'string') {
   } } }];
 }
 
-// F06 프로모션 일정이 F05가 선정한 고객에게만 만들어지도록, 대상 고객 ID를 쉼표로 이어 넘긴다.
-// (F06 일정 관리의 customer_id 입력을 사용. F06 쪽 수정 전에는 이 값이 무시된다.)
+// F06 프로모션 일정은 고객 한 명씩 만든다. F05가 선정한 고객 ID 목록을 넘겨 다음 노드에서 한 명씩 나눈다.
 const targetIds = Array.isArray(result.target_customers)
-  ? result.target_customers.map((c) => c.customer_id).filter(Boolean).join(',')
-  : '';
+  ? result.target_customers.map((c) => c.customer_id).filter(Boolean)
+  : [];
 
-return [{ json: { targeted: result.status === 'targeted', document_id: result.document_id, target_ids: targetIds, response: result } }];`,
+return [{ json: { targeted: result.status === 'targeted' && targetIds.length > 0, document_id: result.document_id, target_ids: targetIds, response: result } }];`,
     ),
     r,
     2,
   );
   const targeted = add(iff("프로모션: 대상 있음?", "$json.targeted === true"), r, 3);
-  const f06 = add(
-    call("프로모션: F06 일정 생성", "F06", {
-      schedule_type: "'promotion'",
-      customer_id: "$json.target_ids",
-      consultation_id: "''",
-      document_id: "$json.document_id",
-    }),
+  const split = add(
+    code(
+      "프로모션: 대상 고객 나누기",
+      `const checked = $('F05 결과 확인').first().json;
+return checked.target_ids.map((customerId) => ({ json: { document_id: checked.document_id, customer_id: customerId } }));`,
+    ),
     r + 0.6,
     4,
   );
-  const build = add(code("프로모션 응답 구성", `return [{ json: $('F05 결과 확인').first().json.response }];`), r, 5);
-  const reply = add(respond("프로모션 응답"), r, 6);
+  const f06 = add(
+    call(
+      "프로모션: F06 일정 생성",
+      "F06",
+      {
+        schedule_type: "'promotion'",
+        customer_id: "$json.customer_id",
+        consultation_id: "''",
+        document_id: "$json.document_id",
+      },
+      { each: true },
+    ),
+    r + 0.6,
+    5,
+  );
+  const build = add(code("프로모션 응답 구성", `return [{ json: $('F05 결과 확인').first().json.response }];`), r, 6);
+  const reply = add(respond("프로모션 응답"), r, 7);
   link(hook, f05);
   link(f05, check);
   link(check, targeted);
-  link(targeted, f06, 0);
+  link(targeted, split, 0);
+  link(split, f06);
   link(targeted, build, 1);
   link(f06, build);
   link(build, reply);
@@ -825,7 +867,7 @@ return [{ json: { targeted: result.status === 'targeted', document_id: result.do
   group = "promotion-register";
   note(
     "안내: 프로모션 등록",
-    "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, 메타데이터에 `document_id`)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
+    "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, `document_id` 열과 메타데이터 양쪽에 문서 ID)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
     r,
     240,
   );
@@ -925,8 +967,9 @@ return [{ json: {
     RETURNING document_id, file_name, valid_from, valid_until
 ),
 vec AS (
-    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding)
-    SELECT $7, $8::jsonb, $9::vector
+    -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.
+    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)
+    SELECT $7, $8::jsonb, $9::vector, doc.document_id
     FROM doc
     RETURNING vector_id
 )
@@ -1029,7 +1072,7 @@ for (const node of nodes.filter((n) => n.type === "n8n-nodes-base.webhook")) {
 }
 
 // 기본값은 n8n에서 내보낸 발행본(n8n/workflows, scripts/export-workflows.mjs 로 갱신)이다.
-const sourceDir = process.argv[2] ?? join(root, "n8n", "workflows");
+const sourceDir = process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? join(root, "n8n", "workflows");
 if (sourceDir && existsSync(sourceDir)) {
   const originals = new Map();
   for (const file of readdirSync(sourceDir).filter((f) => f.endsWith(".json"))) {
@@ -1060,9 +1103,11 @@ if (sourceDir && existsSync(sourceDir)) {
   console.log("원본 폴더를 지정하지 않아 ID·입력 필드 대조는 건너뜁니다.");
 }
 
+// --allow-mismatch: n8n 쪽을 곧 고칠 예정일 때, 어긋난 점을 알리기만 하고 파일은 만든다.
 if (problems.length) {
   console.error("검증 실패:\n- " + problems.join("\n- "));
-  process.exit(1);
+  if (!process.argv.includes("--allow-mismatch")) process.exit(1);
+  console.error("--allow-mismatch 로 계속합니다. 위 항목은 n8n에서 맞춰야 동작합니다.");
 }
 
 mkdirSync(join(root, "n8n"), { recursive: true });

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { groupDevices, groupPlans, type DeviceRow, type PlanRow } from "../catalog";
 import { config } from "../config";
 import { callN8n, N8N_PATHS } from "../n8n";
 import type {
@@ -50,6 +51,14 @@ export const realBackend: Backend = {
     ]);
     const storeNames = new Map(stores.map((s) => [s.store_id, s.store_name]));
     return staff.map((s) => ({ ...s, store_name: storeNames.get(s.store_id) ?? s.store_id }));
+  },
+
+  async joinOptions() {
+    const [devices, plans] = await Promise.all([
+      rows<DeviceRow>(db().from("devices").select("device_name, manufacturer")),
+      rows<PlanRow>(db().from("plans").select("plan_id, plan_name, monthly_fee")),
+    ]);
+    return { current_device: groupDevices(devices), current_plan: groupPlans(plans) };
   },
 
   intake(input) {
@@ -112,10 +121,17 @@ export const realBackend: Backend = {
     };
   },
 
-  recommend(customerId) {
-    return callN8n<Extract<RecommendResult, { success: true }>>(N8N_PATHS.recommend, {
+  async recommend(customerId) {
+    const result = await callN8n<Extract<RecommendResult, { success: true }>>(N8N_PATHS.recommend, {
       customer_id: customerId,
     });
+    // F03은 기기 ID를 device_id 로 돌려준다(예전에는 product_id). 화면은 product_id 를 쓴다.
+    if (result.success && Array.isArray(result.recommendations)) {
+      for (const item of result.recommendations as ((typeof result.recommendations)[number] & { device_id?: string | null })[]) {
+        item.product_id = item.product_id ?? item.device_id ?? null;
+      }
+    }
+    return result;
   },
 
   consultationResult(input) {

@@ -10,7 +10,7 @@
         728
       ],
       "parameters": {
-        "content": "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\n기존 워크플로우의 빈틈을 여기서 보완한다.\n- F04는 update만 하므로 **상담 행을 먼저 insert**\n- 재상담 예정일을 `reconsultation_at` 에 저장 (F06 재상담이 이 값을 요구)\n- F04의 `contract_expiry` → F06의 `contract` 로 매핑\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
+        "content": "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\nF04·F06의 입력에 맞춘다.\n- 상담 행을 먼저 만들어 ID를 정한다 (F04가 같은 ID로 다시 저장)\n- 메모는 `consultation_text` 로, 고른 기기·요금제 이름은 메모 끝에 붙여 넘긴다\n- 재상담 예정일이 있으면 F06(reconsultation)에 `preferred_follow_up_date`, `contact_reason` 을 넘긴다\n- F04가 비우는 `store_id` 를 일정 조회 때 되돌린다\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
         "height": 300,
         "width": 460
       }
@@ -121,8 +121,9 @@
             "consultation_id": "={{ $json.consultation_id }}",
             "staff_id": "={{ $('상담 결과 Webhook').first().json.body.staff_id }}",
             "analysis_id": "={{ $json.analysis_id }}",
-            "consultation_result": "={{ {\n  notes: $('상담 결과 Webhook').first().json.body.notes ?? '',\n  customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,\n  selected_product: $('상담 결과 Webhook').first().json.body.selected_product ?? null,\n  selected_plan: $('상담 결과 Webhook').first().json.body.selected_plan ?? null,\n  follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,\n  preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null\n} }}",
-            "recording_url": "={{ $('상담 결과 Webhook').first().json.body.recording_url ?? '' }}"
+            "consultation_result": "={{ {\n  consultation_text: [\n    $('상담 결과 Webhook').first().json.body.notes ?? '',\n    $('상담 결과 Webhook').first().json.body.selected_product ? '선택한 기기: ' + $('상담 결과 Webhook').first().json.body.selected_product : '',\n    $('상담 결과 Webhook').first().json.body.selected_plan ? '선택한 요금제: ' + $('상담 결과 Webhook').first().json.body.selected_plan : ''\n  ].filter(Boolean).join('\\n'),\n  customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,\n  follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,\n  preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null\n} }}",
+            "recording_url": "={{ $('상담 결과 Webhook').first().json.body.recording_url ?? '' }}",
+            "store_id": "={{ $('상담 결과 Webhook').first().json.body.store_id ?? '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -185,6 +186,16 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "store_id",
+              "displayName": "store_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -205,7 +216,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "parameters": {
-        "jsCode": "const result = $input.first()?.json ?? {};\nconst body = $('상담 결과 Webhook').first().json.body ?? {};\nconst row = $('상담 행 생성').first().json;\nconst ok = result.success === true;\n\n// 직원이 재상담 예정일을 입력했다면 LLM 판단과 무관하게 재상담 일정을 만든다.\n// 그렇지 않고 F04가 약정 만료 안내가 필요하다고 판단하면 약정 일정을 만든다.\n// (F04는 'contract_expiry', F06은 'contract' 를 쓴다.)\nlet scheduleType = '';\nif (ok && body.reconsultation_date) scheduleType = 'reconsultation';\nelse if (ok && result.schedule_type === 'contract_expiry') scheduleType = 'contract';\n\nreturn [{ json: {\n  ok,\n  f04: result,\n  customer_id: row.customer_id,\n  consultation_id: row.consultation_id,\n  gateway_schedule_type: scheduleType,\n} }];"
+        "jsCode": "const result = $input.first()?.json ?? {};\nconst body = $('상담 결과 Webhook').first().json.body ?? {};\nconst row = $('상담 행 생성').first().json;\nconst ok = result.success === true;\n\n// 직원이 재상담 예정일을 입력했으면 재상담 일정을 만든다.\n// (F04는 일정 유형을 정하지 않는다. 약정 일정은 접수 때 만든다.)\nlet scheduleType = '';\nif (ok && body.reconsultation_date) scheduleType = 'reconsultation';\n\nreturn [{ json: {\n  ok,\n  f04: result,\n  customer_id: row.customer_id,\n  consultation_id: row.consultation_id,\n  gateway_schedule_type: scheduleType,\n  follow_up_date: body.reconsultation_date ?? '',\n  contact_reason: result.follow_up_reason || '재상담 안내',\n} }];"
       }
     },
     {
@@ -265,7 +276,9 @@
             "schedule_type": "={{ $('F04 결과 확인').first().json.gateway_schedule_type }}",
             "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
             "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}",
-            "document_id": "={{ '' }}"
+            "document_id": "={{ '' }}",
+            "preferred_follow_up_date": "={{ $('F04 결과 확인').first().json.follow_up_date }}",
+            "contact_reason": "={{ $('F04 결과 확인').first().json.contact_reason }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -308,6 +321,26 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -336,9 +369,9 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\nFROM public.message_schedules\nWHERE schedule_status = 'scheduled'\n  AND (\n      ($3 = 'reconsultation' AND consultation_id = $1)\n      OR ($3 = 'contract' AND customer_id = $2 AND schedule_type = 'contract')\n  )\nORDER BY scheduled_contact_at;",
+        "query": "-- F04가 상담 행을 다시 저장하면서 store_id 를 비우므로(F04 입력에 매장이 없음) 여기서 되돌린다.\nWITH kept AS (\n    UPDATE public.consultations\n    SET store_id = $4\n    WHERE consultation_id = $1\n      AND NULLIF($4, '') IS NOT NULL\n      AND store_id IS DISTINCT FROM $4\n    RETURNING consultation_id\n)\nSELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\nFROM public.message_schedules\nWHERE schedule_status = 'scheduled'\n  AND (\n      ($3 = 'reconsultation' AND consultation_id = $1)\n      OR ($3 = 'contract' AND customer_id = $2 AND schedule_type = 'contract')\n  )\nORDER BY scheduled_contact_at;",
         "options": {
-          "queryReplacement": "={{ [\n  $('F04 결과 확인').first().json.consultation_id,\n  $('F04 결과 확인').first().json.customer_id,\n  $('F04 결과 확인').first().json.gateway_schedule_type\n] }}"
+          "queryReplacement": "={{ [\n  $('F04 결과 확인').first().json.consultation_id,\n  $('F04 결과 확인').first().json.customer_id,\n  $('F04 결과 확인').first().json.gateway_schedule_type,\n  $('상담 결과 Webhook').first().json.body.store_id ?? ''\n] }}"
         }
       }
     },

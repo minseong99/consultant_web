@@ -135,7 +135,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst result = input.output ?? input;\n\nconst requestData = $('추천 요청 데이터 구성').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    feature_id: 'F03',\n\n    customer_id: requestData.customer_id ?? null,\n    analysis_id: requestData.analysis_id ?? null,\n\n    recommendations: Array.isArray(result.recommendations)\n      ? result.recommendations.map(item => ({\n          recommendation_rank: item.recommendation_rank ?? null,\n\n          device_id: item.device_id ?? null,\n          device_name: item.device_name ?? null,\n\n          plan_id: item.plan_id ?? null,\n          plan_name: item.plan_name ?? null,\n\n          document_id: item.document_id ?? null,\n\n          expected_benefit: item.expected_benefit ?? null,\n          benefit_info: item.benefit_info ?? null,\n          eligibility_condition: item.eligibility_condition ?? null,\n          recommendation_reason: item.recommendation_reason ?? null\n        }))\n      : [],\n\n    information_status: result.information_status ?? 'insufficient',\n\n    missing_information: Array.isArray(result.missing_information)\n      ? result.missing_information\n      : []\n  }\n}];"
+        "jsCode": "const aiInput = $('AI 추천 생성').first().json;\nconst result = aiInput.output ?? aiInput;\n\nconst requestData = $('추천 요청 데이터 구성').first().json;\nconst saved = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    feature_id: 'F-03',\n\n    customer_id: requestData.customer_id ?? null,\n    analysis_id: requestData.analysis_id ?? null,\n\n    saved_count: saved.saved_count ?? 0,\n\n    recommendations: Array.isArray(result.recommendations)\n      ? result.recommendations.map(item => ({\n          recommendation_rank:\n            item.recommendation_rank ?? null,\n\n          device_id:\n            item.product_id ?? item.device_id ?? null,\n\n          device_name:\n            item.device_name ?? null,\n\n          plan_id:\n            item.plan_id ?? null,\n\n          plan_name:\n            item.plan_name ?? null,\n\n          expected_benefit:\n            item.expected_benefit ?? null,\n\n          benefit_info:\n            item.benefit_info ?? null,\n\n          eligibility_condition:\n            item.eligibility_condition ?? null,\n\n          recommendation_reason:\n            item.recommendation_reason ?? null\n        }))\n      : [],\n\n    information_status:\n      result.information_status ?? 'insufficient',\n\n    missing_information:\n      Array.isArray(result.missing_information)\n        ? result.missing_information\n        : []\n  }\n}];"
       },
       "id": "a684033e-bf4e-4130-8d08-ac16451ce80a",
       "name": "추천 결과 반환",
@@ -244,6 +244,29 @@
         1216,
         16
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH deleted AS (\n    DELETE FROM public.recommendations\n    WHERE customer_id = $1::text\n      AND analysis_id = NULLIF($2::text, '')\n),\n\nrecs AS (\n    SELECT\n        value AS rec,\n        ordinality AS ord\n    FROM jsonb_array_elements(\n        COALESCE($3::jsonb, '[]'::jsonb)\n    ) WITH ORDINALITY\n),\n\ninserted AS (\n    INSERT INTO public.recommendations (\n        recommendation_id,\n        analysis_id,\n        customer_id,\n        device_id,\n        plan_id,\n        recommendation_rank,\n        recommendation_reason\n    )\n    SELECT\n        'REC-' ||\n        ((EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint)::text ||\n        '-' ||\n        ord::text,\n\n        NULLIF($2::text, ''),\n        $1::text,\n\n        NULLIF(rec ->> 'product_id', ''),\n        NULLIF(rec ->> 'plan_id', ''),\n\n        COALESCE(\n            NULLIF(rec ->> 'recommendation_rank', '')::int,\n            ord::int\n        ),\n\n        NULLIF(rec ->> 'recommendation_reason', '')\n\n    FROM recs\n\n    RETURNING recommendation_id\n)\n\nSELECT\n    $1::text AS customer_id,\n    NULLIF($2::text, '') AS analysis_id,\n    COUNT(*)::int AS saved_count\nFROM inserted;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('추천 요청 데이터 구성').first().json.customer_id,\n  $('추천 요청 데이터 구성').first().json.analysis_id ?? '',\n  JSON.stringify(\n    $('AI 추천 생성').first().json.output?.recommendations ?? []\n  )\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1392,
+        -176
+      ],
+      "id": "7b3b6888-3f60-498f-822d-dd19f5bdba81",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
     }
   ],
   "connections": {
@@ -306,7 +329,7 @@
       "main": [
         [
           {
-            "node": "추천 결과 반환",
+            "node": "Execute a SQL query",
             "type": "main",
             "index": 0
           }
@@ -373,6 +396,17 @@
           {
             "node": "AI 추천 생성",
             "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "추천 결과 반환",
+            "type": "main",
             "index": 0
           }
         ]
