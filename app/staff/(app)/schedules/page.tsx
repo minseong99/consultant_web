@@ -192,7 +192,7 @@ function CalendarView({
                   // 그날의 일정은 달력 아래에 나온다. 일정이 있으면 보이는 곳으로 옮긴다.
                   if (items.length > 0) window.setTimeout(() => detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
                 }}
-                className={`relative flex min-h-24 flex-col items-stretch gap-1 border-b border-r border-stone-200 p-2 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
+                className={`relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-stone-200 p-2 text-left focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
                   isSelected ? "bg-stone-100 ring-2 ring-inset ring-ink" : "hover:bg-stone-50"
                 } ${hasFresh ? "animate-flash" : ""} ${inMonth ? "" : "bg-stone-50/60"}`}
               >

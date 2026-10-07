@@ -6,6 +6,9 @@ import { Button, ErrorNote, inputClass, Spinner } from "@/components/ui";
 import type { StaffOption } from "@/lib/types";
 import { Wordmark } from "@/components/Wordmark";
 
+// 직원 이름은 DB에 없어 매장과 직책, 직원 번호로 구분한다.
+const ROLE_LABEL: Record<string, string> = { manager: "점장", staff: "직원" };
+
 export default function LoginPage() {
   const router = useRouter();
   const [staff, setStaff] = useState<StaffOption[] | null>(null);
@@ -73,7 +76,7 @@ export default function LoginPage() {
               <select id="staff" className={inputClass} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
                 {staff.map((option) => (
                   <option key={option.staff_id} value={option.staff_id}>
-                    {option.store_name} · {option.staff_id} ({option.role})
+                    {option.store_name} · {ROLE_LABEL[option.role] ?? option.role} ({option.staff_id})
                   </option>
                 ))}
               </select>

@@ -133,11 +133,11 @@ body {
 }
 @keyframes hero-card-2 {
   0%,
-  12% {
+  7% {
     opacity: 0;
     transform: translateY(14px);
   }
-  17%,
+  12%,
   86% {
     opacity: 1;
     transform: translateY(0);
@@ -150,11 +150,11 @@ body {
 }
 @keyframes hero-card-3 {
   0%,
-  24% {
+  14% {
     opacity: 0;
     transform: translateY(14px);
   }
-  29%,
+  19%,
   86% {
     opacity: 1;
     transform: translateY(0);
@@ -167,11 +167,11 @@ body {
 }
 @keyframes hero-card-4 {
   0%,
-  36% {
+  21% {
     opacity: 0;
     transform: translateY(14px);
   }
-  41%,
+  26%,
   86% {
     opacity: 1;
     transform: translateY(0);
@@ -242,10 +242,10 @@ body {
 }
 @keyframes hero-line {
   0%,
-  16% {
+  10% {
     background-position: 100% 0;
   }
-  30%,
+  20%,
   100% {
     background-position: 0 0;
   }
@@ -262,10 +262,10 @@ body {
     transform: translateY(0);
   }
   4%,
-  40% {
+  26% {
     opacity: 0.9;
   }
-  46%,
+  32%,
   100% {
     opacity: 0;
     transform: translateY(25rem);

@@ -567,10 +567,10 @@ function CustomerBrief({
         </p>
       )}
       <dl className="mt-4 flex flex-col divide-y divide-stone-200 border-b border-stone-200">
-        <BriefRow label="변경 신호" value={data.device_change_signal} />
-        <BriefRow label="중요 요소" value={firstFew(features, 3)} lines={1} />
-        <BriefRow label="가격 성향" value={data.price_sensitivity} />
-        <BriefRow label="상담 중 확인" value={firstFew(missing, 2)} />
+        <BriefRow label="기기 교체 의향" value={data.device_change_signal} />
+        <BriefRow label="중요하게 보는 것" value={firstFew(features, 3)} lines={1} />
+        <BriefRow label="가격 민감도" value={data.price_sensitivity} />
+        <BriefRow label="더 물어볼 것" value={firstFew(missing, 2)} />
       </dl>
       <TextButton onClick={onOpenFull} className="mt-3">
         전체 AI 분석 보기
@@ -589,15 +589,17 @@ function BriefRow({
   value: string | null | undefined;
   lines?: 1 | 2;
 }) {
+  // 분석에 없는 항목은 줄째로 숨긴다.
+  if (!value) return null;
   return (
     <div className="flex gap-4 py-3">
-      <dt className="w-24 shrink-0 text-[13px] font-semibold text-stone-500">
+      <dt className="w-28 shrink-0 text-[13px] font-semibold text-stone-500">
         {label}
       </dt>
       <dd
-        className={`min-w-0 flex-1 text-[14px] leading-relaxed ${value ? "" : "text-stone-400"}`}
+        className="min-w-0 flex-1 text-[14px] leading-relaxed"
       >
-        {value ? <Clamp lines={lines}>{value}</Clamp> : "분석에 없음"}
+        <Clamp lines={lines}>{value}</Clamp>
       </dd>
     </div>
   );
@@ -633,7 +635,7 @@ function AnalysisFull({ data }: { data: AnalysisData }) {
         <Field label="사용 성향" value={data.usage_profile} />
         <Field label="교체 사유" value={data.replacement_reason} />
         <Field label="가격 민감도" value={data.price_sensitivity} />
-        <Field label="기기 변경 신호" value={data.device_change_signal} />
+        <Field label="기기 교체 의향" value={data.device_change_signal} />
         <Field label="선호 제품군" value={data.preferred_product_group} />
         {extra.map(([key, value]) => (
           <Field
@@ -728,7 +730,7 @@ function NextAction({
             since={recommend.startedAt}
           />
           <p className="text-[13px] leading-relaxed text-stone-600">
-            기다리는 동안 브리프의 &lsquo;상담 중 확인&rsquo; 항목을 고객에게
+            기다리는 동안 브리프의 &lsquo;더 물어볼 것&rsquo; 항목을 고객에게
             물어보세요.
           </p>
           <Button variant="secondary" onClick={() => onGo("recommend")}>
@@ -940,7 +942,7 @@ function RecommendationPanel({
       label: "중요 기능",
       value: firstFew(list(analysis?.important_features), 3),
     },
-    { label: "기기 변경 신호", value: analysis?.device_change_signal ?? null },
+    { label: "기기 교체 의향", value: analysis?.device_change_signal ?? null },
     { label: "선호 브랜드", value: customer.preferred_brand },
     {
       label: "희망 월 예산",

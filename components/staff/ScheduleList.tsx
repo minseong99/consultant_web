@@ -293,7 +293,7 @@ function MessageEditor({
         onChange={(event) => onChange(event.target.value)}
       />
       <p className={`mt-1 text-[12px] tabular-nums ${tooLong ? "font-semibold text-danger" : "text-stone-500"}`}>
-        {trimmed.length}자 · {bytes}바이트 · {bytes <= SMS_BYTES ? "단문(SMS)" : "장문(LMS)"}
+        {trimmed.length}자 · {bytes <= SMS_BYTES ? "단문 문자" : "장문 문자"}
         {tooLong && ` · ${MESSAGE_MAX_LENGTH.toLocaleString("ko-KR")}자를 넘어 보낼 수 없습니다`}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
