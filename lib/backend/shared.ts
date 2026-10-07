@@ -85,3 +85,9 @@ export function buildScheduleItems(
     }))
     .sort((a, b) => a.scheduled_contact_at.localeCompare(b.scheduled_contact_at));
 }
+
+/** 고객 상담 화면의 이름 대조. 띄어쓰기 차이는 같은 이름으로 본다. */
+export function sameName(a: string, b: string) {
+  const plain = (value: string) => value.replace(/\s+/g, "");
+  return plain(a) !== "" && plain(a) === plain(b);
+}

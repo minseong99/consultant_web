@@ -4,6 +4,7 @@ import { USE_MOCK } from "../config";
 import type {
   ConsultationInput,
   ConsultationResult,
+  ConsultView,
   CustomerDetail,
   Feed,
   IntakeInput,
@@ -31,6 +32,10 @@ export interface Backend {
   intake(input: IntakeInput): Promise<IntakeResult>;
   feed(): Promise<Feed>;
   customerDetail(customerId: string): Promise<CustomerDetail | null>;
+  /** 고객 상담 화면: 이름과 휴대폰 번호(숫자만)가 모두 맞는 고객의 ID. 없으면 null */
+  findCustomerId(name: string, phone: string): Promise<string | null>;
+  /** 고객 상담 화면에 내보낼 값만 모은다. AI를 부르지 않고 저장된 추천을 읽는다. */
+  consultView(customerId: string): Promise<ConsultView | null>;
   recommend(customerId: string): Promise<RecommendResult>;
   consultationResult(input: ConsultationInput): Promise<ConsultationResult>;
   sendNow(scheduleId: string): Promise<SendNowResult>;

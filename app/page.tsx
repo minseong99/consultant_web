@@ -37,13 +37,22 @@ export default function Home() {
           <p className="mt-5 text-[17px] leading-relaxed text-stone-600">
             1~2분만 내어 주세요. 직원이 미리 살펴보고 고객님께 꼭 맞는 기기와 요금제를 준비해 두겠습니다.
           </p>
-          <Link
-            href="/join"
-            className="mt-9 inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-9 text-[17px] font-semibold text-white shadow-[0_12px_28px_-10px_rgb(200_30_30/0.55)] transition-[background-color,transform] hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-auto"
-          >
-            상담 접수하기
-            <span aria-hidden>→</span>
-          </Link>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/join"
+              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-9 text-[17px] font-semibold text-white shadow-[0_12px_28px_-10px_rgb(200_30_30/0.55)] transition-[background-color,transform] hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-auto"
+            >
+              상담 접수하기
+              <span aria-hidden>→</span>
+            </Link>
+            {/* 접수를 마친 고객이 상담 자리에서 자기 추천을 보는 화면 */}
+            <Link
+              href="/consult"
+              className="inline-flex h-14 w-full items-center justify-center rounded-full bg-white/80 px-8 text-[17px] font-semibold text-ink ring-1 ring-inset ring-stone-200 transition-[background-color,transform] hover:bg-white active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-auto"
+            >
+              상담 화면 보기
+            </Link>
+          </div>
           <p className="mt-4 text-[13px] text-stone-500">개인정보 수집·이용 동의 후 진행됩니다.</p>
         </section>
           {/* 넓은 화면에서만 보인다. 휴대폰으로 접수하는 고객에게는 글과 버튼만 보여 준다. */}

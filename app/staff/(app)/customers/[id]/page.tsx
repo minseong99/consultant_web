@@ -348,7 +348,19 @@ function CustomerHeader({
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <TextButton onClick={onOpenAll}>고객 정보 전체</TextButton>
+          <div className="flex items-center gap-4">
+            {/* 고객이 보는 상담 화면을 이 고객으로 새 탭에 연다. */}
+            <a
+              href={`/consult/open?customer=${encodeURIComponent(customer.customer_id)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-9 items-center gap-1 rounded-md text-[13px] font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-ink hover:decoration-stone-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              고객 화면 열기
+              <span aria-hidden>↗</span>
+            </a>
+            <TextButton onClick={onOpenAll}>고객 정보 전체</TextButton>
+          </div>
           {next && (
             <button
               type="button"

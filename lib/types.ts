@@ -181,6 +181,28 @@ export type Recommendation = {
   recommendation_reason: string | null;
 };
 
+// 고객이 보는 상담 화면에 내보내는 값. 로그인 없이 열리는 화면이므로 여기에 있는 것만 나간다
+// (전화번호, 상담 메모, AI 분석은 넣지 않는다).
+export type ConsultRecommendation = {
+  rank: number | null;
+  device: { device_id: string; device_name: string; manufacturer: string | null; device_price: number | null } | null;
+  plan: { plan_name: string; monthly_fee: number | null; allowance_info: string | null } | null;
+  reason: string | null;
+};
+
+export type ConsultView = {
+  customer_name: string;
+  current_device: string;
+  current_plan: string;
+  /** 현재 요금제 이름이 plans 에 있을 때만 값이 있다(직접 입력·타사는 null) */
+  current_plan_fee: number | null;
+  contract_end_date: string | null;
+  device_use_months: number | null;
+  /** 가장 최근에 받은 추천 한 묶음. 아직 없으면 빈 배열 */
+  recommendations: ConsultRecommendation[];
+  recommended_at: string | null;
+};
+
 export type ApiFailure = { success: false; error_code: string; message: string };
 
 export type RecommendResult =
