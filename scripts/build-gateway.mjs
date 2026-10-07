@@ -427,8 +427,10 @@ return [{ json: {
     300,
   );
   const hook = add(webhook("상담 결과 Webhook", "web/consultation-result"), r, 0);
+  // 저장이 실패해도 워크플로우가 멈추지 않고 '상담: 고객 없음' 에서 원인을 돌려주게 한다.
   const insert = add(
-    postgres(
+    {
+      ...postgres(
       "상담 행 생성",
       `WITH inserted AS (
     INSERT INTO public.consultations (
@@ -438,7 +440,7 @@ return [{ json: {
         staff_id,
         store_id,
         summary,
-        reconsultation_at
+        preferred_follow_up_date
     )
     SELECT
         'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,
@@ -447,10 +449,8 @@ return [{ json: {
         $2,
         $3,
         $4,
-        CASE
-            WHEN NULLIF($5, '') IS NULL THEN NULL
-            ELSE ((NULLIF($5, '')::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul')
-        END
+        -- 재상담 예정일. F04가 같은 값을 다시 저장하지만, F04가 실패해도 남도록 여기서도 넣는다.
+        NULLIF($5, '')::date
     FROM public.customers c
     WHERE c.customer_id = $1
     RETURNING consultation_id, customer_id
@@ -473,7 +473,9 @@ FROM inserted i;`,
   $json.body.notes,
   $json.body.reconsultation_date ?? ''
 ]`,
-    ),
+      ),
+      onError: "continueRegularOutput",
+    },
     r,
     1,
   );
@@ -609,7 +611,16 @@ return [{ json: { ...checked.f04, success: true, schedules } }];`,
     8,
   );
   const missing = add(
-    code("상담: 고객 없음", `return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];`),
+    code(
+      "상담: 고객 없음",
+      `// 상담 행을 만들지 못한 경우. 고객이 없어서인지, 저장 자체가 실패했는지 구분해 알려 준다.
+const row = $('상담 행 생성').first()?.json ?? {};
+const detail = row.error ? String(row.error.message ?? row.error) : (typeof row.message === 'string' ? row.message : '');
+if (detail) {
+  return [{ json: { success: false, error_code: 'CONSULTATION_SAVE_FAILED', message: '상담 기록을 저장하지 못했습니다. (' + detail + ')' } }];
+}
+return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];`,
+    ),
     r + 0.6,
     3,
   );

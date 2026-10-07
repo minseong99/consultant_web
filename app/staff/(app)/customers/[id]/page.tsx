@@ -1510,7 +1510,7 @@ function ConsultationHistory({
               c.interested_plan ||
               c.special_notes ||
               c.follow_up_reason ||
-              c.reconsultation_at;
+              c.preferred_follow_up_date;
             return (
               <li key={c.consultation_id} className="py-3">
                 <p className="flex flex-wrap items-center gap-2 text-[12px] text-stone-500">
@@ -1561,10 +1561,10 @@ function ConsultationHistory({
                             value={c.follow_up_reason}
                           />
                         )}
-                        {c.reconsultation_at && (
+                        {c.preferred_follow_up_date && (
                           <Field
-                            label="재상담 예정"
-                            value={formatDateTime(c.reconsultation_at)}
+                            label="재상담 예정일"
+                            value={formatDate(c.preferred_follow_up_date)}
                           />
                         )}
                       </>
