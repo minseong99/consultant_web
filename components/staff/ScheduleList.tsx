@@ -3,23 +3,35 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Steps, type Step } from "@/components/Steps";
-import { Badge, Button, EmptyState, ErrorNote, SourceLabel } from "@/components/ui";
+import { Badge, Button, EmptyState, ErrorNote, inputClass, SourceLabel, StatusLine } from "@/components/ui";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { lookup, SCHEDULE_STATUS, SCHEDULE_SUBTYPE, SCHEDULE_TYPE, SEND_STATUS } from "@/lib/labels";
-import type { ScheduleItem, SendNowResult } from "@/lib/types";
+import { MESSAGE_MAX_LENGTH, messageBytes, SMS_BYTES } from "@/lib/message";
+import type { MessageDraftResult, ScheduleItem, SendNowResult } from "@/lib/types";
+
+// 요청을 보낸 시각. 경과 시간 표시에 쓴다(이벤트 처리 안에서만 부른다).
+const clock = () => Date.now();
 
 type Tracking = { requesting: boolean; result: SendNowResult | null; startedAt: number };
 
-// [지금 발송]을 누른 뒤의 진행 상태. 일정·메시지의 실제 상태로만 채운다.
+// [지금 발송]을 누른 뒤 발송 전까지의 상태: 초안 작성 중 → 직원이 확인·수정 → (전송은 Tracking 이 맡는다)
+type Compose = {
+  phase: "drafting" | "editing";
+  text: string;
+  /** AI가 만든 초안. 직원이 고쳤는지 알아보는 데만 쓴다(저장하지 않는다). */
+  draft: string;
+  /** 초안을 만들지 못한 이유. 이때는 직원이 직접 써서 보낼 수 있다. */
+  draftError: string | null;
+  startedAt: number;
+};
+
+// [문자 전송]을 누른 뒤의 진행 상태. 일정·메시지의 실제 상태로만 채운다.
 function sendSteps(schedule: ScheduleItem, tracking: Tracking): Step[] {
   const status = schedule.schedule_status;
-  const message = schedule.message;
   const started = status !== "scheduled";
   const failed = status === "failed";
   const skipped = status === "skipped";
   const sent = status === "sent";
-  // 요청이 끝났는데도 처리 중에 머물러 있으면 워크플로우가 중간에 멈춘 것이다.
-  const stalled = !tracking.requesting && status === "processing";
   return [
     {
       label: "동의 확인",
@@ -28,14 +40,10 @@ function sendSteps(schedule: ScheduleItem, tracking: Tracking): Step[] {
       note: skipped ? "동의 조건이 맞지 않아 보내지 않았습니다" : !started && !tracking.requesting ? "처리가 시작되지 않았습니다" : undefined,
     },
     {
-      label: "문자 작성",
-      state: skipped ? "waiting" : message ? "done" : failed || stalled ? "error" : started ? "active" : "waiting",
-      note: (failed || stalled) && !message ? "문자를 만들지 못했습니다" : undefined,
-    },
-    {
       label: "발송",
-      state: sent ? "done" : failed && message ? "error" : message ? (tracking.requesting ? "active" : "error") : "waiting",
-      note: !sent && message && !tracking.requesting && !failed ? "발송이 완료되지 않았습니다" : undefined,
+      // 요청이 끝났는데도 처리 중에 머물러 있으면 발송이 중간에 멈춘 것이다.
+      state: sent ? "done" : skipped || !started ? "waiting" : failed ? "error" : tracking.requesting ? "active" : "error",
+      note: failed ? "발송하지 못했습니다" : started && !sent && !skipped && !tracking.requesting ? "발송이 완료되지 않았습니다" : undefined,
     },
   ];
 }
@@ -63,6 +71,7 @@ export function ScheduleList({
 }) {
   const [open, setOpen] = useState<Set<string>>(() => new Set([focusId, defaultOpenFirst ? items[0]?.schedule_id : null].filter((v): v is string => Boolean(v))));
   const [tracking, setTracking] = useState<Record<string, Tracking>>({});
+  const [composing, setComposing] = useState<Record<string, Compose>>({});
   const focusRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
@@ -78,17 +87,57 @@ export function ScheduleList({
     });
   }
 
-  async function sendNow(id: string) {
-    const startedAt = Date.now();
+  const stopComposing = (id: string) =>
+    setComposing((map) => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
+
+  // [지금 발송] / [다시 생성]: 문자 초안을 받아 편집 칸에 넣는다. 아직 발송하지 않는다.
+  async function startDraft(id: string) {
+    const startedAt = clock();
     onSendStart?.(id);
-    setTracking((map) => ({ ...map, [id]: { requesting: true, result: null, startedAt } }));
+    setTracking((map) => {
+      const next = { ...map };
+      delete next[id];
+      return next;
+    });
+    setComposing((map) => ({ ...map, [id]: { phase: "drafting", text: "", draft: "", draftError: null, startedAt } }));
     setOpen((set) => new Set(set).add(id));
-    let result: SendNowResult;
+    let result: MessageDraftResult;
     try {
-      const response = await fetch("/api/staff/send-now", {
+      const response = await fetch("/api/staff/message-draft", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ schedule_id: id }),
+      });
+      result = await response.json();
+    } catch {
+      result = { success: false, error_code: "NETWORK", message: "네트워크 연결을 확인해 주세요." };
+    }
+    if (!result.success && result.error_code === "NOT_SCHEDULED") {
+      // 그사이 발송되었거나 취소된 일정. 편집 칸을 열지 않고 이유만 알린다.
+      stopComposing(id);
+      setTracking((map) => ({ ...map, [id]: { requesting: false, result, startedAt } }));
+      onChanged?.();
+      return;
+    }
+    const text = result.success ? result.message_text : "";
+    setComposing((map) => ({ ...map, [id]: { phase: "editing", text, draft: text, draftError: result.success ? null : result.message, startedAt } }));
+  }
+
+  // [문자 전송]: 직원이 확인한 내용 그대로 보낸다.
+  async function sendMessage(id: string, messageText: string) {
+    const startedAt = clock();
+    stopComposing(id);
+    setTracking((map) => ({ ...map, [id]: { requesting: true, result: null, startedAt } }));
+    let result: SendNowResult;
+    try {
+      const response = await fetch("/api/staff/message-send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ schedule_id: id, message_text: messageText }),
       });
       result = await response.json();
     } catch {
@@ -107,6 +156,7 @@ export function ScheduleList({
         const type = lookup(SCHEDULE_TYPE, schedule.schedule_type);
         const subtype = schedule.schedule_subtype ? (SCHEDULE_SUBTYPE[schedule.schedule_subtype] ?? schedule.schedule_subtype) : null;
         const track = tracking[schedule.schedule_id];
+        const compose = composing[schedule.schedule_id];
         const expanded = open.has(schedule.schedule_id);
         const panelId = `schedule-${schedule.schedule_id}`;
         return (
@@ -134,7 +184,7 @@ export function ScheduleList({
                 </span>
               </button>
               {schedule.schedule_status === "scheduled" && (
-                <Button size="sm" variant="secondary" loading={track?.requesting} onClick={() => sendNow(schedule.schedule_id)}>
+                <Button size="sm" variant="secondary" loading={track?.requesting} disabled={Boolean(compose)} onClick={() => startDraft(schedule.schedule_id)}>
                   지금 발송
                 </Button>
               )}
@@ -159,12 +209,27 @@ export function ScheduleList({
                   </div>
                 </dl>
 
+                {compose?.phase === "drafting" && (
+                  <div aria-live="polite">
+                    <StatusLine state="active" label="문자 초안 작성 중" since={compose.startedAt} note="고객 정보와 상담 내용을 바탕으로 작성합니다 · 아직 발송되지 않습니다" />
+                  </div>
+                )}
+                {compose?.phase === "editing" && (
+                  <MessageEditor
+                    compose={compose}
+                    onChange={(text) => setComposing((map) => ({ ...map, [schedule.schedule_id]: { ...compose, text } }))}
+                    onSend={() => sendMessage(schedule.schedule_id, compose.text.trim())}
+                    onRegenerate={() => startDraft(schedule.schedule_id)}
+                    onCancel={() => stopComposing(schedule.schedule_id)}
+                  />
+                )}
+
                 {track && <Steps steps={sendSteps(schedule, track)} since={track.requesting ? track.startedAt : null} />}
                 {track?.result && !track.result.success && <ErrorNote>{track.result.message}</ErrorNote>}
 
                 {schedule.message ? (
                   <div>
-                    <SourceLabel source="auto" label="AI가 작성한 문자" />
+                    <p className="text-[12px] font-semibold text-stone-500">{schedule.message.send_status === "sent" ? "보낸 문자" : "문자 내용"}</p>
                     <p className="mt-1.5 max-w-xl rounded-xl rounded-tl-sm bg-white px-4 py-3 text-[14px] leading-relaxed ring-1 ring-stone-200">{schedule.message.message_content}</p>
                     <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-stone-500">
                       <Badge tone={lookup(SEND_STATUS, schedule.message.send_status).tone}>{lookup(SEND_STATUS, schedule.message.send_status).label}</Badge>
@@ -173,7 +238,7 @@ export function ScheduleList({
                     </p>
                   </div>
                 ) : (
-                  !track && <p className="text-[13px] text-stone-500">문자는 발송할 때 고객 정보와 상담 내용을 바탕으로 작성됩니다.</p>
+                  !track && !compose && <p className="text-[13px] text-stone-500">[지금 발송]을 누르면 AI가 문자 초안을 만듭니다. 내용을 확인하고 고친 뒤 보낼 수 있습니다.</p>
                 )}
 
                 {showCustomer && (
@@ -187,5 +252,62 @@ export function ScheduleList({
         );
       })}
     </ul>
+  );
+}
+
+// 발송 전 확인 칸. AI 초안을 보여 주고, 직원이 고친 뒤 [문자 전송]을 눌러야 나간다.
+function MessageEditor({
+  compose,
+  onChange,
+  onSend,
+  onRegenerate,
+  onCancel,
+}: {
+  compose: Compose;
+  onChange: (text: string) => void;
+  onSend: () => void;
+  onRegenerate: () => void;
+  onCancel: () => void;
+}) {
+  const text = compose.text;
+  const trimmed = text.trim();
+  const bytes = messageBytes(trimmed);
+  const edited = compose.draft !== "" && trimmed !== compose.draft.trim();
+  const tooLong = trimmed.length > MESSAGE_MAX_LENGTH;
+  return (
+    <div className="max-w-xl">
+      {compose.draftError ? (
+        <ErrorNote>{compose.draftError} 아래에 직접 작성해 보낼 수 있습니다.</ErrorNote>
+      ) : (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <SourceLabel source="ai" label={edited ? "AI 초안 · 수정함" : "AI 초안"} />
+          <span className="text-[12px] text-stone-500">아직 발송되지 않았습니다. 내용을 확인하고 필요하면 고쳐 주세요.</span>
+        </p>
+      )}
+      <textarea
+        aria-label="보낼 문자 내용"
+        rows={5}
+        autoFocus
+        className={`${inputClass} mt-2 !text-[14px] leading-relaxed`}
+        value={text}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <p className={`mt-1 text-[12px] tabular-nums ${tooLong ? "font-semibold text-danger" : "text-stone-500"}`}>
+        {trimmed.length}자 · {bytes}바이트 · {bytes <= SMS_BYTES ? "단문(SMS)" : "장문(LMS)"}
+        {tooLong && ` · ${MESSAGE_MAX_LENGTH.toLocaleString("ko-KR")}자를 넘어 보낼 수 없습니다`}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!trimmed || tooLong} onClick={onSend}>
+          문자 전송
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onRegenerate}>
+          다시 생성
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          취소
+        </Button>
+        {edited && <span className="text-[12px] text-stone-500">다시 생성하면 수정한 내용이 사라집니다</span>}
+      </div>
+    </div>
   );
 }

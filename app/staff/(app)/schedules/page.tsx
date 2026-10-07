@@ -254,7 +254,11 @@ function ListView({
   // 알림에서 넘어온 경우 해당 일정이 있는 탭을 연다. 탭을 직접 누르면 그 선택을 따른다.
   const active = selectedTab ?? (focused ? tabOf(focused) : "upcoming");
   const tab = TABS.find((t) => t.key === active)!;
-  const items = schedules.filter((s) => tabOf(s) === active);
+  // [지금 발송]으로 다루는 중인 일정은 상태가 바뀌어도 이 탭에 남겨, 발송 결과와 보낸 문자를 그 자리에서 볼 수 있게 한다.
+  // 탭을 바꾸면 풀린다.
+  const [held, setHeld] = useState<{ tab: TabKey; ids: string[] }>({ tab: "upcoming", ids: [] });
+  const heldIds = held.tab === active ? held.ids : [];
+  const items = schedules.filter((s) => tabOf(s) === active || heldIds.includes(s.schedule_id));
   // 발송 완료 탭은 최근 발송이 위로 오게 한다.
   const ordered = active === "upcoming" ? items : [...items].reverse();
 
@@ -268,7 +272,15 @@ function ListView({
           tabs={TABS.map((t) => ({ key: t.key, label: t.label, count: schedules.filter((s) => tabOf(s) === t.key).length }))}
         />
       </div>
-      <ScheduleList key={`${active}:${focusId ?? ""}`} items={ordered} focusId={focusId} fresh={fresh} onChanged={onChanged} emptyText={tab.empty} />
+      <ScheduleList
+        key={`${active}:${focusId ?? ""}`}
+        items={ordered}
+        focusId={focusId}
+        fresh={fresh}
+        onChanged={onChanged}
+        emptyText={tab.empty}
+        onSendStart={(id) => setHeld((current) => ({ tab: active, ids: current.tab === active && current.ids.includes(id) ? current.ids : [...(current.tab === active ? current.ids : []), id] }))}
+      />
     </>
   );
 }

@@ -235,6 +235,9 @@ export type ConsultationResult =
     }
   | ApiFailure;
 
+/** [지금 발송]의 문자 초안. 발송 전에 직원이 확인·수정한다. */
+export type MessageDraftResult = { success: true; schedule_id: string; message_text: string } | ApiFailure;
+
 export type SendNowResult =
   | {
       success: true;

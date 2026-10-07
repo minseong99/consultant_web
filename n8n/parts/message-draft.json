@@ -1,0 +1,295 @@
+{
+  "nodes": [
+    {
+      "id": "d3593ff4-625d-4277-a2ac-5d51a80c7727",
+      "name": "안내: 문자 초안",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        2696
+      ],
+      "parameters": {
+        "content": "## POST /webhook/web/message-draft\n요청: `{ schedule_id }`\n\n예정 상태인 일정의 문자 초안을 만든다. **발송하지 않고 DB도 바꾸지 않는다.**\n\n예정일보다 먼저 보내는 문자이므로 오늘 날짜와 기준일까지 남은 일수(`send_now`, `today`, `reference_date`, `days_until_reference`)를 함께 넘겨 지금 시점에 맞게 쓰게 한다.\n\n응답: `{ success, schedule_id, message_text }`",
+        "height": 240,
+        "width": 460
+      }
+    },
+    {
+      "id": "2406f1e5-2e8c-48f3-a863-91715207132f",
+      "position": [
+        0,
+        2736
+      ],
+      "name": "문자 초안 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "f8b21af4-92c3-4c19-a56b-c9098425fc66",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/message-draft",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "1292d473-7025-4100-a249-04553b3c6fa5",
+      "position": [
+        260,
+        2736
+      ],
+      "name": "초안: 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n    ms.reference_date::text AS reference_date,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n    con.summary AS consultation_summary\nFROM public.message_schedules AS ms\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\nWHERE ms.schedule_id = $1\n  AND ms.schedule_status = 'scheduled'\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.schedule_id ] }}"
+        }
+      }
+    },
+    {
+      "id": "da1c9492-0105-4d3b-a599-481bd3623e5e",
+      "position": [
+        520,
+        2736
+      ],
+      "name": "초안: 예정 상태 일정 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ee21d2fb-e234-4950-ab8c-3917114b8d44",
+              "leftValue": "={{ Boolean($json.schedule_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9dfd5785-a257-4eb9-ac72-2a1fac8f4b4c",
+      "position": [
+        780,
+        2736
+      ],
+      "name": "초안 요청 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\n\n// 한국 시간 기준 오늘 날짜와, 기준일(약정 만료일·재상담 예정일·프로모션 시작/종료일)까지 남은 일수\nconst today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);\nconst reference = row.reference_date ? String(row.reference_date).slice(0, 10) : null;\nconst daysUntil = reference\n  ? Math.round((Date.parse(reference + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)\n  : null;\n\nconst REFERENCE_LABELS = {\n  contract: '약정 만료일',\n  reconsultation: '재상담 예정일',\n  promotion_start: '프로모션 시작일',\n  promotion_end_2d_before: '프로모션 종료일',\n};\nconst referenceLabel = REFERENCE_LABELS[row.schedule_subtype] ?? REFERENCE_LABELS[row.schedule_type] ?? '기준일';\n\nreturn [{ json: {\n  schedule_id: row.schedule_id,\n  message_data: {\n    customer_id: row.customer_id,\n    schedule_type: row.schedule_type,\n    schedule_subtype: row.schedule_subtype ?? null,\n    contact_reason: row.contact_reason ?? null,\n    customer_name: row.customer_name,\n    phone: row.phone,\n    current_device: row.current_device ?? null,\n    current_plan: row.current_plan ?? null,\n    usage_pattern: row.usage_pattern ?? null,\n    contract_end_date: row.contract_end_date ?? null,\n    device_use_months: row.device_use_months ?? null,\n    preferred_brand: row.preferred_brand ?? null,\n    target_monthly_budget: row.target_monthly_budget ?? null,\n    interests: row.interests ?? null,\n    consultation_summary: row.consultation_summary ?? null,\n    document_id: row.document_id ?? null,\n    // 예정일을 기다리지 않고 지금 보내는 문자라는 정보 (F07-S02가 지금 시점에 맞게 쓰는 데 쓴다)\n    send_now: true,\n    today,\n    reference_date: reference,\n    reference_label: referenceLabel,\n    days_until_reference: daysUntil,\n  },\n} }];"
+      }
+    },
+    {
+      "id": "ed6f97ea-8f50-4586-a666-c8b40032e6d4",
+      "position": [
+        1040,
+        2736
+      ],
+      "name": "초안: F07-S02 문자 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fT4gWUVbI5Hpuegq",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "message_data": "={{ $json.message_data }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "83b9904e-e01c-478d-a869-605286f18d7b",
+      "position": [
+        1300,
+        2736
+      ],
+      "name": "초안 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\nconst scheduleId = $('초안 요청 구성').first().json.schedule_id;\n\nif (result.generation_success === true && typeof result.message_text === 'string' && result.message_text.trim()) {\n  return [{ json: { success: true, schedule_id: scheduleId, message_text: result.message_text.trim() } }];\n}\n\n// 초안을 만들지 못해도 직원이 직접 써서 보낼 수 있으므로, 이유를 알려 준다.\nconst REASONS = {\n  EMPTY_MESSAGE: '문자에 쓸 정보가 부족합니다.',\n  INTERNAL_DATA_EXPOSED: '생성된 문자에 내부 정보가 섞여 사용하지 않았습니다.',\n};\nconst detail = result.error\n  ? String(result.error.message ?? result.error)\n  : (REASONS[result.generation_error] ?? '문자 생성 결과가 없습니다.');\n\nreturn [{ json: { success: false, error_code: 'DRAFT_FAILED', message: '문자 초안을 만들지 못했습니다. ' + detail, schedule_id: scheduleId } }];"
+      }
+    },
+    {
+      "id": "1f9c6acc-875e-45a2-afa7-4288c921e0a6",
+      "position": [
+        780,
+        2880
+      ],
+      "name": "초안: 일정 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다.' } }];"
+      }
+    },
+    {
+      "id": "090509aa-ec2b-4498-ab45-eb769893031a",
+      "position": [
+        1560,
+        2736
+      ],
+      "name": "초안 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "문자 초안 Webhook": {
+      "main": [
+        [
+          {
+            "node": "초안: 일정 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 일정 조회": {
+      "main": [
+        [
+          {
+            "node": "초안: 예정 상태 일정 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 예정 상태 일정 있음?": {
+      "main": [
+        [
+          {
+            "node": "초안 요청 구성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "초안: 일정 없음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안 요청 구성": {
+      "main": [
+        [
+          {
+            "node": "초안: F07-S02 문자 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: F07-S02 문자 생성": {
+      "main": [
+        [
+          {
+            "node": "초안 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "초안 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 일정 없음": {
+      "main": [
+        [
+          {
+            "node": "초안 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

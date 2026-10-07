@@ -74,6 +74,16 @@ const WORKFLOWS = {
       contact_reason: "string",
     },
   },
+  F07_S02: {
+    id: "fT4gWUVbI5Hpuegq",
+    name: "F07-S02 맞춤 메시지 생성",
+    inputs: { schedule_id: "string", message_data: "object" },
+  },
+  F07_S03: {
+    id: "CfAOBLyDDNAD50yU",
+    name: "F07-S03 문자 발송 및 결과 처리",
+    inputs: { message_id: "string" },
+  },
   F07_S01: {
     id: "QFjC2ARP9Q6fCExH",
     name: "F07-S01 개별 메시지 처리",
@@ -1247,6 +1257,349 @@ return [{ json: { success: true, promotions } }];`,
   link(valid, llm, 0);
   link(valid, build, 1);
   link(llm, build);
+  link(build, reply);
+}
+
+// ---------------------------------------------------------------------------
+// 8. 문자 초안: 일정 1건 조회 → F07-S02(문자 생성) → 응답
+//    발송하지 않고 DB도 바꾸지 않는다. 직원이 초안을 확인·수정한 뒤 9번 경로로 보낸다.
+// ---------------------------------------------------------------------------
+{
+  const r = 11.4;
+  group = "message-draft";
+  note(
+    "안내: 문자 초안",
+    "## POST /webhook/web/message-draft\n요청: `{ schedule_id }`\n\n예정 상태인 일정의 문자 초안을 만든다. **발송하지 않고 DB도 바꾸지 않는다.**\n\n예정일보다 먼저 보내는 문자이므로 오늘 날짜와 기준일까지 남은 일수(`send_now`, `today`, `reference_date`, `days_until_reference`)를 함께 넘겨 지금 시점에 맞게 쓰게 한다.\n\n응답: `{ success, schedule_id, message_text }`",
+    r,
+    240,
+  );
+  const hook = add(webhook("문자 초안 Webhook", "web/message-draft"), r, 0);
+  const lookup = add(
+    postgres(
+      "초안: 일정 조회",
+      `SELECT
+    ms.schedule_id,
+    ms.customer_id,
+    ms.schedule_type,
+    ms.schedule_subtype,
+    ms.contact_reason,
+    ms.document_id,
+    ms.reference_date::text AS reference_date,
+    c.customer_name,
+    c.phone,
+    c.current_device,
+    c.current_plan,
+    c.usage_pattern,
+    c.contract_end_date,
+    c.device_use_months,
+    c.preferred_brand,
+    c.target_monthly_budget,
+    c.interests,
+    con.summary AS consultation_summary
+FROM public.message_schedules AS ms
+INNER JOIN public.customers AS c
+    ON c.customer_id = ms.customer_id
+LEFT JOIN public.consultations AS con
+    ON con.consultation_id = ms.consultation_id
+WHERE ms.schedule_id = $1
+  AND ms.schedule_status = 'scheduled'
+LIMIT 1;`,
+      "[ $json.body.schedule_id ]",
+    ),
+    r,
+    1,
+  );
+  const found = add(iff("초안: 예정 상태 일정 있음?", "Boolean($json.schedule_id)"), r, 2);
+  const prepare = add(
+    code(
+      "초안 요청 구성",
+      `const row = $input.first().json;
+
+// 한국 시간 기준 오늘 날짜와, 기준일(약정 만료일·재상담 예정일·프로모션 시작/종료일)까지 남은 일수
+const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const reference = row.reference_date ? String(row.reference_date).slice(0, 10) : null;
+const daysUntil = reference
+  ? Math.round((Date.parse(reference + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)
+  : null;
+
+const REFERENCE_LABELS = {
+  contract: '약정 만료일',
+  reconsultation: '재상담 예정일',
+  promotion_start: '프로모션 시작일',
+  promotion_end_2d_before: '프로모션 종료일',
+};
+const referenceLabel = REFERENCE_LABELS[row.schedule_subtype] ?? REFERENCE_LABELS[row.schedule_type] ?? '기준일';
+
+return [{ json: {
+  schedule_id: row.schedule_id,
+  message_data: {
+    customer_id: row.customer_id,
+    schedule_type: row.schedule_type,
+    schedule_subtype: row.schedule_subtype ?? null,
+    contact_reason: row.contact_reason ?? null,
+    customer_name: row.customer_name,
+    phone: row.phone,
+    current_device: row.current_device ?? null,
+    current_plan: row.current_plan ?? null,
+    usage_pattern: row.usage_pattern ?? null,
+    contract_end_date: row.contract_end_date ?? null,
+    device_use_months: row.device_use_months ?? null,
+    preferred_brand: row.preferred_brand ?? null,
+    target_monthly_budget: row.target_monthly_budget ?? null,
+    interests: row.interests ?? null,
+    consultation_summary: row.consultation_summary ?? null,
+    document_id: row.document_id ?? null,
+    // 예정일을 기다리지 않고 지금 보내는 문자라는 정보 (F07-S02가 지금 시점에 맞게 쓰는 데 쓴다)
+    send_now: true,
+    today,
+    reference_date: reference,
+    reference_label: referenceLabel,
+    days_until_reference: daysUntil,
+  },
+} }];`,
+    ),
+    r,
+    3,
+  );
+  const s02 = add(
+    call("초안: F07-S02 문자 생성", "F07_S02", {
+      schedule_id: "$json.schedule_id",
+      message_data: "$json.message_data",
+    }),
+    r,
+    4,
+  );
+  const build = add(
+    code(
+      "초안 응답 구성",
+      `const result = $input.first()?.json ?? {};
+const scheduleId = $('초안 요청 구성').first().json.schedule_id;
+
+if (result.generation_success === true && typeof result.message_text === 'string' && result.message_text.trim()) {
+  return [{ json: { success: true, schedule_id: scheduleId, message_text: result.message_text.trim() } }];
+}
+
+// 초안을 만들지 못해도 직원이 직접 써서 보낼 수 있으므로, 이유를 알려 준다.
+const REASONS = {
+  EMPTY_MESSAGE: '문자에 쓸 정보가 부족합니다.',
+  INTERNAL_DATA_EXPOSED: '생성된 문자에 내부 정보가 섞여 사용하지 않았습니다.',
+};
+const detail = result.error
+  ? String(result.error.message ?? result.error)
+  : (REASONS[result.generation_error] ?? '문자 생성 결과가 없습니다.');
+
+return [{ json: { success: false, error_code: 'DRAFT_FAILED', message: '문자 초안을 만들지 못했습니다. ' + detail, schedule_id: scheduleId } }];`,
+    ),
+    r,
+    5,
+  );
+  const missing = add(
+    code("초안: 일정 없음", `return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다.' } }];`),
+    r + 0.6,
+    3,
+  );
+  const reply = add(respond("초안 응답"), r, 6);
+  link(hook, lookup);
+  link(lookup, found);
+  link(found, prepare, 0);
+  link(found, missing, 1);
+  link(prepare, s02);
+  link(s02, build);
+  link(build, reply);
+  link(missing, reply);
+}
+
+// ---------------------------------------------------------------------------
+// 9. 확인한 문자 보내기: 입력 확인 → 일정 선점(동의 재확인) → 문자 저장 → F07-S03(발송) → 결과 조회 → 응답
+//    F07-S01(개별 메시지 처리)이 한 번에 하던 일 중 "문자 생성"만 빼고 같은 순서로 한다.
+// ---------------------------------------------------------------------------
+{
+  const r = 12.9;
+  group = "message-send";
+  note(
+    "안내: 확인한 문자 보내기",
+    "## POST /webhook/web/message-send\n요청: `{ schedule_id, message_text }` (직원이 확인·수정한 문자)\n\n1. 일정을 선점한다: 예정 상태이고, 연락처가 있고, 동의 조건이 맞으면 `processing`, 동의가 맞지 않으면 `skipped` (F07-S01의 선점 조건과 같다)\n2. 받은 글을 `messages` 에 `pending` 으로 저장\n3. F07-S03 으로 발송 (`sending` → `sent`, 일정 `sent`)\n4. 그래도 `processing` 에 머물러 있으면 `failed` 로 바꾼다\n\n응답: `{ success, schedule_id, schedule_status, message_id, send_status }`",
+    r,
+    280,
+  );
+  const hook = add(webhook("문자 보내기 Webhook", "web/message-send"), r, 0);
+  const prepare = add(
+    code(
+      "보내기 입력 확인",
+      `const body = $input.first().json.body ?? {};
+const scheduleId = typeof body.schedule_id === 'string' ? body.schedule_id.trim() : '';
+const text = typeof body.message_text === 'string' ? body.message_text.trim() : '';
+
+const fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];
+if (!scheduleId) return fail('일정 정보가 없습니다.');
+if (!text) return fail('보낼 문자 내용을 입력해 주세요.');
+if (text.length > 1000) return fail('문자가 너무 깁니다. 1,000자 이내로 줄여 주세요.');
+
+return [{ json: { valid: true, schedule_id: scheduleId, message_text: text } }];`,
+    ),
+    r,
+    1,
+  );
+  const valid = add(iff("보내기: 입력 유효?", "$json.valid === true"), r, 2);
+  const claim = add(
+    {
+      ...postgres(
+        "보내기: 일정 선점",
+        `WITH updated AS (
+    UPDATE public.message_schedules AS ms
+    SET schedule_status =
+        CASE
+            WHEN NULLIF(TRIM(c.phone), '') IS NOT NULL
+             AND cc.withdrawn_at IS NULL
+             AND cc.privacy_consent IS TRUE
+             AND cc.recontact_consent IS TRUE
+             AND ms.schedule_type IN ('contract', 'reconsultation', 'promotion')
+             AND (ms.schedule_type <> 'promotion' OR cc.marketing_consent IS TRUE)
+            THEN 'processing'
+            ELSE 'skipped'
+        END
+    FROM public.customers AS c
+    LEFT JOIN LATERAL (
+        SELECT privacy_consent, marketing_consent, recontact_consent, withdrawn_at
+        FROM public.customer_consents
+        WHERE customer_id = c.customer_id
+        ORDER BY consent_at DESC
+        LIMIT 1
+    ) cc ON true
+    WHERE ms.schedule_id = $1
+      AND ms.customer_id = c.customer_id
+      AND ms.schedule_status = 'scheduled'
+    RETURNING ms.schedule_id, ms.schedule_status
+)
+SELECT
+    $1::varchar AS schedule_id,
+    COALESCE((SELECT schedule_status FROM updated), 'unchanged') AS result_status,
+    EXISTS (SELECT 1 FROM updated WHERE schedule_status = 'processing') AS processing_started;`,
+        "[ $json.schedule_id ]",
+      ),
+      onError: "continueRegularOutput",
+    },
+    r,
+    3,
+  );
+  const started = add(iff("보내기: 선점됨?", "$json.processing_started === true"), r, 4);
+  const save = add(
+    {
+      ...postgres(
+        "보내기: 문자 저장",
+        `-- 직원이 확인한 글을 저장한다. 같은 일정의 문자가 이미 있으면(발송 전 상태) 내용을 바꾼다.
+INSERT INTO public.messages (
+    message_id,
+    schedule_id,
+    message_content,
+    send_status,
+    sent_at,
+    send_channel
+)
+VALUES ('MSG-' || $1, $1, $2, 'pending', NULL, 'sms')
+ON CONFLICT (schedule_id) DO UPDATE
+SET message_content = EXCLUDED.message_content,
+    send_status = 'pending',
+    sent_at = NULL
+WHERE public.messages.send_status <> 'sent'
+RETURNING message_id, schedule_id, send_status;`,
+        `[
+  $('보내기 입력 확인').first().json.schedule_id,
+  $('보내기 입력 확인').first().json.message_text
+]`,
+      ),
+      onError: "continueRegularOutput",
+    },
+    r,
+    5,
+  );
+  const s03 = add(
+    call("보내기: F07-S03 문자 발송", "F07_S03", {
+      message_id: "$json.message_id ?? ''",
+    }),
+    r,
+    6,
+  );
+  const after = add(
+    postgres(
+      "보내기: 결과 조회",
+      `-- 저장이나 발송이 중간에 멈춰 처리 중에 머물러 있으면 실패로 기록한다(F07-S01의 실패 처리와 같다).
+WITH stuck AS (
+    UPDATE public.message_schedules
+    SET schedule_status = 'failed'
+    WHERE schedule_id = $1
+      AND schedule_status = 'processing'
+    RETURNING schedule_id
+)
+SELECT
+    ms.schedule_id,
+    CASE WHEN EXISTS (SELECT 1 FROM stuck) THEN 'failed' ELSE ms.schedule_status END AS schedule_status,
+    m.message_id,
+    m.send_status
+FROM public.message_schedules ms
+LEFT JOIN public.messages m
+    ON m.schedule_id = ms.schedule_id
+WHERE ms.schedule_id = $1
+LIMIT 1;`,
+      "[ $('보내기 입력 확인').first().json.schedule_id ]",
+    ),
+    r,
+    7,
+  );
+  const build = add(
+    code(
+      "보내기 응답 구성",
+      `const input = $('보내기 입력 확인').first().json;
+if (!input.valid) return [{ json: input.response }];
+
+let claimed = {};
+try { claimed = $('보내기: 일정 선점').first()?.json ?? {}; } catch (error) { claimed = {}; }
+
+// 선점하지 못한 경우: 이미 처리된 일정이거나, 동의 조건이 맞지 않아 건너뛴 일정
+if (claimed.processing_started !== true) {
+  if (claimed.result_status === 'skipped') {
+    return [{ json: {
+      success: true,
+      schedule_id: input.schedule_id,
+      schedule_status: 'skipped',
+      message_id: null,
+      send_status: null,
+    } }];
+  }
+  const detail = claimed.error ? String(claimed.error.message ?? claimed.error) : (typeof claimed.message === 'string' ? claimed.message : '');
+  return [{ json: {
+    success: false,
+    error_code: detail ? 'SEND_NOT_STARTED' : 'NOT_SCHEDULED',
+    message: detail
+      ? '문자를 보내지 못했습니다. (' + detail + ')'
+      : '예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다.',
+    schedule_id: input.schedule_id,
+  } }];
+}
+
+const row = $input.first()?.json ?? {};
+return [{ json: {
+  success: true,
+  schedule_id: input.schedule_id,
+  schedule_status: row.schedule_status ?? null,
+  message_id: row.message_id ?? null,
+  send_status: row.send_status ?? null,
+} }];`,
+    ),
+    r,
+    8,
+  );
+  const reply = add(respond("보내기 응답"), r, 9);
+  link(hook, prepare);
+  link(prepare, valid);
+  link(valid, claim, 0);
+  link(valid, build, 1);
+  link(claim, started);
+  link(started, save, 0);
+  link(started, build, 1);
+  link(save, s03);
+  link(s03, after);
+  link(after, build);
   link(build, reply);
 }
 

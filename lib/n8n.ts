@@ -11,6 +11,8 @@ export const N8N_PATHS = {
   promotion: "web/promotion",
   promotionRegister: "web/promotion-register",
   promotionParse: "web/promotion-parse",
+  messageDraft: "web/message-draft",
+  messageSend: "web/message-send",
 } as const;
 
 // n8n Cloud의 webhook 응답 한도가 약 100초이므로 그보다 짧게 잡는다.
