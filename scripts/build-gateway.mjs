@@ -823,11 +823,19 @@ if (typeof result.status !== 'string') {
 }
 
 // F06 프로모션 일정은 고객 한 명씩 만든다. F05가 선정한 고객 ID 목록을 넘겨 다음 노드에서 한 명씩 나눈다.
-const targetIds = Array.isArray(result.target_customers)
-  ? result.target_customers.map((c) => c.customer_id).filter(Boolean)
-  : [];
+// F05는 선정한 고객을 matches 로 돌려준다(예전 이름은 target_customers). 둘 다 받는다.
+const targets = Array.isArray(result.target_customers)
+  ? result.target_customers
+  : Array.isArray(result.matches) ? result.matches : [];
+const targetIds = targets.map((c) => c.customer_id).filter(Boolean);
 
-return [{ json: { targeted: result.status === 'targeted' && targetIds.length > 0, document_id: result.document_id, target_ids: targetIds, response: result } }];`,
+// 웹사이트는 target_customers 를 읽으므로 응답에는 그 이름으로 넣어 준다.
+return [{ json: {
+  targeted: result.status === 'targeted' && targetIds.length > 0,
+  document_id: result.document_id,
+  target_ids: targetIds,
+  response: { ...result, target_customers: targets },
+} }];`,
     ),
     r,
     2,
