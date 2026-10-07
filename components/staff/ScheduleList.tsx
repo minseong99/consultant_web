@@ -173,8 +173,8 @@ export function ScheduleList({
                 className="flex min-h-14 min-w-0 flex-1 items-center gap-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600"
               >
                 <span className="w-32 shrink-0 text-[14px] font-semibold tabular-nums">{formatDateTime(schedule.scheduled_contact_at)}</span>
-                {showCustomer && <span className="w-32 shrink-0 truncate text-[15px] font-semibold">{schedule.customer_name}</span>}
-                <span className="min-w-0 flex-1 truncate text-[14px] text-stone-700">
+                {showCustomer && <span className="w-20 shrink-0 truncate text-[15px] font-semibold sm:w-28">{schedule.customer_name}</span>}
+                <span className="line-clamp-2 min-w-0 flex-1 text-[14px] text-stone-700">
                   {type.label}
                   {subtype && <span className="text-stone-500"> · {subtype}</span>}
                 </span>

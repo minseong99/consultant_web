@@ -56,6 +56,7 @@ import type {
   CustomerDetail,
   Recommendation,
   RecommendResult,
+  SavedRecommendation,
   ScheduleItem,
 } from "@/lib/types";
 
@@ -130,13 +131,13 @@ function CustomerView({
   error: string | null;
   reload: () => void;
 }) {
-  const { customer, consent, analysis, consultations, schedules } = detail;
+  const { customer, consent, analysis, consultations, schedules, saved_recommendation } = detail;
   const [tab, setTab] = useState<TabKey>("brief");
   const [drawer, setDrawer] = useState<"customer" | "analysis" | null>(null);
   const [recommendUnseen, setRecommendUnseen] = useState(false);
   const tabRef = useRef<TabKey>("brief");
   // 다른 탭을 보는 동안 추천이 도착했을 때만 탭에 표시한다.
-  const recommend = useRecommend(customer.customer_id, () =>
+  const recommend = useRecommend(customer.customer_id, saved_recommendation, () =>
     setRecommendUnseen(tabRef.current !== "recommend"),
   );
 
@@ -527,25 +528,22 @@ function CustomerBrief({
 }) {
   if (!analysis) {
     return (
-      <section
-        aria-busy="true"
-        className="rounded-xl bg-white p-6 ring-1 ring-stone-200"
-      >
+      <section aria-busy="true">
         <SourceLabel source="ai" />
         <h2 className="mt-1 text-[17px] font-bold">고객 브리프</h2>
-        <div className="mt-3">
+        <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
           <StatusLine
             state="active"
             label="AI가 고객 정보를 분석하고 있습니다"
             note="보통 30초 안팎, 끝나면 자동으로 표시됩니다"
           />
-        </div>
         <div className="mt-5 flex flex-col gap-3">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-4/5" />
           <Skeleton className="mt-4 h-4 w-2/3" />
           <Skeleton className="h-4 w-3/5" />
           <Skeleton className="h-4 w-1/2" />
+        </div>
         </div>
       </section>
     );
@@ -554,7 +552,7 @@ function CustomerBrief({
   const features = list(data.important_features);
   const missing = list(data.missing_information);
   return (
-    <section className="rounded-xl bg-white p-6 ring-1 ring-stone-200">
+    <section>
       <div className="flex items-center justify-between gap-3">
         <SourceLabel source="ai" />
         <span className="text-[12px] text-stone-500">
@@ -562,8 +560,9 @@ function CustomerBrief({
         </span>
       </div>
       <h2 className="mt-1 text-[17px] font-bold">고객 브리프</h2>
+      <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
       {data.analysis_summary && (
-        <p className="mt-3 rounded-lg border-l-[3px] border-info bg-ai-surface px-4 py-3 text-[15px] leading-relaxed">
+        <p className="rounded-lg border-l-[3px] border-info bg-ai-surface px-4 py-3 text-[15px] leading-relaxed">
           <Clamp lines={3}>{data.analysis_summary}</Clamp>
         </p>
       )}
@@ -576,6 +575,7 @@ function CustomerBrief({
       <TextButton onClick={onOpenFull} className="mt-3">
         전체 AI 분석 보기
       </TextButton>
+      </div>
     </section>
   );
 }
@@ -737,7 +737,10 @@ function NextAction({
         </div>
       ) : ready ? (
         <div className="mt-3 flex flex-col gap-3">
-          <StatusLine state="done" label="추천이 준비됐습니다" />
+          <StatusLine
+            state="done"
+            label={recommend.savedAt ? "받아 둔 추천이 있습니다" : "추천이 준비됐습니다"}
+          />
           <Button onClick={() => onGo("recommend")}>추천 보기</Button>
           <Button variant="secondary" onClick={() => onGo("record")}>
             상담 기록 작성
@@ -828,11 +831,14 @@ type RecommendState = {
   result: RecommendResult | null;
   loading: boolean;
   startedAt: number | null;
+  // 이전에 받아 저장된 추천을 보여 주는 중이면 그 시각. 방금 받은 결과면 null.
+  savedAt: string | null;
   request: () => void;
 };
 
 function useRecommend(
   customerId: string,
+  saved: SavedRecommendation | null,
   onArrived: () => void,
 ): RecommendState {
   const storageKey = `recommend:${customerId}`;
@@ -840,7 +846,7 @@ function useRecommend(
   const [loading, setLoading] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
 
-  // 추천은 DB에 저장되지 않으므로, 새로고침해도 보이도록 마지막 응답을 브라우저 탭에 보관한다.
+  // 방금 받은 응답에는 저장되지 않는 혜택·조건이 들어 있어, 새로고침해도 보이도록 브라우저 탭에 보관한다.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
@@ -884,7 +890,24 @@ function useRecommend(
     }
   }
 
-  return { result, loading, startedAt, request };
+  // 이 탭에서 받은 결과가 없으면 DB에 저장된 최근 추천을 보여 준다.
+  if (!result && saved && saved.recommendations.length > 0) {
+    return {
+      result: {
+        success: true,
+        customer_id: customerId,
+        analysis_id: null,
+        recommendations: saved.recommendations,
+        information_status: "",
+        missing_information: [],
+      },
+      loading,
+      startedAt,
+      savedAt: saved.saved_at ?? "",
+      request,
+    };
+  }
+  return { result, loading, startedAt, savedAt: null, request };
 }
 
 function RecommendationPanel({
@@ -896,10 +919,10 @@ function RecommendationPanel({
   customer: Customer;
   analysis: AnalysisData | null;
 }) {
-  const { result, loading, startedAt, request } = recommend;
+  const { result, loading, startedAt, savedAt, request } = recommend;
   // 근거를 보고 있는 추천의 순번. null 이면 서랍이 닫혀 있다.
   const [evidenceIndex, setEvidenceIndex] = useState<number | null>(null);
-  const info = result?.success
+  const info = result?.success && result.information_status
     ? lookup(INFORMATION_STATUS, result.information_status)
     : null;
   const recommendations = result?.success
@@ -937,9 +960,11 @@ function RecommendationPanel({
           <SourceLabel source="recommend" />
           <h2 className="mt-1 text-[17px] font-bold">맞춤 추천</h2>
           <p className="mt-1 text-[13px] text-stone-600">
-            {result?.success
-              ? "추천 결과는 저장되지 않습니다. 이 브라우저 탭을 닫으면 사라지니, 필요한 내용은 상담 기록에 남겨 주세요."
-              : "고객 분석과 등록된 기기·요금제·프로모션을 근거로 추천합니다."}
+            {!result?.success
+              ? "고객 분석과 등록된 기기·요금제·프로모션을 근거로 추천합니다."
+              : savedAt !== null
+                ? `${savedAt ? `${formatDateTime(savedAt)}에 받은` : "이전에 받은"} 추천입니다. 고객 상황이 달라졌다면 다시 받아 보세요.`
+                : "추천은 저장되어 다음에 이 고객을 열어도 볼 수 있습니다."}
           </p>
         </div>
         <Button
@@ -1258,10 +1283,10 @@ function ConsultationForm({
 
   return (
     <section>
-      <div className="rounded-xl bg-white p-6 ring-1 ring-stone-200">
-        <SourceLabel source="staff" />
-        <h2 className="mt-1 text-[17px] font-bold">상담 기록</h2>
-        <form onSubmit={submit} className="mt-4 flex flex-col gap-5">
+      <SourceLabel source="staff" />
+      <h2 className="mt-1 text-[17px] font-bold">상담 기록</h2>
+      <div className="mt-3 rounded-xl bg-white p-6 ring-1 ring-stone-200">
+        <form onSubmit={submit} className="flex flex-col gap-5">
           <div>
             <label
               htmlFor="notes"

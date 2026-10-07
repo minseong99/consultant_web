@@ -95,7 +95,7 @@ export default function CustomersPage() {
                 href={`/staff/customers/${customer.customer_id}`}
                 className="flex min-h-16 items-center gap-5 px-5 py-3 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600"
               >
-                <span className="w-40 shrink-0">
+                <span className="w-32 shrink-0 sm:w-36">
                   <span className="flex items-center gap-2 text-[15px] font-bold">
                     <span className="truncate">{customer.customer_name}</span>
                     {fresh.has(customer.customer_id) && <Badge tone="red">새 고객</Badge>}
@@ -108,11 +108,15 @@ export default function CustomersPage() {
                     {customer.current_device} · {customer.current_plan}
                   </span>
                 </span>
-                <span className="flex w-52 shrink-0 flex-col items-start gap-0.5">
-                  <StatusLine state={customer.has_analysis ? "done" : "active"} label={customer.has_analysis ? "AI 분석 완료" : "AI 분석 중"} />
-                  {!customer.consent.recontact && <span className="pl-6 text-[12px] font-semibold text-warning">✕ 재연락 미동의</span>}
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="flex items-center gap-2">
+                    {/* 분석은 끝나지 않았을 때만 알린다. 끝난 것이 보통이라 매 행에 적지 않는다. */}
+                    {!customer.has_analysis && <StatusLine state="active" label="분석 중" />}
+                    <Badge tone={customer.last_consulted_at ? "gray" : "blue"}>{customer.last_consulted_at ? "상담 완료" : "상담 전"}</Badge>
+                  </span>
+                  {!customer.consent.recontact && <span className="text-[12px] font-semibold text-warning">재연락 미동의</span>}
                 </span>
-                <span className="w-32 shrink-0 text-right text-[13px] tabular-nums text-stone-500">{formatDateTime(customer.registered_at)}</span>
+                <span className="hidden w-28 shrink-0 text-right text-[13px] tabular-nums text-stone-500 sm:block">{formatDateTime(customer.registered_at)}</span>
               </Link>
             </li>
           ))}

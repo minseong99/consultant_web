@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, Drawer, ErrorNote, inputClass } from "@/components/ui";
 import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey, type OptionGroup } from "@/lib/fields";
-import { formatDate, formatPhone, formatWon } from "@/lib/format";
+import { formatDate, formatPhone, formatWon, withObject } from "@/lib/format";
 import { Wordmark } from "@/components/Wordmark";
 
 type Values = Record<FieldKey, string>;
@@ -68,7 +68,7 @@ export default function JoinPage() {
     const next: Partial<Record<FieldKey, string>> = {};
     for (const field of REQUIRED) {
       if (!values[field.key].trim()) {
-        next[field.key] = field.type === "select" || field.type === "multi" ? `${field.label}을(를) 선택해 주세요.` : `${field.label}을(를) 입력해 주세요.`;
+        next[field.key] = `${withObject(field.label)} ${field.type === "select" || field.type === "multi" ? "선택" : "입력"}해 주세요.`;
       }
     }
     if (values.phone.trim() && !isValidPhone(values.phone)) next.phone = "휴대폰 번호를 확인해 주세요. (예: 01012345678)";
@@ -156,9 +156,10 @@ export default function JoinPage() {
             <Button size="lg" className="w-full" disabled={!consents.privacy_consent} onClick={() => setStep(2)}>
               다음
             </Button>
-            {!consents.privacy_consent && (
-              <p className="mt-2 text-center text-[13px] text-stone-500">필수 항목에 동의하시면 다음으로 넘어갈 수 있어요.</p>
-            )}
+            {/* 동의 여부에 따라 버튼이 움직이지 않도록 안내 자리는 늘 남긴다. */}
+            <p className={`mt-2 text-center text-[13px] text-stone-500 ${consents.privacy_consent ? "invisible" : ""}`} aria-hidden={consents.privacy_consent}>
+              필수 항목에 동의하시면 다음으로 넘어갈 수 있어요.
+            </p>
           </div>
         </section>
       )}
