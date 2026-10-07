@@ -4,6 +4,7 @@ import { addDays, todayKST, withObject } from "../format";
 import { matchDevices, type DeviceRef, type PromotionSummary } from "../promotion";
 import type {
   Consultation,
+  ConsultRecommendation,
   Customer,
   CustomerAnalysis,
   CustomerConsent,
@@ -16,7 +17,7 @@ import type {
   Store,
 } from "../types";
 import type { Backend } from "./index";
-import { buildCustomerList, buildScheduleItems, latestConsents, summarizeConsent } from "./shared";
+import { buildCustomerList, buildScheduleItems, latestConsents, sameName, summarizeConsent } from "./shared";
 
 // n8n·Supabase 없이 전체 흐름을 재현하는 메모리 저장소. 로컬 `npm run dev` 전용이다
 // (서버리스 배포에서는 인스턴스 간에 메모리가 공유되지 않는다).
@@ -389,6 +390,18 @@ function recommendFor(c: Customer): Recommendation[] {
   ];
 }
 
+// 고객 상담 화면에 보일 샘플 가격·요금. 실제 연동에서는 devices, plans 에서 읽는다.
+const MOCK_DEVICE_INFO: Record<string, { manufacturer: string; device_price: number }> = {
+  "DEV-S26": { manufacturer: "Samsung", device_price: 1254000 },
+  "DEV-A56": { manufacturer: "Samsung", device_price: 499400 },
+  "DEV-IP17": { manufacturer: "Apple", device_price: 1290000 },
+  "DEV-IP16E": { manufacturer: "Apple", device_price: 990000 },
+};
+const MOCK_PLAN_INFO: Record<string, NonNullable<ConsultRecommendation["plan"]>> = {
+  "PLAN-5G-69": { plan_name: "5G 스탠다드 69", monthly_fee: 69000, allowance_info: "5G 데이터 110GB / 음성·문자 기본 제공" },
+  "PLAN-5G-55": { plan_name: "5G 슬림 55", monthly_fee: 55000, allowance_info: "5G 데이터 14GB / 음성·문자 기본 제공" },
+};
+
 function hasRecontact(customerId: string) {
   const consent = latestConsents(store().consents).get(customerId);
   return Boolean(consent?.privacy_consent && consent.recontact_consent && !consent.withdrawn_at);
@@ -523,6 +536,40 @@ export const mockBackend: Backend = {
         s.documents,
       ),
       saved_recommendation: s.savedRecommendations?.[customerId] ?? null,
+    };
+  },
+
+  async findCustomerId(name, phone) {
+    return store().customers.find((c) => c.phone === phone && sameName(c.customer_name, name))?.customer_id ?? null;
+  },
+
+  async consultView(customerId) {
+    const s = store();
+    const customer = s.customers.find((c) => c.customer_id === customerId);
+    if (!customer) return null;
+    const saved = s.savedRecommendations?.[customerId] ?? null;
+    return {
+      customer_name: customer.customer_name,
+      current_device: customer.current_device,
+      current_plan: customer.current_plan,
+      current_plan_fee: Object.values(MOCK_PLAN_INFO).find((plan) => plan.plan_name === customer.current_plan)?.monthly_fee ?? null,
+      contract_end_date: customer.contract_end_date,
+      device_use_months: customer.device_use_months,
+      recommendations: (saved?.recommendations ?? []).map((item) => ({
+        rank: item.recommendation_rank,
+        device:
+          item.product_id && item.device_name
+            ? {
+                device_id: item.product_id,
+                device_name: item.device_name,
+                manufacturer: MOCK_DEVICE_INFO[item.product_id]?.manufacturer ?? null,
+                device_price: MOCK_DEVICE_INFO[item.product_id]?.device_price ?? null,
+              }
+            : null,
+        plan: item.plan_id ? (MOCK_PLAN_INFO[item.plan_id] ?? null) : null,
+        reason: item.recommendation_reason,
+      })),
+      recommended_at: saved?.saved_at ?? null,
     };
   },
 

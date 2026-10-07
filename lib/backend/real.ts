@@ -7,6 +7,8 @@ import { callN8n, N8N_PATHS } from "../n8n";
 import type {
   Consultation,
   ConsultationResult,
+  ConsultRecommendation,
+  ConsultView,
   Customer,
   CustomerAnalysis,
   CustomerConsent,
@@ -26,7 +28,7 @@ import type {
   Store,
 } from "../types";
 import type { Backend } from "./index";
-import { buildCustomerList, buildScheduleItems, latestConsents, summarizeConsent } from "./shared";
+import { buildCustomerList, buildScheduleItems, latestConsents, sameName, summarizeConsent } from "./shared";
 
 // 조회는 서버에서 service role key로만 한다. 쓰기는 전부 n8n 게이트웨이를 통한다.
 let client: SupabaseClient | null = null;
@@ -57,7 +59,7 @@ type RecommendationRow = {
 };
 
 // 추천 행에는 저장 시각 열이 없다. ID(REC-<밀리초>-<순위>)의 시각으로 가장 최근에 받은 한 묶음을 고른다.
-async function latestSavedRecommendation(all: RecommendationRow[]): Promise<SavedRecommendation | null> {
+function latestBatch(all: RecommendationRow[]) {
   const stamped = all
     .map((row) => ({ row, at: Number(/^REC-(\d{12,})-/.exec(row.recommendation_id)?.[1]) }))
     .filter((item) => Number.isFinite(item.at));
@@ -67,6 +69,21 @@ async function latestSavedRecommendation(all: RecommendationRow[]): Promise<Save
     .filter((item) => latest - item.at < 10_000)
     .map((item) => item.row)
     .sort((a, b) => (a.recommendation_rank ?? 99) - (b.recommendation_rank ?? 99));
+  return { picked, saved_at: new Date(latest).toISOString() };
+}
+
+const recommendationRows = (customerId: string) =>
+  rows<RecommendationRow>(
+    db()
+      .from("recommendations")
+      .select("recommendation_id, device_id, plan_id, recommendation_rank, recommendation_reason")
+      .eq("customer_id", customerId),
+  );
+
+async function latestSavedRecommendation(all: RecommendationRow[]): Promise<SavedRecommendation | null> {
+  const batch = latestBatch(all);
+  if (!batch) return null;
+  const { picked } = batch;
 
   const deviceIds = [...new Set(picked.map((row) => row.device_id).filter((id): id is string => Boolean(id)))];
   const planIds = [...new Set(picked.map((row) => row.plan_id).filter((id): id is string => Boolean(id)))];
@@ -92,7 +109,7 @@ async function latestSavedRecommendation(all: RecommendationRow[]): Promise<Save
     eligibility_condition: null,
     recommendation_reason: row.recommendation_reason,
   }));
-  return { recommendations, saved_at: new Date(latest).toISOString() };
+  return { recommendations, saved_at: batch.saved_at };
 }
 
 export const realBackend: Backend = {
@@ -155,12 +172,7 @@ export const realBackend: Backend = {
       ),
       rows<MessageSchedule>(db().from("message_schedules").select("*").eq("customer_id", customerId)),
       rows<Pick<DocumentRow, "document_id" | "file_name">>(db().from("documents").select("document_id, file_name")),
-      rows<RecommendationRow>(
-        db()
-          .from("recommendations")
-          .select("recommendation_id, device_id, plan_id, recommendation_rank, recommendation_reason")
-          .eq("customer_id", customerId),
-      ),
+      recommendationRows(customerId),
     ]);
     const customer = customers[0];
     if (!customer) return null;
@@ -178,6 +190,61 @@ export const realBackend: Backend = {
       schedules: buildScheduleItems(schedules, [customer], messages, documents),
       saved_recommendation: await latestSavedRecommendation(recommendations),
     };
+  },
+
+  async findCustomerId(name, phone) {
+    const found = await rows<Pick<Customer, "customer_id" | "customer_name">>(
+      db().from("customers").select("customer_id, customer_name").eq("phone", phone),
+    );
+    return found.find((c) => sameName(c.customer_name, name))?.customer_id ?? null;
+  },
+
+  async consultView(customerId) {
+    type Shown = Pick<Customer, "customer_name" | "current_device" | "current_plan" | "contract_end_date" | "device_use_months">;
+    type Device = NonNullable<ConsultRecommendation["device"]>;
+    type Plan = NonNullable<ConsultRecommendation["plan"]> & { plan_id: string };
+    const [customers, recommendations] = await Promise.all([
+      rows<Shown>(
+        db()
+          .from("customers")
+          .select("customer_name, current_device, current_plan, contract_end_date, device_use_months")
+          .eq("customer_id", customerId)
+          .limit(1),
+      ),
+      recommendationRows(customerId),
+    ]);
+    const customer = customers[0];
+    if (!customer) return null;
+
+    const batch = latestBatch(recommendations);
+    const picked = batch?.picked ?? [];
+    const deviceIds = [...new Set(picked.map((row) => row.device_id).filter((id): id is string => Boolean(id)))];
+    const planIds = [...new Set(picked.map((row) => row.plan_id).filter((id): id is string => Boolean(id)))];
+    const [devices, plans, currentPlans] = await Promise.all([
+      deviceIds.length
+        ? rows<Device>(db().from("devices").select("device_id, device_name, manufacturer, device_price").in("device_id", deviceIds))
+        : [],
+      planIds.length
+        ? rows<Plan>(db().from("plans").select("plan_id, plan_name, monthly_fee, allowance_info").in("plan_id", planIds))
+        : [],
+      // 접수 때 고른 요금제 이름이 plans 의 이름과 같을 때만 현재 월 요금을 안다.
+      rows<{ monthly_fee: number | null }>(db().from("plans").select("monthly_fee").eq("plan_name", customer.current_plan).limit(1)),
+    ]);
+    const deviceOf = new Map(devices.map((d) => [d.device_id, d]));
+    const planOf = new Map(plans.map(({ plan_id, ...plan }) => [plan_id, plan]));
+
+    const view: ConsultView = {
+      ...customer,
+      current_plan_fee: currentPlans[0]?.monthly_fee ?? null,
+      recommendations: picked.map((row) => ({
+        rank: row.recommendation_rank,
+        device: row.device_id ? (deviceOf.get(row.device_id) ?? null) : null,
+        plan: row.plan_id ? (planOf.get(row.plan_id) ?? null) : null,
+        reason: row.recommendation_reason,
+      })),
+      recommended_at: batch?.saved_at ?? null,
+    };
+    return view;
   },
 
   async recommend(customerId) {
