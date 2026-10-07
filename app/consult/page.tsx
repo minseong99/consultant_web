@@ -3,11 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { ConsultCompare, ConsultTimeline } from "@/components/consult/ConsultCharts";
 import { DeviceVisual } from "@/components/staff/DeviceVisual";
 import { Button, ErrorNote, inputClass, Skeleton, SourceLabel } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { isValidPhone } from "@/lib/fields";
-import { formatDate, formatDateTime, formatWon } from "@/lib/format";
+import { formatDateTime, formatWon } from "@/lib/format";
 import type { ConsultRecommendation, ConsultView } from "@/lib/types";
 import { usePolling } from "@/lib/usePolling";
 
@@ -171,17 +172,12 @@ function Screen({ view, onChange }: { view: ConsultView; onChange: (view: Consul
   usePolling(refresh);
 
   const current: { label: string; value: string; note?: string }[] = [
-    {
-      label: "지금 쓰는 기기",
-      value: view.current_device,
-      note: view.device_use_months != null ? `${view.device_use_months}개월 사용` : undefined,
-    },
+    { label: "지금 쓰는 기기", value: view.current_device },
     {
       label: "지금 쓰는 요금제",
       value: view.current_plan,
       note: view.current_plan_fee != null ? `월 ${formatWon(view.current_plan_fee)}` : undefined,
     },
-    ...(view.contract_end_date ? [{ label: "약정 만료일", value: formatDate(view.contract_end_date) }] : []),
   ];
 
   return (
@@ -193,7 +189,7 @@ function Screen({ view, onChange }: { view: ConsultView; onChange: (view: Consul
 
       <section aria-label="현재 이용 정보" className="surface mt-6 px-6 py-5">
         <SourceLabel source="customer" label="접수할 때 알려 주신 내용" />
-        <dl className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-3">
+        <dl className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-2">
           {current.map((item) => (
             <div key={item.label}>
               <dt className="text-[13px] text-stone-500">{item.label}</dt>
@@ -226,6 +222,12 @@ function Screen({ view, onChange }: { view: ConsultView; onChange: (view: Consul
           </p>
         </section>
       )}
+
+      {/* 그래프는 값이 있을 때만 나온다. 추천을 새로 받으면 비교도 따라 바뀐다. */}
+      <div className="mt-8 space-y-8 empty:hidden">
+        <ConsultCompare view={view} />
+        <ConsultTimeline view={view} />
+      </div>
     </div>
   );
 }

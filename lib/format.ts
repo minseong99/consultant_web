@@ -66,6 +66,15 @@ export function addDays(dateString: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+/** 오늘(KST)부터 그 날짜까지 남은 날 수. 지났으면 음수 */
+export function daysUntil(dateString: string, today = todayKST()) {
+  const utc = (value: string) => {
+    const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(dateString) - utc(today)) / 86_400_000);
+}
+
 /** 받침에 맞춰 목적격 조사를 붙인다. 한글로 끝나지 않으면 '을(를)'로 둔다. */
 export function withObject(word: string) {
   const code = word.trim().charCodeAt(word.trim().length - 1) - 0xac00;

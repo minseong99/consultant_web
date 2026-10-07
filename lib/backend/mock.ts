@@ -555,6 +555,7 @@ export const mockBackend: Backend = {
       current_plan_fee: Object.values(MOCK_PLAN_INFO).find((plan) => plan.plan_name === customer.current_plan)?.monthly_fee ?? null,
       contract_end_date: customer.contract_end_date,
       device_use_months: customer.device_use_months,
+      target_monthly_budget: customer.target_monthly_budget,
       recommendations: (saved?.recommendations ?? []).map((item) => ({
         rank: item.recommendation_rank,
         device:

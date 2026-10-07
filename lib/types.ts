@@ -198,6 +198,8 @@ export type ConsultView = {
   current_plan_fee: number | null;
   contract_end_date: string | null;
   device_use_months: number | null;
+  /** 접수 때 적은 희망 월 예산. 월 요금 비교의 기준선으로 쓴다 */
+  target_monthly_budget: number | null;
   /** 가장 최근에 받은 추천 한 묶음. 아직 없으면 빈 배열 */
   recommendations: ConsultRecommendation[];
   recommended_at: string | null;
