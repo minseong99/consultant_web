@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { Button, ErrorNote, inputClass } from "@/components/ui";
 import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey } from "@/lib/fields";
@@ -196,6 +197,14 @@ export default function JoinPage() {
               </dd>
             </div>
           </dl>
+          <div className="mt-auto pt-8">
+            <Link
+              href="/"
+              className="flex h-13 w-full items-center justify-center rounded-lg bg-white text-[16px] font-semibold text-ink ring-1 ring-inset ring-stone-300 transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              처음 화면으로
+            </Link>
+          </div>
         </section>
       )}
     </main>
