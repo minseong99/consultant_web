@@ -83,15 +83,21 @@ export function checkPassword(input: string) {
 const CONSULT_COOKIE = "consult_session";
 const CONSULT_MAX_AGE = 60 * 60 * 2;
 
-export async function getConsultCustomerId(): Promise<string | null> {
+/** 확인된 고객과 확인한 시각. 직원이 화면을 종료하면 그보다 먼저 확인한 것은 무효가 된다. */
+export async function getConsultSession(): Promise<{ customerId: string; since: string } | null> {
   const store = await cookies();
   const data = decode(store.get(CONSULT_COOKIE)?.value);
-  return data && typeof data.consult_customer_id === "string" ? data.consult_customer_id : null;
+  if (!data || typeof data.consult_customer_id !== "string") return null;
+  return { customerId: data.consult_customer_id, since: typeof data.since === "string" ? data.since : new Date(0).toISOString() };
 }
 
 export async function setConsultCustomerId(customerId: string) {
   const store = await cookies();
-  store.set(CONSULT_COOKIE, encode({ consult_customer_id: customerId }, CONSULT_MAX_AGE), cookieOptions(CONSULT_MAX_AGE));
+  store.set(
+    CONSULT_COOKIE,
+    encode({ consult_customer_id: customerId, since: new Date().toISOString() }, CONSULT_MAX_AGE),
+    cookieOptions(CONSULT_MAX_AGE),
+  );
 }
 
 export async function clearConsultCustomerId() {

@@ -15,7 +15,9 @@ const POLL_HIDDEN_MS = 30_000;
 const IDLE_AFTER_MS = 2 * 60_000;
 const AWAY_AFTER_MS = 10 * 60_000;
 
-export function usePolling(callback: () => void | Promise<void>) {
+// steadyMs 를 주면 조작이 없어도 느려지지 않고 그 간격으로 돈다(직원이 넘기는 대로 따라가야 하는 고객 상담 화면).
+// 탭이 가려졌을 때는 그대로 느리게 돈다.
+export function usePolling(callback: () => void | Promise<void>, steadyMs?: number) {
   const saved = useRef(callback);
   useEffect(() => {
     saved.current = callback;
@@ -28,6 +30,7 @@ export function usePolling(callback: () => void | Promise<void>) {
 
     const delay = () => {
       if (document.hidden) return POLL_HIDDEN_MS;
+      if (steadyMs) return steadyMs;
       const quiet = Date.now() - lastActivity;
       return quiet > AWAY_AFTER_MS ? POLL_AWAY_MS : quiet > IDLE_AFTER_MS ? POLL_IDLE_MS : POLL_FAST_MS;
     };
@@ -72,5 +75,5 @@ export function usePolling(callback: () => void | Promise<void>) {
       for (const name of events) window.removeEventListener(name, wake);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [steadyMs]);
 }

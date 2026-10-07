@@ -8,6 +8,7 @@ import type {
   Consultation,
   ConsultationResult,
   ConsultRecommendation,
+  ConsultScreenState,
   ConsultView,
   Customer,
   CustomerAnalysis,
@@ -244,6 +245,18 @@ export const realBackend: Backend = {
       recommended_at: batch?.saved_at ?? null,
     };
     return view;
+  },
+
+  async screenState(customerId) {
+    const found = await rows<ConsultScreenState>(
+      db().from("consult_screens").select("slide, updated_at, ended_at, seen_at").eq("customer_id", customerId).limit(1),
+    );
+    return found[0] ?? null;
+  },
+
+  async setScreenState(customerId, patch) {
+    const { error } = await db().from("consult_screens").upsert({ customer_id: customerId, ...patch }, { onConflict: "customer_id" });
+    if (error) throw new Error(`화면 상태 저장 실패: ${error.message}`);
   },
 
   async recommend(customerId) {

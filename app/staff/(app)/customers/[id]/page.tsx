@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ConsultRemote } from "@/components/staff/ConsultRemote";
 import { useRouter } from "next/navigation";
 import {
   use,
@@ -318,6 +319,9 @@ function CustomerView({
           </>
         )}
       </Drawer>
+
+      {/* 추천을 받은 뒤에는 어느 탭에서든 고객 기기의 상담 화면을 넘길 수 있다. */}
+      {recommended && <ConsultRemote customerId={customer.customer_id} />}
     </>
   );
 }

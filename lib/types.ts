@@ -205,6 +205,22 @@ export type ConsultView = {
   recommended_at: string | null;
 };
 
+// 직원이 고객 상담 화면을 원격으로 넘기기 위한 상태(테이블 consult_screens, 고객마다 한 줄).
+// 업무 데이터가 아니라 화면 상태라서 웹사이트가 직접 쓴다.
+export type ConsultScreenState = {
+  /** 직원이 고른 장의 이름(recommend, fee, price, timeline) */
+  slide: string;
+  /** 직원이 장을 바꾼 시각. 고객 화면은 이 값이 바뀌면 따라간다 */
+  updated_at: string;
+  /** 직원이 고객 화면을 종료한 시각 */
+  ended_at: string | null;
+  /** 고객 화면이 마지막으로 조회한 시각. "보는 중" 표시에 쓴다 */
+  seen_at: string | null;
+};
+
+/** 고객 화면이 받는 값: 화면 내용 + 직원이 고른 장 */
+export type ConsultScreenView = ConsultView & { remote: Pick<ConsultScreenState, "slide" | "updated_at"> | null };
+
 export type ApiFailure = { success: false; error_code: string; message: string };
 
 export type RecommendResult =
