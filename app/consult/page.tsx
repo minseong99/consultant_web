@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ConsultCompare, ConsultTimeline } from "@/components/consult/ConsultCharts";
+import { consultChartSlides, type ConsultSlide } from "@/components/consult/ConsultCharts";
 import { DeviceVisual } from "@/components/staff/DeviceVisual";
-import { Button, ErrorNote, inputClass, Skeleton, SourceLabel } from "@/components/ui";
+import { Button, ErrorNote, inputClass, Skeleton } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { isValidPhone } from "@/lib/fields";
 import { formatDateTime, formatWon } from "@/lib/format";
@@ -59,7 +59,7 @@ export default function ConsultPage() {
 
 function Shell({ wide, onLeave, children }: { wide?: boolean; onLeave?: () => void; children: ReactNode }) {
   return (
-    <main className={`mx-auto flex min-h-screen w-full flex-col px-5 pb-12 pt-8 ${wide ? "max-w-3xl" : "max-w-md bg-white"}`}>
+    <main className={`mx-auto flex min-h-screen w-full flex-col px-5 pb-12 pt-8 ${wide ? "max-w-4xl" : "max-w-md bg-white"}`}>
       <header className="flex min-h-9 items-center justify-between">
         <Wordmark size="sm" label="상담 화면" />
         {onLeave && (
@@ -171,90 +171,127 @@ function Screen({ view, onChange }: { view: ConsultView; onChange: (view: Consul
   }, [onChange]);
   usePolling(refresh);
 
-  const current: { label: string; value: string; note?: string }[] = [
-    { label: "지금 쓰는 기기", value: view.current_device },
-    {
-      label: "지금 쓰는 요금제",
-      value: view.current_plan,
-      note: view.current_plan_fee != null ? `월 ${formatWon(view.current_plan_fee)}` : undefined,
-    },
-  ];
+  // 스크롤해서 찾지 않도록 한 장씩 보여 준다. 그릴 값이 있는 장만 생긴다.
+  const slides: ConsultSlide[] = [{ key: "recommend", label: "추천", node: <Recommendations view={view} /> }, ...consultChartSlides(view)];
+  const [selected, setSelected] = useState("recommend");
+  const index = Math.max(
+    0,
+    slides.findIndex((slide) => slide.key === selected),
+  );
+  const count = slides.length;
+
+  // 상담 자리에서 키보드 화살표로도 넘긴다.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      const next = slides[index + (event.key === "ArrowRight" ? 1 : -1)];
+      if (next) setSelected(next.key);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   return (
-    <div className="animate-rise-in">
-      <h1 className="mt-8 text-[30px] font-bold leading-tight sm:text-[34px]">
+    <div className="flex flex-1 animate-rise-in flex-col">
+      <h1 className="mt-6 text-[28px] font-bold leading-tight sm:text-[32px]">
         {view.customer_name}
-        <span className="ml-1 text-[20px] font-semibold text-stone-500">{view.recommendations.length > 0 ? "님을 위한 추천" : "님, 어서 오세요"}</span>
+        <span className="ml-1 text-[19px] font-semibold text-stone-500">{view.recommendations.length > 0 ? "님을 위한 추천" : "님, 어서 오세요"}</span>
       </h1>
+      <p className="mt-2 text-[15px] text-stone-600">
+        지금 <span className="font-semibold text-ink">{view.current_device}</span> · <span className="font-semibold text-ink">{view.current_plan}</span>
+        {view.current_plan_fee != null && <span className="tabular-nums"> (월 {formatWon(view.current_plan_fee)})</span>}
+      </p>
 
-      <section aria-label="현재 이용 정보" className="surface mt-6 px-6 py-5">
-        <SourceLabel source="customer" label="접수할 때 알려 주신 내용" />
-        <dl className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          {current.map((item) => (
-            <div key={item.label}>
-              <dt className="text-[13px] text-stone-500">{item.label}</dt>
-              <dd className="mt-0.5 text-[17px] font-bold">{item.value}</dd>
-              {item.note && <dd className="text-[14px] tabular-nums text-stone-600">{item.note}</dd>}
-            </div>
+      {count > 1 && (
+        <div role="tablist" aria-label="보여 줄 내용" className="mt-5 flex gap-1.5 self-start rounded-full bg-stone-200/70 p-1">
+          {slides.map((slide, i) => (
+            <button
+              key={slide.key}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              onClick={() => setSelected(slide.key)}
+              className={`h-11 rounded-full px-4 text-[15px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:px-6 ${
+                i === index ? "bg-white text-ink shadow-sm" : "text-stone-600 hover:text-ink"
+              }`}
+            >
+              {slide.label}
+            </button>
           ))}
-        </dl>
-      </section>
-
-      {view.recommendations.length === 0 ? (
-        <section className="surface mt-5 px-6 py-10 text-center" aria-live="polite">
-          <span aria-hidden className="mx-auto block size-2.5 animate-pulse-soft rounded-full bg-brand-600" />
-          <h2 className="mt-4 text-[20px] font-bold">직원이 추천을 준비하고 있습니다</h2>
-          <p className="mt-1.5 text-[15px] text-stone-600">준비되면 이 화면에 바로 나타납니다.</p>
-        </section>
-      ) : (
-        // 추천을 새로 받으면 묶음째 다시 떠오르게 한다.
-        <section key={view.recommended_at} className="mt-5 animate-rise-in" aria-live="polite">
-          <ol className="space-y-4">
-            {view.recommendations.map((item, index) => (
-              <li key={`${item.rank}-${index}`}>
-                <RecommendationCard item={item} first={index === 0} />
-              </li>
-            ))}
-          </ol>
-          <p className="mt-5 text-[13px] leading-relaxed text-stone-500">
-            {view.recommended_at && <>{formatDateTime(view.recommended_at)}에 받은 추천입니다. </>}
-            기기 가격과 월 요금에는 약정·결합 할인이 반영되어 있지 않습니다. 자세한 조건은 직원이 안내해 드립니다.
-          </p>
-        </section>
+        </div>
       )}
 
-      {/* 그래프는 값이 있을 때만 나온다. 추천을 새로 받으면 비교도 따라 바뀐다. */}
-      <div className="mt-8 space-y-8 empty:hidden">
-        <ConsultCompare view={view} />
-        <ConsultTimeline view={view} />
+      <div key={slides[index].key} role="tabpanel" aria-live="polite" className="mt-5 flex-1 animate-rise-in">
+        {slides[index].node}
       </div>
+
+      {count > 1 && (
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <Button variant="secondary" size="lg" className="!rounded-full" disabled={index === 0} onClick={() => setSelected(slides[index - 1].key)}>
+            <span aria-hidden>←</span> 이전
+          </Button>
+          <p className="text-[13px] tabular-nums text-stone-500">
+            {index + 1} / {count}
+          </p>
+          <Button size="lg" className="!rounded-full" disabled={index === count - 1} onClick={() => setSelected(slides[index + 1].key)}>
+            다음 <span aria-hidden>→</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-function RecommendationCard({ item, first }: { item: ConsultRecommendation; first: boolean }) {
+function Recommendations({ view }: { view: ConsultView }) {
+  const count = view.recommendations.length;
+  if (count === 0) {
+    return (
+      <section className="surface px-6 py-12 text-center">
+        <span aria-hidden className="mx-auto block size-2.5 animate-pulse-soft rounded-full bg-brand-600" />
+        <h2 className="mt-4 text-[20px] font-bold">직원이 추천을 준비하고 있습니다</h2>
+        <p className="mt-1.5 text-[15px] text-stone-600">준비되면 이 화면에 바로 나타납니다.</p>
+      </section>
+    );
+  }
+  return (
+    // 추천을 새로 받으면 묶음째 다시 떠오르게 한다. 넓은 화면에서는 나란히 놓아 한눈에 견준다.
+    <section key={view.recommended_at} className="animate-rise-in">
+      <ol className={`grid gap-4 ${count === 2 ? "sm:grid-cols-2" : count >= 3 ? "sm:grid-cols-3" : ""}`}>
+        {view.recommendations.map((item, index) => (
+          <li key={`${item.rank}-${index}`} className="flex">
+            <RecommendationCard item={item} first={index === 0} wide={count === 1} />
+          </li>
+        ))}
+      </ol>
+      <p className="mt-4 text-[13px] leading-relaxed text-stone-500">
+        {view.recommended_at && <>{formatDateTime(view.recommended_at)}에 받은 추천입니다. </>}
+        기기 가격과 월 요금에는 약정·결합 할인이 반영되어 있지 않습니다. 자세한 조건은 직원이 안내해 드립니다.
+      </p>
+    </section>
+  );
+}
+
+function RecommendationCard({ item, first, wide }: { item: ConsultRecommendation; first: boolean; wide: boolean }) {
   const { device, plan } = item;
   return (
-    <article className={`surface p-6 ${first ? "ring-2 ring-inset ring-brand-600" : ""}`}>
-      <p
-        className={`inline-flex rounded-full px-3 py-1 text-[13px] font-bold ${first ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-700"}`}
-      >
+    <article className={`surface w-full p-5 ${first ? "ring-2 ring-inset ring-brand-600" : ""}`}>
+      <p className={`inline-flex rounded-full px-3 py-1 text-[13px] font-bold ${first ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-700"}`}>
         {item.rank != null ? `${item.rank}순위 추천` : "추천"}
       </p>
-      <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
-        {device && <DevicePhoto device={device} />}
-        <dl className="grid flex-1 gap-5 sm:grid-cols-2">
+      <div className={`mt-4 flex flex-col gap-4 ${wide ? "sm:flex-row sm:items-center sm:gap-6" : ""}`}>
+        {device && <DevicePhoto device={device} wide={wide} />}
+        <dl className={`grid flex-1 gap-4 ${wide ? "sm:grid-cols-2" : ""}`}>
           {device && (
             <div>
               <dt className="text-[13px] text-stone-500">기기{device.manufacturer ? ` · ${device.manufacturer}` : ""}</dt>
-              <dd className="mt-0.5 text-[20px] font-bold leading-snug">{device.device_name}</dd>
+              <dd className="mt-0.5 text-[19px] font-bold leading-snug">{device.device_name}</dd>
               {device.device_price != null && <dd className="mt-1 text-[15px] tabular-nums text-stone-700">기기 가격 {formatWon(device.device_price)}</dd>}
             </div>
           )}
           {plan && (
             <div>
               <dt className="text-[13px] text-stone-500">요금제</dt>
-              <dd className="mt-0.5 text-[20px] font-bold leading-snug">{plan.plan_name}</dd>
+              <dd className="mt-0.5 text-[19px] font-bold leading-snug">{plan.plan_name}</dd>
               {plan.monthly_fee != null && <dd className="mt-1 text-[15px] tabular-nums text-stone-700">월 {formatWon(plan.monthly_fee)}</dd>}
               {plan.allowance_info && <dd className="mt-1 text-[14px] leading-relaxed text-stone-600">{plan.allowance_info}</dd>}
             </div>
@@ -266,10 +303,10 @@ function RecommendationCard({ item, first }: { item: ConsultRecommendation; firs
 }
 
 // 기기 사진(public/devices/<기기 ID>.webp). 파일이 없는 기기는 형태를 그린 그림으로 대신한다.
-function DevicePhoto({ device }: { device: NonNullable<ConsultRecommendation["device"]> }) {
+function DevicePhoto({ device, wide }: { device: NonNullable<ConsultRecommendation["device"]>; wide: boolean }) {
   const [broken, setBroken] = useState(false);
   return (
-    <span className="flex h-40 w-full shrink-0 items-center justify-center rounded-2xl bg-stone-100 sm:w-36">
+    <span className={`flex h-40 w-full shrink-0 items-center justify-center rounded-2xl bg-stone-100 ${wide ? "sm:w-44" : ""}`}>
       {broken ? (
         <DeviceVisual productId={device.device_id} deviceName={device.device_name} />
       ) : (

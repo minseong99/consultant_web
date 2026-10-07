@@ -23,6 +23,7 @@ import {
   Drawer,
   EmptyState,
   ErrorNote,
+  formatElapsed,
   inputClass,
   Skeleton,
   SourceLabel,
@@ -32,6 +33,7 @@ import {
   Tabs,
   TextButton,
   type TabDef,
+  useElapsed,
 } from "@/components/ui";
 import {
   addDays,
@@ -165,22 +167,39 @@ function CustomerView({
     if (next === "recommend") setRecommendUnseen(false);
   }
 
-  // 상담 순서(분석 → 추천 → 상담 기록)에서 지금 할 일 하나. 탭을 넘나드는 안내는 헤더의 이 한 줄뿐이다.
-  const next: NextStep | null = recommend.loading
-    ? { label: "추천 생성 중", since: recommend.startedAt, onClick: () => go("recommend") }
-    : !analysis
-      ? null
-      : recommend.result?.success !== true
-        ? {
-            label: "맞춤 추천 받기",
-            onClick: () => {
-              go("recommend");
-              recommend.request();
-            },
-          }
-        : consultations.length === 0
-          ? { label: "상담 시작", onClick: startRecording }
-          : null;
+  // 상담 순서: 추천 → 상담 → 후속 연락. 헤더에 늘 보이고, 지금 할 단계 하나가 주요 버튼이 된다.
+  // 끝난 단계도 눌러서 다시 갈 수 있다. 탭을 넘나드는 안내는 헤더의 이 줄뿐이다.
+  const recommended = recommend.result?.success === true;
+  const consulted = consultations.length > 0;
+  const current: FlowStep["key"] = recommend.loading || !recommended ? "recommend" : phase === "recording" || !consulted ? "record" : "followup";
+  const flow: FlowStep[] = [
+    {
+      key: "recommend",
+      label: "추천",
+      action: recommend.loading ? "추천 생성 중" : !analysis ? "고객 분석 대기 중" : "맞춤 추천 받기",
+      done: recommended && !recommend.loading,
+      since: recommend.loading ? recommend.startedAt : undefined,
+      disabled: !analysis && !recommend.loading,
+      onClick: () => {
+        go("recommend");
+        if (!recommended && !recommend.loading) recommend.request();
+      },
+    },
+    {
+      key: "record",
+      label: "상담",
+      action: phase === "recording" ? "상담 기록 중" : "상담 시작",
+      done: consulted && phase !== "recording",
+      onClick: phase === "recording" ? () => go("record") : consulted ? () => go("record") : startRecording,
+    },
+    {
+      key: "followup",
+      label: "후속 연락",
+      action: upcoming.length > 0 ? `후속 연락 ${upcoming.length}건 보기` : "후속 연락 보기",
+      done: false,
+      onClick: () => go("followup"),
+    },
+  ];
 
   const tabs: TabDef<TabKey>[] = [
     { key: "brief", label: "고객 브리프" },
@@ -204,7 +223,8 @@ function CustomerView({
         customer={customer}
         consent={consent}
         onOpenAll={() => setDrawer("customer")}
-        next={next}
+        flow={flow}
+        current={current}
       />
       {error && (
         <div className="mt-4">
@@ -305,7 +325,18 @@ function CustomerView({
 // ---------------------------------------------------------------------------
 // 헤더: 누구인지, 왜 왔는지, 지금 무엇을 쓰는지
 // ---------------------------------------------------------------------------
-type NextStep = { label: string; onClick: () => void; since?: number | null };
+type FlowStep = {
+  key: "recommend" | "record" | "followup";
+  /** 끝났거나 아직인 단계에 보이는 짧은 이름 */
+  label: string;
+  /** 지금 할 단계일 때 버튼에 보이는 말 */
+  action: string;
+  done: boolean;
+  onClick: () => void;
+  /** 진행 중인 작업이 시작된 시각 */
+  since?: number | null;
+  disabled?: boolean;
+};
 
 function daysUntil(dateString: string) {
   const [y, m, d] = dateString.slice(0, 10).split("-").map(Number);
@@ -315,23 +346,86 @@ function daysUntil(dateString: string) {
   );
 }
 
+// 상담 순서 표시. 지금 할 단계는 주요 버튼, 끝난 단계는 체크, 남은 단계는 옅은 번호로 보인다.
+function FlowSteps({ flow, current }: { flow: FlowStep[]; current: FlowStep["key"] }) {
+  return (
+    <ol aria-label="상담 순서" className="flex shrink-0 items-center">
+      {flow.map((step, index) => {
+        const isCurrent = step.key === current;
+        const className = isCurrent
+          ? `inline-flex h-11 items-center gap-2 rounded-full pl-1.5 pr-4 text-[14px] font-bold transition-[background-color,transform] active:scale-[0.98] ${
+              step.since || step.disabled
+                ? "bg-brand-50 text-brand-700"
+                : "bg-brand-600 text-white shadow-[0_10px_22px_-10px_rgb(200_30_30/0.6)] hover:bg-brand-700"
+            }`
+          : `inline-flex h-11 items-center gap-2 rounded-full pl-1.5 pr-3 text-[13px] font-semibold transition-colors hover:bg-stone-100 ${step.done ? "text-stone-700" : "text-stone-400 hover:text-stone-700"}`;
+        const body = (
+          <>
+            <span
+              aria-hidden
+              className={`flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold tabular-nums ${
+                isCurrent
+                  ? step.since || step.disabled
+                    ? "bg-white text-brand-700"
+                    : "bg-white/20"
+                  : step.done
+                    ? "bg-stone-800 text-white"
+                    : "ring-1 ring-inset ring-stone-300"
+              }`}
+            >
+              {step.since ? <Spinner className="!size-3.5" /> : step.done && !isCurrent ? "✓" : index + 1}
+            </span>
+            {isCurrent ? (
+              <>
+                {step.action}
+                {step.since ? <Elapsed since={step.since} /> : !step.disabled && <span aria-hidden>→</span>}
+              </>
+            ) : (
+              <>
+                {step.label}
+                {step.done && <span className="sr-only"> 완료</span>}
+              </>
+            )}
+          </>
+        );
+        const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
+        return (
+          <li key={step.key} className="flex items-center" aria-current={isCurrent ? "step" : undefined}>
+            {index > 0 && <span aria-hidden className={`mx-1 h-px w-5 ${flow[index - 1].done ? "bg-stone-500" : "bg-stone-200"}`} />}
+            <button type="button" onClick={step.onClick} disabled={step.disabled} className={`${className} ${focus} disabled:cursor-default`}>
+              {body}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function Elapsed({ since }: { since: number }) {
+  const seconds = useElapsed(since);
+  return <span className="font-medium tabular-nums opacity-80">{formatElapsed(seconds)}</span>;
+}
+
 function CustomerHeader({
   customer,
   consent,
   onOpenAll,
-  next,
+  flow,
+  current,
 }: {
   customer: Customer;
   consent: Consent;
   onOpenAll: () => void;
-  next: NextStep | null;
+  flow: FlowStep[];
+  current: FlowStep["key"];
 }) {
   const remaining = customer.contract_end_date
     ? daysUntil(customer.contract_end_date)
     : null;
   return (
     <header className="surface mt-3 px-6 pb-3 pt-6">
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-5">
         <div className="flex min-w-0 items-center gap-4">
           {/* 사진 대신 이름 첫 글자. 고객을 번호가 아닌 사람으로 보이게 한다. */}
           <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[22px] font-bold text-brand-700">
@@ -347,38 +441,7 @@ function CustomerHeader({
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <div className="flex items-center gap-4">
-            {/* 고객이 보는 상담 화면을 이 고객으로 새 탭에 연다. */}
-            <a
-              href={`/consult/open?customer=${encodeURIComponent(customer.customer_id)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-9 items-center gap-1 rounded-md text-[13px] font-semibold text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-ink hover:decoration-stone-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              고객 화면 열기
-              <span aria-hidden>↗</span>
-            </a>
-            <TextButton onClick={onOpenAll}>고객 정보 전체</TextButton>
-          </div>
-          {next && (
-            <button
-              type="button"
-              onClick={next.onClick}
-              className="inline-flex min-h-9 items-center gap-2 rounded-full bg-brand-50 px-3.5 text-[13px] font-semibold text-brand-700 transition-colors hover:bg-brand-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              {next.since ? (
-                <StatusLine state="active" label={next.label} since={next.since} />
-              ) : (
-                <>
-                  <span className="text-[12px] font-medium text-brand-700/70">다음</span>
-                  {next.label}
-                  <span aria-hidden>→</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
+        <FlowSteps flow={flow} current={current} />
       </div>
       <dl className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-[14px]">
         <HeaderItem label="현재 기기" value={customer.current_device} />
@@ -406,6 +469,7 @@ function CustomerHeader({
             )
           }
         />
+        <TextButton onClick={onOpenAll}>전체 정보</TextButton>
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
           {consent.withdrawn ? (
             <ConsentMark on={false} label="동의 철회" />
