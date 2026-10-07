@@ -2,6 +2,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { groupDevices, groupPlans, type DeviceRow, type PlanRow } from "../catalog";
 import { config } from "../config";
+import { matchDevices, parsePromotionContent, type DeviceRef } from "../promotion";
 import { callN8n, N8N_PATHS } from "../n8n";
 import type {
   Consultation,
@@ -145,8 +146,8 @@ export const realBackend: Backend = {
     });
   },
 
-  listPromotions(storeId) {
-    return rows<DocumentRow>(
+  async listPromotions(storeId) {
+    const documents = await rows<DocumentRow>(
       db()
         .from("documents")
         .select("*")
@@ -154,6 +155,33 @@ export const realBackend: Backend = {
         .eq("document_type", "promotion")
         .order("valid_from", { ascending: false }),
     );
+    if (documents.length === 0) return [];
+    // 목록에 보여 줄 요약(혜택, 대상 기기 등)은 등록된 본문에서 읽는다. 읽지 못해도 목록은 보여 준다.
+    let contents: { document_id: string; content: string }[] = [];
+    let devices: DeviceRef[] = [];
+    try {
+      [contents, devices] = await Promise.all([
+        rows<{ document_id: string; content: string }>(
+          db()
+            .from("kt_promotion_vectors")
+            .select("document_id, content")
+            .in(
+              "document_id",
+              documents.map((d) => d.document_id),
+            )
+            .order("vector_id"),
+        ),
+        rows<DeviceRef>(db().from("devices").select("device_id, device_name").order("device_id")),
+      ]);
+    } catch (error) {
+      console.error(error);
+    }
+    const contentOf = new Map<string, string>();
+    for (const row of contents) if (!contentOf.has(row.document_id)) contentOf.set(row.document_id, row.content);
+    return documents.map((document) => {
+      const summary = parsePromotionContent(contentOf.get(document.document_id));
+      return { ...document, summary, devices: matchDevices(summary?.target_device, devices) };
+    });
   },
 
   async registerPromotion(input, storeId) {

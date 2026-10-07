@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Badge, Button, Disclosure, Drawer, EmptyState, ErrorNote, inputClass, Skeleton, SourceLabel, Spinner, StatusLine } from "@/components/ui";
+import { Badge, Button, Disclosure, Drawer, EmptyState, ErrorNote, inputClass, Spinner, StatusLine, TextButton } from "@/components/ui";
 import { PromotionPdfImport } from "@/components/staff/PromotionPdfImport";
+import { PromotionVisual } from "@/components/staff/PromotionVisual";
 import { todayKST, formatDate, formatPhone } from "@/lib/format";
 import { lookup, PROMOTION_STATUS } from "@/lib/labels";
-import type { DocumentRow, PromotionRegisterResult, PromotionResult } from "@/lib/types";
+import type { PromotionListItem, PromotionRegisterResult, PromotionResult } from "@/lib/types";
 
 type Run = { loading: boolean; result: PromotionResult | null; startedAt: number };
 
@@ -31,7 +32,7 @@ function isEnded(validUntil: string | null) {
 }
 
 export default function PromotionsPage() {
-  const [promotions, setPromotions] = useState<DocumentRow[] | null>(null);
+  const [promotions, setPromotions] = useState<PromotionListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<Record<string, Run>>({});
 
@@ -43,6 +44,8 @@ export default function PromotionsPage() {
   // PDF로 한 번에 등록한 프로모션들
   const [pdfOpen, setPdfOpen] = useState(false);
   const [imported, setImported] = useState<string[]>([]);
+  // 대상 고객 목록을 서랍으로 보고 있는 프로모션
+  const [targetsOf, setTargetsOf] = useState<string | null>(null);
   const isNew = (documentId: string) => documentId === registered || imported.includes(documentId);
 
   const load = useCallback(() => {
@@ -151,7 +154,7 @@ export default function PromotionsPage() {
         ) : ordered.length === 0 ? (
           !error && <EmptyState>이 매장에 등록된 프로모션이 없습니다. [PDF로 등록]이나 [직접 입력]으로 시작하세요.</EmptyState>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {ordered.map((promotion) => {
               const ended = isEnded(promotion.valid_until);
               const upcoming = Boolean(promotion.valid_from) && String(promotion.valid_from).slice(0, 10) > todayKST();
@@ -160,66 +163,62 @@ export default function PromotionsPage() {
               const status = result && "status" in result ? lookup(PROMOTION_STATUS, result.status) : null;
               const targets = result && "target_customers" in result ? result.target_customers : [];
               return (
-                <li key={promotion.document_id} className="rounded-xl bg-white px-5 py-4 ring-1 ring-stone-200">
-                  <div className="flex items-center gap-5">
-                    <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-[16px] font-bold">{promotion.file_name}</span>
-                        {isNew(promotion.document_id) && <Badge tone="red">방금 등록</Badge>}
-                        <Badge tone={ended ? "gray" : upcoming ? "blue" : "green"}>{ended ? "기간 종료" : upcoming ? "시작 전" : "진행 중"}</Badge>
-                      </p>
-                      <p className="mt-0.5 text-[13px] tabular-nums text-stone-600">
-                        {formatDate(promotion.valid_from)} ~ {formatDate(promotion.valid_until)}
-                      </p>
-                    </div>
-                    <Button variant="secondary" loading={state?.loading} disabled={ended} onClick={() => run(promotion.document_id)}>
-                      {state?.loading ? "선정하는 중" : "대상 선정 및 일정 생성"}
-                    </Button>
-                  </div>
+                <li key={promotion.document_id} className="flex flex-col overflow-hidden rounded-xl bg-white ring-1 ring-stone-200">
+                  <PromotionVisual cover name={promotion.file_name} summary={promotion.summary} devices={promotion.devices} />
+                  <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
+                    <p className="flex flex-wrap items-center gap-1.5">
+                      {isNew(promotion.document_id) && <Badge tone="red">방금 등록</Badge>}
+                      <Badge tone={ended ? "gray" : upcoming ? "blue" : "green"}>{ended ? "기간 종료" : upcoming ? "시작 전" : "진행 중"}</Badge>
+                      {promotion.summary?.promotion_type && <span className="text-[12px] text-stone-500">{promotion.summary.promotion_type}</span>}
+                    </p>
+                    <h2 className="mt-1.5 line-clamp-2 text-[16px] font-bold leading-snug">{promotion.file_name}</h2>
+                    <p className="mt-1 text-[13px] tabular-nums text-stone-600">
+                      {formatDate(promotion.valid_from)} ~ {formatDate(promotion.valid_until)}
+                    </p>
+                    {promotion.summary?.benefit && <p className="mt-2 line-clamp-2 text-[14px] leading-snug text-ink">{promotion.summary.benefit}</p>}
+                    {promotion.summary?.target_device && <p className="mt-1 truncate text-[12px] text-stone-500">대상 {promotion.summary.target_device}</p>}
 
-                  {state && (
-                    <div className="mt-4 border-t border-stone-200 pt-4" aria-live="polite">
-                      {state.loading && (
-                        <>
-                          <StatusLine state="active" label="대상 고객 선정 중" since={state.startedAt} note="요청이 전달되었습니다 · 보통 20초 안팎" />
-                          <Skeleton className="mt-3 h-4 w-40" />
-                        </>
-                      )}
-                      {!state.loading && result && !status && !result.success && "message" in result && <ErrorNote>{result.message}</ErrorNote>}
-                      {!state.loading && result && status && "target_customers" in result && (
-                        <>
-                          <p className="flex flex-wrap items-center gap-3">
-                            <SourceLabel source="ai" label="AI 대상 선정" />
-                            <span className="text-[16px] font-bold tabular-nums">대상 {result.target_count}명</span>
-                            <Badge tone={status.tone}>{status.label}</Badge>
-                            {result.target_count > 0 && <span className="text-[13px] text-stone-600">안내 일정이 만들어졌습니다</span>}
-                          </p>
-                          {"message" in result && typeof result.message === "string" && result.target_count === 0 && (
-                            <p className="mt-1.5 text-[13px] text-stone-600">{result.message}</p>
+                    {/* 카드 높이가 달라도 버튼과 결과는 아래에 맞춘다 */}
+                    <div className="mt-auto pt-4">
+                      {state && (
+                        <div className="mb-3 border-t border-stone-200 pt-3" aria-live="polite">
+                          {state.loading && <StatusLine state="active" label="대상 고객 선정 중" since={state.startedAt} note="보통 20초 안팎" />}
+                          {!state.loading && result && !status && !result.success && "message" in result && <ErrorNote>{result.message}</ErrorNote>}
+                          {!state.loading && result && status && "target_customers" in result && (
+                            <>
+                              <p className="flex flex-wrap items-center gap-2">
+                                <span className="text-[15px] font-bold tabular-nums">대상 {result.target_count}명</span>
+                                <Badge tone={status.tone}>{status.label}</Badge>
+                              </p>
+                              <p className="mt-1 text-[12px] text-stone-600">
+                                {result.target_count > 0 ? "안내 일정이 만들어졌습니다." : "message" in result && typeof result.message === "string" ? result.message : ""}
+                              </p>
+                              {targets.length > 0 && (
+                                <TextButton className="mt-1" onClick={() => setTargetsOf(promotion.document_id)}>
+                                  대상 고객 보기
+                                </TextButton>
+                              )}
+                            </>
                           )}
-                          {targets.length > 0 && (
-                            <Disclosure label="대상 고객 보기" openLabel="대상 고객 접기" className="mt-2">
-                              <ul className="divide-y divide-stone-200 rounded-lg ring-1 ring-stone-200">
-                                {targets.map((target) => (
-                                  <li key={target.customer_id} className="flex items-baseline gap-4 px-4 py-2.5">
-                                    <span className="w-32 shrink-0 truncate text-[14px] font-semibold">{target.customer_name}</span>
-                                    <span className="w-32 shrink-0 text-[12px] tabular-nums text-stone-500">{formatPhone(target.phone)}</span>
-                                    <span className="min-w-0 flex-1 text-[13px] text-stone-700">{(target.match_reasons ?? []).join(", ") || "선정 사유 없음"}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </Disclosure>
-                          )}
-                        </>
+                        </div>
                       )}
+                      <Button variant="secondary" className="w-full" loading={state?.loading} disabled={ended} onClick={() => run(promotion.document_id)}>
+                        {state?.loading ? "선정하는 중" : "대상 선정 및 일정 생성"}
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </li>
               );
             })}
           </ul>
         )}
       </div>
+
+      <TargetsDrawer
+        promotion={promotions?.find((p) => p.document_id === targetsOf) ?? null}
+        result={targetsOf ? (runs[targetsOf]?.result ?? null) : null}
+        onClose={() => setTargetsOf(null)}
+      />
 
       <PromotionPdfImport
         open={pdfOpen}
@@ -308,5 +307,27 @@ export default function PromotionsPage() {
         </form>
       </Drawer>
     </>
+  );
+}
+
+// 대상 선정 결과의 고객 목록. 카드 안에 펼치면 격자가 흐트러지므로 서랍으로 보여 준다.
+function TargetsDrawer({ promotion, result, onClose }: { promotion: PromotionListItem | null; result: PromotionResult | null; onClose: () => void }) {
+  const targets = result && "target_customers" in result ? result.target_customers : [];
+  return (
+    <Drawer open={Boolean(promotion)} title={promotion?.file_name ?? ""} source="ai" onClose={onClose}>
+      <p className="text-[15px] font-bold tabular-nums">대상 고객 {targets.length}명</p>
+      <p className="mt-1 text-[13px] text-stone-600">프로모션 조건에 맞고 마케팅·재연락에 동의한 고객입니다.</p>
+      <ul className="mt-4 divide-y divide-stone-200 rounded-lg ring-1 ring-stone-200">
+        {targets.map((target) => (
+          <li key={target.customer_id} className="px-4 py-3">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="truncate text-[14px] font-semibold">{target.customer_name}</span>
+              <span className="shrink-0 text-[12px] tabular-nums text-stone-500">{formatPhone(target.phone)}</span>
+            </p>
+            <p className="mt-0.5 text-[13px] text-stone-700">{(target.match_reasons ?? []).join(", ") || "선정 사유 없음"}</p>
+          </li>
+        ))}
+      </ul>
+    </Drawer>
   );
 }

@@ -5,11 +5,11 @@ import type {
   ConsultationInput,
   ConsultationResult,
   CustomerDetail,
-  DocumentRow,
   Feed,
   IntakeInput,
   IntakeResult,
   PromotionDraft,
+  PromotionListItem,
   PromotionRegisterInput,
   PromotionRegisterResult,
   ApiFailure,
@@ -33,7 +33,7 @@ export interface Backend {
   recommend(customerId: string): Promise<RecommendResult>;
   consultationResult(input: ConsultationInput): Promise<ConsultationResult>;
   sendNow(scheduleId: string): Promise<SendNowResult>;
-  listPromotions(storeId: string): Promise<DocumentRow[]>;
+  listPromotions(storeId: string): Promise<PromotionListItem[]>;
   registerPromotion(input: PromotionRegisterInput, storeId: string): Promise<PromotionRegisterResult>;
   /** 프로모션 PDF 원본을 보관한다. 같은 경로가 있으면 덮어쓴다. */
   storePromotionFile(path: string, bytes: Uint8Array): Promise<void>;
