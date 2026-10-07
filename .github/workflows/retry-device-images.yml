@@ -1,0 +1,74 @@
+name: Retry selected device images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  retry-device-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 Pillow
+
+      - name: Retry selected device images
+        run: |
+          python scripts/device_images/retry_device_images.py
+
+      - name: Show retry report
+        if: always()
+        run: |
+          echo "========== retry_report.csv =========="
+          if [ -f scripts/device_images/retry_report.csv ]; then
+            cat scripts/device_images/retry_report.csv
+          else
+            echo "retry_report.csv was not created."
+          fi
+
+      - name: Commit successful replacements and report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Only retry targets can be changed by the Python script.
+          git add scripts/device_images/retry_report.csv
+          git add public/devices/DEV-007.webp || true
+          git add public/devices/DEV-009.webp || true
+          git add public/devices/DEV-011.webp || true
+          git add public/devices/DEV-018.webp || true
+          git add public/devices/DEV-019.webp || true
+          git add public/devices/DEV-025.webp || true
+          git add public/devices/DEV-027.webp || true
+          git add public/devices/DEV-030.webp || true
+          git add public/devices/DEV-031.webp || true
+          git add public/devices/DEV-032.webp || true
+          git add public/devices/DEV-033.webp || true
+          git add public/devices/DEV-034.webp || true
+          git add public/devices/DEV-035.webp || true
+          git add public/devices/DEV-036.webp || true
+          git add public/devices/DEV-040.webp || true
+          git add public/devices/DEV-041.webp || true
+          git add public/devices/DEV-044.webp || true
+          git add public/devices/DEV-045.webp || true
+          git add public/devices/DEV-046.webp || true
+          git add public/devices/DEV-047.webp || true
+
+          if git diff --cached --quiet; then
+            echo "No successful replacements to commit."
+          else
+            git commit -m "Retry selected device product images"
+            git push
+          fi
