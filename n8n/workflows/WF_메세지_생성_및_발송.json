@@ -1,6 +1,6 @@
 {
   "id": "AGUr1pcjAH5Jrkrt",
-  "name": "zWF04메세지 생성 및 발송",
+  "name": "WF_메세지_생성_및_발송",
   "nodes": [
     {
       "parameters": {
@@ -92,7 +92,7 @@
           "value": "QFjC2ARP9Q6fCExH",
           "mode": "list",
           "cachedResultUrl": "/workflow/QFjC2ARP9Q6fCExH",
-          "cachedResultName": "zF07_개별 메시지 처리_서브"
+          "cachedResultName": "F07_개별 메시지 처리"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -130,7 +130,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "object",
+              "type": "string",
               "removed": false
             }
           ],

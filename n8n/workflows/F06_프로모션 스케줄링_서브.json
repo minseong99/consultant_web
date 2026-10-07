@@ -5,9 +5,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    d.document_id,\n    d.store_id,\n    d.file_name AS promotion_name,\n    d.valid_from AS promotion_start_date,\n    d.valid_until AS promotion_end_date,\n\n    c.customer_id,\n    c.customer_name,\n\n    cc.privacy_consent,\n    cc.marketing_consent,\n    cc.recontact_consent,\n\n    'promotion'::varchar AS schedule_type\n\nFROM public.documents d\n\nCROSS JOIN public.customer_consents cc\n\nJOIN public.customers c\n    ON c.customer_id = cc.customer_id\n\nWHERE d.document_id = $1\n  AND d.document_type = 'promotion'\n  AND d.valid_from IS NOT NULL\n  AND d.valid_until IS NOT NULL\n\n  AND cc.privacy_consent = TRUE\n  AND cc.marketing_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL\n\n  AND (COALESCE($2, '') = '' OR c.customer_id = ANY(string_to_array($2, ',')));",
+        "query": "SELECT\n    d.document_id,\n    d.store_id,\n    d.file_name AS promotion_name,\n    d.valid_from AS promotion_start_date,\n    d.valid_until AS promotion_end_date,\n\n    c.customer_id,\n    c.customer_name,\n\n    cc.privacy_consent,\n    cc.marketing_consent,\n    cc.recontact_consent,\n\n    'promotion'::varchar AS schedule_type\n\nFROM public.documents d\n\nJOIN public.customers c\n    ON c.customer_id = $2\n\nLEFT JOIN LATERAL (\n    SELECT\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n        withdrawn_at\n    FROM public.customer_consents\n    WHERE customer_id = c.customer_id\n    ORDER BY consent_at DESC\n    LIMIT 1\n) cc ON true\n\nWHERE d.document_id = $1\n  AND d.document_type = 'promotion'\n  AND d.valid_from IS NOT NULL\n  AND d.valid_until IS NOT NULL\n\nLIMIT 1;",
         "options": {
-          "queryReplacement": "={{ [ $json.document_id, $json.customer_ids ?? '' ] }}"
+          "queryReplacement": "={{ [\n  $json.document_id,\n  $json.customer_id\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -18,6 +18,7 @@
       ],
       "id": "c4d2f0e0-91b4-464e-acc9-d49ca0264576",
       "name": "프로모션 정보 및 대상 고객 조회",
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "YVkzsBzhXmXxNLug",
@@ -27,7 +28,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst TIME_ZONE = 'Asia/Seoul';\n\n// 한국 기준 오늘 YYYY-MM-DD\nfunction getKSTDateString(dateValue = new Date()) {\n  const date = new Date(dateValue);\n\n  if (Number.isNaN(date.getTime())) {\n    return null;\n  }\n\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return `${get('year')}-${get('month')}-${get('day')}`;\n}\n\n// YYYY-MM-DD에서 N일 더하기\nfunction addDays(dateString, days) {\n  const date = new Date(`${dateString}T00:00:00Z`);\n  date.setUTCDate(date.getUTCDate() + days);\n  return date.toISOString().slice(0, 10);\n}\n\nconst today = getKSTDateString();\n\nfor (const item of items) {\n  const {\n    document_id,\n    store_id,\n    promotion_name,\n    promotion_start_date,\n    promotion_end_date,\n\n    customer_id,\n    customer_name,\n\n    privacy_consent,\n    marketing_consent,\n    recontact_consent,\n\n    schedule_type,\n  } = item.json;\n\n  if (!promotion_start_date || !promotion_end_date) {\n    throw new Error(\n      `프로모션 시작일 또는 종료일이 없습니다. document_id=${document_id}`\n    );\n  }\n\n  // 종료일 2일 전\n  const endReminderDate = addDays(\n    promotion_end_date,\n    -2\n  );\n\n  // -----------------------------------\n  // 1. 프로모션 시작일 문자\n  // 시작일이 아직 지나지 않은 경우만 생성\n  // -----------------------------------\n  if (promotion_start_date >= today) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type,\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date: promotion_start_date,\n\n        schedule_subtype: 'promotion_start',\n\n        scheduled_contact_date: promotion_start_date,\n\n        contact_reason: '프로모션 시작 안내',\n      }\n    });\n  }\n\n  // -----------------------------------\n  // 2. 프로모션 종료 2일 전 문자\n  // 발송 예정일이 아직 지나지 않은 경우만 생성\n  // -----------------------------------\n  if (endReminderDate >= today) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type,\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date: promotion_end_date,\n\n        schedule_subtype: 'promotion_end_2d_before',\n\n        scheduled_contact_date: endReminderDate,\n\n        contact_reason: '프로모션 종료 2일 전 안내',\n      }\n    });\n  }\n}\n\nreturn output;"
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst TIME_ZONE = 'Asia/Seoul';\n\n\n// 한국 기준 오늘 YYYY-MM-DD\nfunction getKSTDateString(dateValue = new Date()) {\n  const date = new Date(dateValue);\n\n  if (Number.isNaN(date.getTime())) {\n    return null;\n  }\n\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return `${get('year')}-${get('month')}-${get('day')}`;\n}\n\n\n// YYYY-MM-DD 유효성 확인\nfunction isValidDateString(value) {\n  if (\n    typeof value !== 'string' ||\n    !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)\n  ) {\n    return false;\n  }\n\n  const [year, month, day] =\n    value.split('-').map(Number);\n\n  const date =\n    new Date(Date.UTC(year, month - 1, day));\n\n  return (\n    date.getUTCFullYear() === year &&\n    date.getUTCMonth() === month - 1 &&\n    date.getUTCDate() === day\n  );\n}\n\n\n// YYYY-MM-DD에서 N일 더하기\nfunction addDays(dateString, days) {\n  const date =\n    new Date(`${dateString}T00:00:00Z`);\n\n  date.setUTCDate(\n    date.getUTCDate() + days\n  );\n\n  return date.toISOString().slice(0, 10);\n}\n\n\n// 일정 미생성 결과\nfunction notScheduled({\n  reason,\n  document_id = null,\n  customer_id = null,\n}) {\n  return {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'not_scheduled',\n      reason,\n      schedule_type: 'promotion',\n      document_id,\n      customer_id,\n    }\n  };\n}\n\n\nconst today = getKSTDateString();\n\n\nfor (const item of items) {\n\n  const {\n    document_id,\n    store_id,\n    promotion_name,\n    promotion_start_date,\n    promotion_end_date,\n\n    customer_id,\n    customer_name,\n\n    privacy_consent,\n    marketing_consent,\n    recontact_consent,\n\n    schedule_type,\n  } = item.json;\n\n\n  // 프로모션 또는 고객 조회 실패\n  if (!document_id || !customer_id) {\n    output.push(\n      notScheduled({\n        reason: 'promotion_or_customer_not_found',\n        document_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 연락/마케팅 동의 확인\n  if (\n    privacy_consent !== true ||\n    marketing_consent !== true ||\n    recontact_consent !== true\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'consent_missing',\n        document_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 날짜 없음\n  if (\n    !promotion_start_date ||\n    !promotion_end_date\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'promotion_date_missing',\n        document_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 날짜 형식 오류\n  if (\n    !isValidDateString(promotion_start_date) ||\n    !isValidDateString(promotion_end_date)\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'invalid_promotion_date',\n        document_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 종료일이 시작일보다 빠른 경우\n  if (\n    promotion_end_date < promotion_start_date\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'invalid_promotion_period',\n        document_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 종료일 2일 전\n  const endReminderDate =\n    addDays(\n      promotion_end_date,\n      -2\n    );\n\n\n  let scheduleCreated = false;\n\n\n  // -----------------------------------\n  // 1. 프로모션 시작일 안내\n  // -----------------------------------\n  if (\n    promotion_start_date >= today\n  ) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type:\n          schedule_type ?? 'promotion',\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date:\n          promotion_start_date,\n\n        schedule_subtype:\n          'promotion_start',\n\n        scheduled_contact_date:\n          promotion_start_date,\n\n        contact_reason:\n          '프로모션 시작 안내',\n      }\n    });\n\n    scheduleCreated = true;\n  }\n\n\n  // -----------------------------------\n  // 2. 프로모션 종료 2일 전 안내\n  // -----------------------------------\n  if (\n    endReminderDate >= today\n  ) {\n    output.push({\n      json: {\n        document_id,\n        store_id,\n\n        customer_id,\n        customer_name,\n\n        schedule_type:\n          schedule_type ?? 'promotion',\n\n        privacy_consent,\n        marketing_consent,\n        recontact_consent,\n\n        promotion_name,\n        promotion_start_date,\n        promotion_end_date,\n\n        reference_date:\n          promotion_end_date,\n\n        schedule_subtype:\n          'promotion_end_2d_before',\n\n        scheduled_contact_date:\n          endReminderDate,\n\n        contact_reason:\n          '프로모션 종료 2일 전 안내',\n      }\n    });\n\n    scheduleCreated = true;\n  }\n\n\n  // 생성 가능한 일정이 하나도 없음\n  if (!scheduleCreated) {\n    output.push(\n      notScheduled({\n        reason: 'date_passed',\n        document_id,\n        customer_id,\n      })\n    );\n  }\n}\n\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -42,7 +43,7 @@
       "parameters": {
         "content": "## 프로모션 문자 발송 규칙\n\n프로모션 시작 날짜, \n프로모션 종료 2일전\n오전 10시\n",
         "height": 128,
-        "width": 256
+        "width": 356
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
@@ -56,7 +57,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $3::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $5::date,\n    (($6::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $7,\n    NULL,\n    $4,\n    $3\n)\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason,\n    schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    $8::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype,\n    document_id,\n    $9::text AS promotion_name,\n    $10::text AS store_id;",
+        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $2::text,\n            $3::text,\n            $4::text\n        )\n    ),\n    $1,\n    $2,\n    $5::date,\n    (($6::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul'),\n    NULL,\n    'scheduled',\n    $7,\n    NULL,\n    $4,\n    $3\n)\n\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason\nWHERE public.message_schedules.schedule_status = 'scheduled'\n\nRETURNING\n    schedule_id,\n    customer_id,\n    $8::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    schedule_subtype,\n    document_id,\n    $9::text AS promotion_name,\n    $10::text AS store_id;",
         "options": {
           "queryReplacement": "={{ [   $json.customer_id,   $json.schedule_type,   $json.document_id,   $json.schedule_subtype,   $json.reference_date,   $json.scheduled_contact_date,   $json.contact_reason,   $json.customer_name,   $json.promotion_name,   $json.store_id ] }}"
         }
@@ -64,8 +65,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        -816,
-        160
+        -624,
+        96
       ],
       "id": "a0dc4ca7-abcc-4833-9634-0095092e194d",
       "name": "프로모션 스케줄 저장",
@@ -88,7 +89,7 @@
           "conditions": [
             {
               "id": "d71b1559-624b-48e0-bb47-6b4544f3a929",
-              "leftValue": "={{ $json.calendar_event_id }}",
+              "leftValue": "={{ $json.calendar_event_id ?? '' }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -104,8 +105,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -416,
-        160
+        -336,
+        96
       ],
       "id": "dbb550bf-2bcd-4566-b511-e995c042ff05",
       "name": "프로모션 캘린더 존재 여부 확인"
@@ -117,8 +118,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -624,
-        160
+        -336,
+        -224
       ],
       "id": "67b1cc25-9511-49f4-ad0a-ba9cff619a5b",
       "name": "프로모션 캘린더 표시용 집계"
@@ -132,8 +133,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        288,
-        48
+        512,
+        -304
       ],
       "id": "f0686910-064f-48df-b802-f269f57ffee3",
       "name": "Sticky Note11"
@@ -157,8 +158,8 @@
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
-        -192,
-        64
+        32,
+        0
       ],
       "id": "d5ee9f36-f1d9-41b1-914f-aab8209e01da",
       "name": "프로모션 캘린더 일정 생성",
@@ -166,29 +167,6 @@
         "googleCalendarOAuth2Api": {
           "id": "2jUJLmk1C48sBuUe",
           "name": "Google Calendar account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $1\nWHERE schedule_id IN (\n    SELECT jsonb_array_elements_text($2::jsonb)\n)\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    document_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
-        "options": {
-          "queryReplacement": "={{ [   $json.id,   JSON.stringify(     $('프로모션 캘린더 표시용 집계').all()[$itemIndex].json.schedule_ids   ) ] }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        64,
-        64
-      ],
-      "id": "083c31d8-db50-4ee5-bb77-8be5b91de3a2",
-      "name": "프로모션 캘린더 ID 일괄 저장",
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
         }
       }
     },
@@ -213,8 +191,8 @@
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
-        -176,
-        352
+        32,
+        288
       ],
       "id": "29b3cb75-78cc-4a2a-88a4-5269d9c25cbc",
       "name": "프로모션 캘린더 일정 수정",
@@ -234,8 +212,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -608,
-        64
+        -384,
+        0
       ],
       "id": "a8155ed3-194c-438b-87c0-20af64d736a2",
       "name": "Sticky Note12"
@@ -251,8 +229,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        48,
-        352
+        480,
+        672
       ],
       "id": "5da4354e-f3b5-48bb-99b4-f38fad5407f4",
       "name": "프로모션 캘린더 ID 동기화",
@@ -272,7 +250,7 @@
       "typeVersion": 1,
       "position": [
         -16,
-        512
+        448
       ],
       "id": "89ed8556-e10b-4f5d-a10f-1aca31537d76",
       "name": "Sticky Note5"
@@ -285,7 +263,7 @@
               "name": "document_id"
             },
             {
-              "name": "customer_ids"
+              "name": "customer_id"
             }
           ]
         }
@@ -343,6 +321,88 @@
       ],
       "id": "77ba1692-326b-4606-bae4-e8658307ef27",
       "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bde6edd3-7ce9-454d-8de8-e8c272125f63",
+              "leftValue": "={{ $json.status ?? '' }}",
+              "rightValue": "not_scheduled",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -896,
+        112
+      ],
+      "id": "d5f0bc47-cafc-4965-ba07-370fdfa10889",
+      "name": "프로모션 일정 생성 여부 확인"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\n  AND schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    document_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('프로모션 스케줄 저장').item.json.schedule_id,\n  $json.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        288,
+        0
+      ],
+      "id": "083c31d8-db50-4ee5-bb77-8be5b91de3a2",
+      "name": "프로모션 캘린더 ID 저장",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'not_scheduled',\n\n      reason: input.reason ?? 'unknown',\n\n      schedule_type: 'promotion',\n\n      document_id: input.document_id ?? null,\n      customer_id: input.customer_id ?? null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        272
+      ],
+      "id": "62698986-4e61-431d-976d-a2a989c052f6",
+      "name": "프로모션 일정 미생성 반환"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('프로모션 스케줄 저장').item.json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'scheduled',\n\n      schedule_id: saved.schedule_id ?? null,\n      customer_id: saved.customer_id ?? null,\n\n      schedule_type:\n        saved.schedule_type ?? 'promotion',\n\n      schedule_subtype:\n        saved.schedule_subtype ?? null,\n\n      document_id:\n        saved.document_id ?? null,\n\n      scheduled_contact_at:\n        saved.scheduled_contact_at ?? null,\n\n      contact_reason:\n        saved.contact_reason ?? null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        288
+      ],
+      "id": "5a201b76-c83b-4aeb-a586-1e27124d618d",
+      "name": "프로모션 일정 생성 결과 반환"
     }
   ],
   "connections": {
@@ -361,7 +421,7 @@
       "main": [
         [
           {
-            "node": "프로모션 스케줄 저장",
+            "node": "프로모션 일정 생성 여부 확인",
             "type": "main",
             "index": 0
           }
@@ -372,7 +432,7 @@
       "main": [
         [
           {
-            "node": "프로모션 캘린더 표시용 집계",
+            "node": "프로모션 캘린더 존재 여부 확인",
             "type": "main",
             "index": 0
           }
@@ -399,20 +459,14 @@
     },
     "프로모션 캘린더 표시용 집계": {
       "main": [
-        [
-          {
-            "node": "프로모션 캘린더 존재 여부 확인",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "프로모션 캘린더 일정 생성": {
       "main": [
         [
           {
-            "node": "프로모션 캘린더 ID 일괄 저장",
+            "node": "프로모션 캘린더 ID 저장",
             "type": "main",
             "index": 0
           }
@@ -423,7 +477,7 @@
       "main": [
         [
           {
-            "node": "프로모션 캘린더 ID 동기화",
+            "node": "프로모션 일정 생성 결과 반환",
             "type": "main",
             "index": 0
           }
@@ -435,6 +489,35 @@
         [
           {
             "node": "프로모션 정보 및 대상 고객 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 일정 생성 여부 확인": {
+      "main": [
+        [
+          {
+            "node": "프로모션 스케줄 저장",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "프로모션 일정 미생성 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 캘린더 ID 저장": {
+      "main": [
+        [
+          {
+            "node": "프로모션 일정 생성 결과 반환",
             "type": "main",
             "index": 0
           }

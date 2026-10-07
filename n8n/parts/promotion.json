@@ -103,7 +103,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "parameters": {
-        "jsCode": "const result = $input.first()?.json ?? {};\n\nif (typeof result.status !== 'string') {\n  return [{ json: { targeted: false, response: {\n    success: false,\n    error_code: 'PROMOTION_FAILED',\n    message: result.error\n      ? 'F05 실행 중 오류: ' + String(result.error.message ?? result.error)\n      : 'F05 프로모션 대상 고객 선정이 결과를 반환하지 않았습니다.',\n  } } }];\n}\n\n// F06 프로모션 일정이 F05가 선정한 고객에게만 만들어지도록, 대상 고객 ID를 쉼표로 이어 넘긴다.\n// (F06 일정 관리의 customer_id 입력을 사용. F06 쪽 수정 전에는 이 값이 무시된다.)\nconst targetIds = Array.isArray(result.target_customers)\n  ? result.target_customers.map((c) => c.customer_id).filter(Boolean).join(',')\n  : '';\n\nreturn [{ json: { targeted: result.status === 'targeted', document_id: result.document_id, target_ids: targetIds, response: result } }];"
+        "jsCode": "const result = $input.first()?.json ?? {};\n\nif (typeof result.status !== 'string') {\n  return [{ json: { targeted: false, response: {\n    success: false,\n    error_code: 'PROMOTION_FAILED',\n    message: result.error\n      ? 'F05 실행 중 오류: ' + String(result.error.message ?? result.error)\n      : 'F05 프로모션 대상 고객 선정이 결과를 반환하지 않았습니다.',\n  } } }];\n}\n\n// F06 프로모션 일정은 고객 한 명씩 만든다. F05가 선정한 고객 ID 목록을 넘겨 다음 노드에서 한 명씩 나눈다.\nconst targetIds = Array.isArray(result.target_customers)\n  ? result.target_customers.map((c) => c.customer_id).filter(Boolean)\n  : [];\n\nreturn [{ json: { targeted: result.status === 'targeted' && targetIds.length > 0, document_id: result.document_id, target_ids: targetIds, response: result } }];"
       }
     },
     {
@@ -141,9 +141,22 @@
       }
     },
     {
-      "id": "4f1da84c-35d3-4248-ac3a-9f7f9da1e5b3",
+      "id": "d33b7b30-6351-4148-af5a-fa7f76a115ae",
       "position": [
         1040,
+        1800
+      ],
+      "name": "프로모션: 대상 고객 나누기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const checked = $('F05 결과 확인').first().json;\nreturn checked.target_ids.map((customerId) => ({ json: { document_id: checked.document_id, customer_id: customerId } }));"
+      }
+    },
+    {
+      "id": "4f1da84c-35d3-4248-ac3a-9f7f9da1e5b3",
+      "position": [
+        1300,
         1800
       ],
       "name": "프로모션: F06 일정 생성",
@@ -157,11 +170,12 @@
           "value": "j9aDZV3iDfCQaFsM",
           "mode": "id"
         },
+        "mode": "each",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
             "schedule_type": "={{ 'promotion' }}",
-            "customer_id": "={{ $json.target_ids }}",
+            "customer_id": "={{ $json.customer_id }}",
             "consultation_id": "={{ '' }}",
             "document_id": "={{ $json.document_id }}"
           },
@@ -206,6 +220,26 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
             }
           ],
           "attemptToConvertTypes": false,
@@ -219,7 +253,7 @@
     {
       "id": "30fd8d7d-b346-4958-a4ed-623902f5c1c7",
       "position": [
-        1300,
+        1560,
         1656
       ],
       "name": "프로모션 응답 구성",
@@ -232,7 +266,7 @@
     {
       "id": "2a2f53db-23f3-4838-a9ad-931c0d64c425",
       "position": [
-        1560,
+        1820,
         1656
       ],
       "name": "프로모션 응답",
@@ -282,7 +316,7 @@
       "main": [
         [
           {
-            "node": "프로모션: F06 일정 생성",
+            "node": "프로모션: 대상 고객 나누기",
             "type": "main",
             "index": 0
           }
@@ -290,6 +324,17 @@
         [
           {
             "node": "프로모션 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: 대상 고객 나누기": {
+      "main": [
+        [
+          {
+            "node": "프로모션: F06 일정 생성",
             "type": "main",
             "index": 0
           }

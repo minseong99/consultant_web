@@ -5,9 +5,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n    co.consultation_id,\n    co.customer_id,\n    c.customer_name,\n    co.reconsultation_at,\n    co.store_id,\n    co.staff_id,\n    cc.privacy_consent,\n    cc.recontact_consent,\n    'reconsultation'::varchar AS schedule_type\nFROM public.consultations co\nJOIN public.customers c\n    ON co.customer_id = c.customer_id\nJOIN public.customer_consents cc\n    ON co.customer_id = cc.customer_id\nWHERE co.consultation_id = $1\n  AND co.reconsultation_at IS NOT NULL\n  AND cc.privacy_consent = TRUE\n  AND cc.recontact_consent = TRUE\n  AND cc.withdrawn_at IS NULL;",
+        "query": "SELECT\n    co.consultation_id,\n    co.customer_id,\n    c.customer_name,\n\n    NULLIF($2::text, '')::date AS preferred_follow_up_date,\n    $3::text AS contact_reason,\n\n    co.store_id,\n    co.staff_id,\n\n    cc.privacy_consent,\n    cc.recontact_consent,\n\n    'reconsultation'::varchar AS schedule_type\n\nFROM public.consultations co\n\nJOIN public.customers c\n    ON co.customer_id = c.customer_id\n\nLEFT JOIN LATERAL (\n    SELECT\n        privacy_consent,\n        recontact_consent,\n        withdrawn_at\n    FROM public.customer_consents\n    WHERE customer_id = co.customer_id\n    ORDER BY consent_at DESC\n    LIMIT 1\n) cc ON true\n\nWHERE co.consultation_id = $1\n  AND co.customer_id = $4\nLIMIT 1;",
         "options": {
-          "queryReplacement": "={{ [\n  $json.consultation_id\n] }}"
+          "queryReplacement": "={{ [\n  $json.consultation_id,\n  $json.preferred_follow_up_date ?? '',\n  $json.contact_reason ?? '',\n  $json.customer_id\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -18,6 +18,7 @@
       ],
       "id": "ee33c947-70e4-41ef-92f7-2fa3060b7a92",
       "name": "재상담 정보 및 동의 조회",
+      "alwaysOutputData": true,
       "credentials": {
         "postgres": {
           "id": "YVkzsBzhXmXxNLug",
@@ -57,7 +58,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst TIME_ZONE = 'Asia/Seoul';\n\n// -----------------------------------------\n// 날짜/시간 Utility\n// -----------------------------------------\n\n// Date 객체를 한국 시간 기준 정보로 변환\nfunction getKSTParts(date = new Date()) {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    hourCycle: 'h23',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return {\n    year: get('year'),\n    month: get('month'),\n    day: get('day'),\n    hour: Number(get('hour')),\n    minute: Number(get('minute')),\n  };\n}\n\n\n// Date/ISO timestamp → 한국 기준 YYYY-MM-DD\nfunction getKSTDateString(dateValue) {\n  const date = new Date(dateValue);\n\n  if (Number.isNaN(date.getTime())) {\n    return null;\n  }\n\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return `${get('year')}-${get('month')}-${get('day')}`;\n}\n\n\n// YYYY-MM-DD에서 하루 빼기\nfunction subtractOneDay(dateString) {\n  const date = new Date(`${dateString}T00:00:00Z`);\n  date.setUTCDate(date.getUTCDate() - 1);\n\n  return date.toISOString().slice(0, 10);\n}\n\n\n// 한국 시간 ISO 문자열 생성\nfunction makeKSTDateTime(dateString, hour) {\n  const hh = String(hour).padStart(2, '0');\n\n  return `${dateString}T${hh}:00:00+09:00`;\n}\n\n\n// -----------------------------------------\n// 현재 한국 시간\n// -----------------------------------------\n\nconst nowKST = getKSTParts();\n\nconst todayString =\n  `${nowKST.year}-${nowKST.month}-${nowKST.day}`;\n\nconst currentMinutes =\n  (nowKST.hour * 60) + nowKST.minute;\n\n\n// 발송 슬롯\nconst SLOT_10 = 10 * 60;\nconst SLOT_16 = 16 * 60;\nconst SLOT_19 = 19 * 60;\n\n\n// -----------------------------------------\n// 각 상담 데이터 처리\n// -----------------------------------------\n\nfor (const item of items) {\n\n  const {\n    consultation_id,\n    customer_id,\n    customer_name,\n    reconsultation_at,\n    store_id,\n    staff_id,\n    privacy_consent,\n    recontact_consent,\n    schedule_type,\n  } = item.json;\n\n\n  // ---------------------------------------\n  // 필수 데이터 검증\n  // ---------------------------------------\n\n  if (!reconsultation_at) {\n    throw new Error(\n      `reconsultation_at이 없습니다. consultation_id=${consultation_id}`\n    );\n  }\n\n\n  // 실제 재상담 날짜\n  const reconsultationDate =\n    getKSTDateString(reconsultation_at);\n\n  if (!reconsultationDate) {\n    throw new Error(\n      `reconsultation_at 형식이 올바르지 않습니다. consultation_id=${consultation_id}`\n    );\n  }\n\n\n  // ---------------------------------------\n  // 재상담이 오늘 또는 이미 지난 경우\n  // 스케줄 생성하지 않음\n  // ---------------------------------------\n\n  if (reconsultationDate <= todayString) {\n    continue;\n  }\n\n\n  // 재상담 하루 전\n  const reminderDate =\n    subtractOneDay(reconsultationDate);\n\n\n  let scheduledHour = null;\n\n\n  // ---------------------------------------\n  // CASE 1\n  // D-1이 미래 날짜\n  // → 오전 10시\n  // ---------------------------------------\n\n  if (reminderDate > todayString) {\n\n    scheduledHour = 10;\n\n  }\n\n\n  // ---------------------------------------\n  // CASE 2\n  // D-1이 오늘\n  // → 가능한 다음 발송 슬롯 선택\n  // ---------------------------------------\n\n  else if (reminderDate === todayString) {\n\n    if (currentMinutes < SLOT_10) {\n      scheduledHour = 10;\n    }\n\n    else if (currentMinutes < SLOT_16) {\n      scheduledHour = 16;\n    }\n\n    else if (currentMinutes < SLOT_19) {\n      scheduledHour = 19;\n    }\n\n    else {\n      // 오후 7시 이후\n      // 더 이상 발송하지 않음\n      continue;\n    }\n\n  }\n\n\n  // ---------------------------------------\n  // CASE 3\n  // D-1 자체가 이미 지난 경우\n  // ---------------------------------------\n\n  else {\n    continue;\n  }\n\n\n  const scheduledContactAt =\n    makeKSTDateTime(reminderDate, scheduledHour);\n\n\n  // ---------------------------------------\n  // 최종 스케줄 item 생성\n  // ---------------------------------------\n\n  output.push({\n    json: {\n\n      consultation_id,\n      customer_id,\n      customer_name,\n\n      store_id,\n      staff_id,\n\n      schedule_type,\n\n      privacy_consent,\n      recontact_consent,\n\n      reconsultation_at,\n\n      reference_date: reconsultationDate,\n\n      schedule_subtype: 'reconsultation_1d_before',\n\n      scheduled_contact_date: reminderDate,\n\n      scheduled_contact_at: scheduledContactAt,\n\n      contact_reason: '재상담 1일 전 안내',\n\n      selected_send_slot: `${String(scheduledHour).padStart(2, '0')}:00`\n    }\n  });\n\n}\n\nreturn output;"
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nconst TIME_ZONE = 'Asia/Seoul';\n\n\n// -----------------------------------------\n// 현재 한국 날짜/시간\n// -----------------------------------------\nfunction getKSTParts(date = new Date()) {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: TIME_ZONE,\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit',\n    hour: '2-digit',\n    minute: '2-digit',\n    hourCycle: 'h23',\n  }).formatToParts(date);\n\n  const get = (type) =>\n    parts.find(p => p.type === type)?.value;\n\n  return {\n    year: get('year'),\n    month: get('month'),\n    day: get('day'),\n    hour: Number(get('hour')),\n    minute: Number(get('minute')),\n  };\n}\n\n\n// -----------------------------------------\n// YYYY-MM-DD 유효성 검사\n// -----------------------------------------\nfunction isValidDateString(value) {\n  if (\n    typeof value !== 'string' ||\n    !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)\n  ) {\n    return false;\n  }\n\n  const [year, month, day] =\n    value.split('-').map(Number);\n\n  const date =\n    new Date(Date.UTC(year, month - 1, day));\n\n  return (\n    date.getUTCFullYear() === year &&\n    date.getUTCMonth() === month - 1 &&\n    date.getUTCDate() === day\n  );\n}\n\n\n// -----------------------------------------\n// YYYY-MM-DD 기준 하루 빼기\n// -----------------------------------------\nfunction subtractOneDay(dateString) {\n  const date =\n    new Date(`${dateString}T00:00:00Z`);\n\n  date.setUTCDate(\n    date.getUTCDate() - 1\n  );\n\n  return date.toISOString().slice(0, 10);\n}\n\n\n// -----------------------------------------\n// 한국 시간 ISO 문자열 생성\n// -----------------------------------------\nfunction makeKSTDateTime(dateString, hour) {\n  const hh =\n    String(hour).padStart(2, '0');\n\n  return `${dateString}T${hh}:00:00+09:00`;\n}\n\n\n// -----------------------------------------\n// 일정 미생성 결과\n// -----------------------------------------\nfunction notScheduled({\n  reason,\n  consultation_id = null,\n  customer_id = null,\n  preferred_follow_up_date = null,\n}) {\n  return {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'not_scheduled',\n      reason,\n      schedule_type: 'reconsultation',\n      consultation_id,\n      customer_id,\n      preferred_follow_up_date,\n    }\n  };\n}\n\n\n// -----------------------------------------\n// 현재 한국 시간\n// -----------------------------------------\nconst nowKST = getKSTParts();\n\nconst todayString =\n  `${nowKST.year}-${nowKST.month}-${nowKST.day}`;\n\nconst currentMinutes =\n  (nowKST.hour * 60) + nowKST.minute;\n\n\n// 발송 슬롯\nconst SLOT_10 = 10 * 60;\nconst SLOT_16 = 16 * 60;\nconst SLOT_19 = 19 * 60;\n\n\n// -----------------------------------------\n// 각 상담 처리\n// -----------------------------------------\nfor (const item of items) {\n\n  const {\n    consultation_id,\n    customer_id,\n    customer_name,\n\n    preferred_follow_up_date,\n    contact_reason,\n\n    store_id,\n    staff_id,\n\n    privacy_consent,\n    recontact_consent,\n\n    schedule_type,\n  } = item.json;\n\n\n  // 상담 조회 실패\n  if (!consultation_id || !customer_id) {\n    output.push(\n      notScheduled({\n        reason: 'consultation_not_found',\n        consultation_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 동의 없음\n  if (\n    privacy_consent !== true ||\n    recontact_consent !== true\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'consent_missing',\n        consultation_id,\n        customer_id,\n        preferred_follow_up_date,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 재상담 희망 날짜 없음\n  if (!preferred_follow_up_date) {\n    output.push(\n      notScheduled({\n        reason: 'follow_up_date_missing',\n        consultation_id,\n        customer_id,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 날짜 형식 오류\n  if (\n    !isValidDateString(\n      preferred_follow_up_date\n    )\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'invalid_follow_up_date',\n        consultation_id,\n        customer_id,\n        preferred_follow_up_date,\n      })\n    );\n\n    continue;\n  }\n\n\n  const reconsultationDate =\n    preferred_follow_up_date;\n\n\n  // 재상담일이 오늘 또는 과거\n  if (\n    reconsultationDate <= todayString\n  ) {\n    output.push(\n      notScheduled({\n        reason: 'date_passed',\n        consultation_id,\n        customer_id,\n        preferred_follow_up_date,\n      })\n    );\n\n    continue;\n  }\n\n\n  // 재상담 하루 전\n  const reminderDate =\n    subtractOneDay(\n      reconsultationDate\n    );\n\n\n  let scheduledHour = null;\n\n\n  // D-1이 미래 날짜\n  if (reminderDate > todayString) {\n\n    scheduledHour = 10;\n\n  }\n\n\n  // D-1이 오늘\n  else if (\n    reminderDate === todayString\n  ) {\n\n    if (currentMinutes < SLOT_10) {\n      scheduledHour = 10;\n    }\n\n    else if (\n      currentMinutes < SLOT_16\n    ) {\n      scheduledHour = 16;\n    }\n\n    else if (\n      currentMinutes < SLOT_19\n    ) {\n      scheduledHour = 19;\n    }\n\n    else {\n      output.push(\n        notScheduled({\n          reason: 'send_slot_passed',\n          consultation_id,\n          customer_id,\n          preferred_follow_up_date,\n        })\n      );\n\n      continue;\n    }\n\n  }\n\n\n  // D-1 자체가 이미 지난 경우\n  else {\n    output.push(\n      notScheduled({\n        reason: 'reminder_date_passed',\n        consultation_id,\n        customer_id,\n        preferred_follow_up_date,\n      })\n    );\n\n    continue;\n  }\n\n\n  const scheduledContactAt =\n    makeKSTDateTime(\n      reminderDate,\n      scheduledHour\n    );\n\n\n  // -----------------------------------------\n  // 최종 재상담 스케줄\n  // -----------------------------------------\n  output.push({\n    json: {\n      consultation_id,\n      customer_id,\n      customer_name,\n\n      store_id,\n      staff_id,\n\n      schedule_type:\n        schedule_type ?? 'reconsultation',\n\n      privacy_consent,\n      recontact_consent,\n\n      preferred_follow_up_date,\n\n      reference_date:\n        reconsultationDate,\n\n      schedule_subtype:\n        'reconsultation_1d_before',\n\n      scheduled_contact_date:\n        reminderDate,\n\n      scheduled_contact_at:\n        scheduledContactAt,\n\n      contact_reason:\n        contact_reason ??\n        '재상담 1일 전 안내',\n\n      selected_send_slot:\n        `${String(scheduledHour).padStart(2, '0')}:00`\n    }\n  });\n}\n\n\nreturn output;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -71,7 +72,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $3::text,\n            $5::text\n        )\n    ),\n    $2,\n    $3,\n    $4::date,\n    $6::timestamptz,\n    NULL,\n    'scheduled',\n    $7,\n    $1,\n    $5,\n    NULL\n)\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason,\n    schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    $8::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype;",
+        "query": "INSERT INTO public.message_schedules (\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\n)\nVALUES (\n    md5(\n        concat_ws(\n            '|',\n            $1::text,\n            $3::text,\n            $5::text\n        )\n    ),\n    $2,\n    $3,\n    $4::date,\n    $6::timestamptz,\n    NULL,\n    'scheduled',\n    $7,\n    $1,\n    $5,\n    NULL\n)\n\nON CONFLICT (schedule_id)\nDO UPDATE SET\n    reference_date = EXCLUDED.reference_date,\n    scheduled_contact_at = EXCLUDED.scheduled_contact_at,\n    contact_reason = EXCLUDED.contact_reason\nWHERE public.message_schedules.schedule_status = 'scheduled'\n\nRETURNING\n    schedule_id,\n    customer_id,\n    $8::text AS customer_name,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype;",
         "options": {
           "queryBatching": "independently",
           "queryReplacement": "={{ [   $json.consultation_id,   $json.customer_id,   $json.schedule_type,   $json.reference_date,   $json.schedule_subtype,   $json.scheduled_contact_at,   $json.contact_reason,   $json.customer_name ] }}"
@@ -104,7 +105,7 @@
           "conditions": [
             {
               "id": "c02a66c6-2ebf-4955-b44b-529e1a90e137",
-              "leftValue": "={{ $json.calendar_event_id }}",
+              "leftValue": "={{ $json.calendar_event_id ?? '' }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -175,7 +176,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    consultation_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
+        "query": "UPDATE public.message_schedules\nSET calendar_event_id = $2\nWHERE schedule_id = $1\n  AND schedule_status = 'scheduled'\nRETURNING\n    schedule_id,\n    customer_id,\n    schedule_type,\n    schedule_subtype,\n    consultation_id,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason;",
         "options": {
           "queryReplacement": "={{ [   $('재상담 스케줄 저장').item.json.schedule_id,   $json.id ] }}"
         }
@@ -235,8 +236,8 @@
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        48,
-        -64
+        32,
+        -192
       ],
       "typeVersion": 1,
       "id": "784427f9-65d5-426f-9f5c-e8b944bcf1a7",
@@ -262,7 +263,16 @@
         "workflowInputs": {
           "values": [
             {
+              "name": "customer_id"
+            },
+            {
               "name": "consultation_id"
+            },
+            {
+              "name": "preferred_follow_up_date"
+            },
+            {
+              "name": "contact_reason"
             }
           ]
         }
@@ -275,6 +285,19 @@
       ],
       "id": "d4616e19-c535-4b21-a004-4737a06cad88",
       "name": "F06 재상담 스케줄링 트리거"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saved = $('재상담 스케줄 저장').item.json;\n\nreturn [\n  {\n    json: {\n      success: true,\n      feature_id: 'F-06',\n      status: 'scheduled',\n\n      schedule_id: saved.schedule_id ?? null,\n      customer_id: saved.customer_id ?? null,\n\n      schedule_type:\n        saved.schedule_type ?? 'reconsultation',\n\n      schedule_subtype:\n        saved.schedule_subtype ?? null,\n\n      consultation_id:\n        saved.consultation_id ?? null,\n\n      scheduled_contact_at:\n        saved.scheduled_contact_at ?? null,\n\n      contact_reason:\n        saved.contact_reason ?? null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        240
+      ],
+      "id": "b1c2c127-80cf-4d4f-a7c7-6fffa95de5c5",
+      "name": "재상담 일정 생성 결과 반환"
     }
   ],
   "connections": {
@@ -345,6 +368,28 @@
         [
           {
             "node": "재상담 정보 및 동의 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "재상담 캘린더 ID 저장": {
+      "main": [
+        [
+          {
+            "node": "재상담 일정 생성 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "재상담 캘린더 일정 수정": {
+      "main": [
+        [
+          {
+            "node": "재상담 일정 생성 결과 반환",
             "type": "main",
             "index": 0
           }

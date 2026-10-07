@@ -38,7 +38,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH claimed AS (\n    UPDATE public.messages AS m\n    SET send_status = 'sending'\n    WHERE m.message_id = $1\n      AND m.send_status = 'pending'\n\n      -- 원본 스케줄도 정상 처리 중인 경우만 발송\n      AND EXISTS (\n          SELECT 1\n          FROM public.message_schedules AS ms\n          WHERE ms.schedule_id = m.schedule_id\n            AND ms.schedule_status = 'processing'\n      )\n\n    RETURNING\n        m.message_id,\n        m.schedule_id,\n        m.message_content\n)\n\nSELECT\n    $1::varchar AS message_id,\n\n    EXISTS (\n        SELECT 1 FROM claimed\n    ) AS claim_success,\n\n    claimed.schedule_id,\n    claimed.message_content AS message_text,\n    c.customer_id,\n    c.phone\n\nFROM (SELECT 1) AS seed\n\nLEFT JOIN claimed\n    ON TRUE\n\nLEFT JOIN public.message_schedules AS ms\n    ON ms.schedule_id = claimed.schedule_id\n\nLEFT JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id;",
+        "query": "WITH target AS (\n    SELECT\n        m.message_id,\n        m.schedule_id,\n        m.message_content,\n        m.send_status\n    FROM public.messages m\n    WHERE m.message_id = $1\n    LIMIT 1\n),\n\nclaimed AS (\n    UPDATE public.messages AS m\n    SET send_status = 'sending'\n    FROM target t\n    WHERE m.message_id = t.message_id\n      AND m.send_status = 'pending'\n\n      AND EXISTS (\n          SELECT 1\n          FROM public.message_schedules AS ms\n          WHERE ms.schedule_id = m.schedule_id\n            AND ms.schedule_status = 'processing'\n      )\n\n    RETURNING\n        m.message_id,\n        m.schedule_id,\n        m.message_content,\n        m.send_status\n)\n\nSELECT\n    $1::varchar AS message_id,\n\n    EXISTS (\n        SELECT 1\n        FROM claimed\n    ) AS claim_success,\n\n    COALESCE(\n        claimed.schedule_id,\n        target.schedule_id\n    ) AS schedule_id,\n\n    COALESCE(\n        claimed.message_content,\n        target.message_content\n    ) AS message_text,\n\n    COALESCE(\n        claimed.send_status,\n        target.send_status\n    ) AS send_status,\n\n    ms.schedule_status,\n\n    c.customer_id,\n    c.phone\n\nFROM (SELECT 1) AS seed\n\nLEFT JOIN target\n    ON TRUE\n\nLEFT JOIN claimed\n    ON TRUE\n\nLEFT JOIN public.message_schedules AS ms\n    ON ms.schedule_id = COALESCE(\n        claimed.schedule_id,\n        target.schedule_id\n    )\n\nLEFT JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id;",
         "options": {
           "queryReplacement": "={{ [ $json.message_id ] }}"
         }
@@ -344,32 +344,8 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  {\n    json: {\n      message_id: 'MSG-SCH_F07_TRUE_001'\n    }\n  }\n];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -304,
-        128
-      ],
-      "id": "3cea5e5c-2bb0-4e13-96e7-806fc391b2ac",
-      "name": "테스트"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        -448,
-        224
-      ],
-      "id": "22862ebb-137e-4816-8e56-81a04b8ed40a",
-      "name": "테스트1"
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE public.message_schedules AS ms\nSET schedule_status = 'failed'\nFROM public.messages AS m\nWHERE m.message_id = $1\n  AND ms.schedule_id = m.schedule_id\n  AND ms.schedule_status = 'processing'\n  AND m.send_status <> 'sent'\nRETURNING ms.schedule_id, ms.schedule_status;",
+        "query": "UPDATE public.message_schedules AS ms\nSET schedule_status = 'failed'\nFROM public.messages AS m\nWHERE m.message_id = $1\n  AND ms.schedule_id = m.schedule_id\n  AND ms.schedule_status = 'processing'\n  AND m.send_status = 'pending'\nRETURNING\n    ms.schedule_id,\n    ms.schedule_status;",
         "options": {
           "queryReplacement": "={{ [ $json.message_id ] }}"
         }
@@ -388,6 +364,45 @@
           "name": "KT_Project_Supabase_Postgres"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    feature_id: 'F-07',\n    status: 'sent',\n    send_completed: true,\n    message_id: result.message_id ?? null,\n    schedule_id: result.schedule_id ?? null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        176
+      ],
+      "id": "fc954326-5c32-46a4-8a32-b5479f86394e",
+      "name": "문자 발송 성공 반환"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    feature_id: 'F-07',\n    status: 'failed',\n    send_completed: false,\n    reason: 'send_failed',\n    message_id: result.message_id ?? null,\n    schedule_id: result.schedule_id ?? null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        432
+      ],
+      "id": "74b3c4a6-55e6-4408-8637-3f02fe328f58",
+      "name": "문자 발송 실패 반환"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('[조회/선점] 발송 메시지 확보').first().json;\n\nreturn [{\n  json: {\n    success: false,\n    feature_id: 'F-07',\n    status: 'failed',\n    send_completed: false,\n    reason: 'claim_failed',\n    message_id: input.message_id ?? null,\n    schedule_id: input.schedule_id ?? null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        656
+      ],
+      "id": "3a97189d-4664-42aa-bdbf-871f1d594342",
+      "name": "문자 선점 실패 반환"
     }
   ],
   "connections": {
@@ -471,16 +486,33 @@
         ]
       ]
     },
-    "테스트": {
-      "main": [
-        []
-      ]
-    },
-    "테스트1": {
+    "[상태변경] 문자 발송 완료": {
       "main": [
         [
           {
-            "node": "테스트",
+            "node": "문자 발송 성공 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[상태변경] 문자 발송 실패": {
+      "main": [
+        [
+          {
+            "node": "문자 발송 실패 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[상태변경] 선점 실패 처리": {
+      "main": [
+        [
+          {
+            "node": "문자 선점 실패 반환",
             "type": "main",
             "index": 0
           }

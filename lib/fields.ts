@@ -26,48 +26,50 @@ export type FieldDef = {
   suffix?: string;
   /** select·multi 의 선택지. 값이 ", " 로 이어지므로 선택지 안에는 쉼표를 쓰지 않는다. */
   options?: string[];
+  /**
+   * select 의 선택지를 묶음으로 나눈 것. 있으면 목록 대신 "검색해서 고르는 창"이 열린다.
+   * 선택지가 많아져도 화면이 길어지지 않는다. options 는 이 묶음을 펼친 것과 같아야 한다.
+   */
+  groups?: OptionGroup[];
   /** select·multi 에서 선택지에 없는 값을 직접 입력할 때의 안내 문구 */
   otherPlaceholder?: string;
+};
+
+export type OptionGroup = {
+  label: string;
+  options: string[];
+  /** 검색할 때 함께 맞춰 보는 말. 선택지가 영문이어도 한글로 찾을 수 있게 한다. */
+  keywords?: string;
+  /** 선택지 옆에 작게 보여 줄 설명 (예: 월 요금). 저장되는 값에는 들어가지 않는다. */
+  notes?: Record<string, string>;
 };
 
 /** select·multi 에서 직접 입력을 여는 선택지 */
 export const OTHER_OPTION = "기타 (직접 입력)";
 
-// 현재 쓰고 있을 만한 기기. 판매 중인 최신 기기(devices 테이블)의 이전 세대들이다.
-const CURRENT_DEVICES = [
-  "Galaxy S25",
-  "Galaxy S24",
-  "Galaxy S23",
-  "Galaxy S22",
-  "Galaxy Z Flip7",
-  "Galaxy Z Flip6",
-  "Galaxy Z Flip5",
-  "Galaxy Z Fold7",
-  "Galaxy Z Fold6",
-  "Galaxy A 시리즈",
-  "iPhone 16 Pro",
-  "iPhone 16",
-  "iPhone 15 Pro",
-  "iPhone 15",
-  "iPhone 14",
-  "iPhone 13",
+// 기기·요금제 선택지는 DB의 devices·plans 테이블에서 온다 (/api/join/options, lib/catalog.ts).
+// 아래 두 목록은 그 조회가 실패했을 때와 샘플 데이터 모드에서만 쓰는 대비용이다.
+export const FALLBACK_DEVICE_GROUPS: OptionGroup[] = [
+  { label: "갤럭시 S", keywords: "갤럭시 삼성 samsung 에스", options: ["Galaxy S25", "Galaxy S24", "Galaxy S23", "Galaxy S22"] },
+  { label: "갤럭시 Z 플립", keywords: "갤럭시 삼성 samsung 폴더블 플립 제트", options: ["Galaxy Z Flip7", "Galaxy Z Flip6", "Galaxy Z Flip5"] },
+  { label: "갤럭시 Z 폴드", keywords: "갤럭시 삼성 samsung 폴더블 폴드 제트", options: ["Galaxy Z Fold7", "Galaxy Z Fold6"] },
+  { label: "갤럭시 A", keywords: "갤럭시 삼성 samsung 에이 보급형", options: ["Galaxy A 시리즈"] },
+  {
+    label: "아이폰",
+    keywords: "아이폰 애플 apple 프로",
+    options: ["iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro", "iPhone 15", "iPhone 14", "iPhone 13"],
+  },
 ];
 
 // KT 요금제. 번호이동 상담을 위해 다른 통신사 이용 중인 경우도 고를 수 있게 한다.
-const KT_PLANS = [
-  "5G 초이스 프리미엄",
-  "5G 초이스 스페셜",
-  "5G 초이스 베이직",
-  "5G 스페셜",
-  "5G 베이직",
-  "5G 심플",
-  "5G 슬림",
-  "5G 세이브",
-  "요고 (다이렉트)",
-  "LTE 데이터ON",
-  "잘 모르겠어요",
-  "다른 통신사 이용 중",
+export const FALLBACK_PLAN_GROUPS: OptionGroup[] = [
+  { label: "5G 초이스", keywords: "오지 파이브지 choice", options: ["5G 초이스 프리미엄", "5G 초이스 스페셜", "5G 초이스 베이직"] },
+  { label: "5G", keywords: "오지 파이브지", options: ["5G 스페셜", "5G 베이직", "5G 심플", "5G 슬림", "5G 세이브"] },
+  { label: "LTE·다이렉트", keywords: "엘티이 4G yogo 온라인", options: ["요고 (다이렉트)", "LTE 데이터ON"] },
+  { label: "모름·타사", keywords: "몰라 모름 skt lg 유플러스 알뜰폰 타사", options: ["잘 모르겠어요", "다른 통신사 이용 중"] },
 ];
+
+const flat = (groups: OptionGroup[]) => groups.flatMap((group) => group.options);
 
 const USAGE_PATTERNS = [
   "유튜브·OTT 시청",
@@ -102,7 +104,8 @@ export const CUSTOMER_FIELDS: FieldDef[] = [
     type: "select",
     required: true,
     placeholder: "기기를 선택해 주세요",
-    options: CURRENT_DEVICES,
+    options: flat(FALLBACK_DEVICE_GROUPS),
+    groups: FALLBACK_DEVICE_GROUPS,
     otherPlaceholder: "사용 중인 기기 이름",
   },
   {
@@ -111,7 +114,8 @@ export const CUSTOMER_FIELDS: FieldDef[] = [
     type: "select",
     required: true,
     placeholder: "요금제를 선택해 주세요",
-    options: KT_PLANS,
+    options: flat(FALLBACK_PLAN_GROUPS),
+    groups: FALLBACK_PLAN_GROUPS,
     otherPlaceholder: "사용 중인 요금제 이름",
   },
   {

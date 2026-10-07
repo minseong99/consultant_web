@@ -90,9 +90,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH updated AS (\n    UPDATE public.message_schedules AS ms\n    SET schedule_status =\n        CASE\n            WHEN NULLIF(TRIM(c.phone), '') IS NOT NULL\n             AND cc.withdrawn_at IS NULL\n             AND cc.privacy_consent IS TRUE\n             AND cc.recontact_consent IS TRUE\n\n             AND ms.schedule_type IN (\n                 'contract',\n                 'reconsultation',\n                 'promotion'\n             )\n\n             AND (\n                 ms.schedule_type <> 'promotion'\n                 OR cc.marketing_consent IS TRUE\n             )\n\n            THEN 'processing'\n            ELSE 'skipped'\n        END\n\n    FROM public.customers AS c\n\n    LEFT JOIN public.customer_consents AS cc\n        ON cc.customer_id = c.customer_id\n\n    WHERE ms.schedule_id = $1\n      AND ms.customer_id = c.customer_id\n      AND ms.schedule_status = 'scheduled'\n\n    RETURNING\n        ms.schedule_id,\n        ms.schedule_status\n)\n\nSELECT\n    $1::varchar AS schedule_id,\n\n    COALESCE(\n        (SELECT schedule_status FROM updated),\n        'unchanged'\n    ) AS result_status,\n\n    EXISTS (\n        SELECT 1\n        FROM updated\n        WHERE schedule_status = 'processing'\n    ) AS processing_started,\n\n    $2::jsonb AS message_data;",
+        "query": "WITH updated AS (\n    UPDATE public.message_schedules AS ms\n    SET schedule_status =\n        CASE\n            WHEN NULLIF(TRIM(c.phone), '') IS NOT NULL\n             AND cc.withdrawn_at IS NULL\n             AND cc.privacy_consent IS TRUE\n             AND cc.recontact_consent IS TRUE\n\n             AND ms.schedule_type IN (\n                 'contract',\n                 'reconsultation',\n                 'promotion'\n             )\n\n             AND (\n                 ms.schedule_type <> 'promotion'\n                 OR cc.marketing_consent IS TRUE\n             )\n\n            THEN 'processing'\n            ELSE 'skipped'\n        END\n\n    FROM public.customers AS c\n\n    LEFT JOIN LATERAL (\n        SELECT\n            privacy_consent,\n            marketing_consent,\n            recontact_consent,\n            withdrawn_at\n        FROM public.customer_consents\n        WHERE customer_id = c.customer_id\n        ORDER BY consent_at DESC\n        LIMIT 1\n    ) cc ON true\n\n    WHERE ms.schedule_id = $1\n      AND ms.customer_id = c.customer_id\n      AND ms.schedule_status = 'scheduled'\n\n    RETURNING\n        ms.schedule_id,\n        ms.schedule_status\n)\n\nSELECT\n    $1::varchar AS schedule_id,\n\n    COALESCE(\n        (SELECT schedule_status FROM updated),\n        'unchanged'\n    ) AS result_status,\n\n    EXISTS (\n        SELECT 1\n        FROM updated\n        WHERE schedule_status = 'processing'\n    ) AS processing_started,\n\n    $2::jsonb AS message_data;",
         "options": {
-          "queryReplacement": "={{ [\n  $json.schedule_id,\n  JSON.stringify($json.message_data)\n] }}"
+          "queryReplacement": "={{ [\n  $json.schedule_id,\n  JSON.stringify($json.message_data ?? {})\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -262,7 +262,7 @@
         "operation": "executeQuery",
         "query": "UPDATE public.message_schedules\nSET schedule_status = 'failed'\nWHERE schedule_id = $1\n  AND schedule_status = 'processing'\nRETURNING\n    schedule_id,\n    schedule_status;",
         "options": {
-          "queryReplacement": "={{ [ $json.schedule_id ] }}"
+          "queryReplacement": "={{ [\n  $json.schedule_id\n] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -311,36 +311,12 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  {\n    json: {\n      schedule_id: 'SCH_F07_TRUE_001',\n\n      message_data: {\n        customer_id: 'F07_TRUE_C001',\n\n        schedule_type: 'contract',\n        schedule_subtype: 'test_processing_true',\n        contact_reason: '약정 만료 예정 고객 안내',\n\n        customer_name: '처리성공테스트',\n        phone: '01077770001',\n\n        current_device: 'Galaxy S24',\n        current_plan: '5G 베이직',\n        usage_pattern: '데이터 사용량이 많음',\n\n        contract_end_date: '2026-10-31',\n        device_use_months: 23,\n\n        preferred_brand: 'Samsung',\n        target_monthly_budget: 70000,\n        interests: '기기 변경',\n\n        consultation_summary: null,\n        document_id: null\n      }\n    }\n  }\n];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        672,
-        -464
-      ],
-      "id": "2489ae79-4f0b-49ac-8a65-e6368feaf88f",
-      "name": "테스트 "
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        448,
-        -464
-      ],
-      "id": "c059ce39-93cb-4658-ae86-a0725d601a07",
-      "name": "테스트"
-    },
-    {
-      "parameters": {
         "workflowId": {
           "__rl": true,
           "value": "fT4gWUVbI5Hpuegq",
           "mode": "list",
           "cachedResultUrl": "/workflow/fT4gWUVbI5Hpuegq",
-          "cachedResultName": "zF07_맞춤 메시지 생성_서브"
+          "cachedResultName": "F07_맞춤 메시지 생성_서브"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -394,7 +370,7 @@
           "value": "CfAOBLyDDNAD50yU",
           "mode": "list",
           "cachedResultUrl": "/workflow/CfAOBLyDDNAD50yU",
-          "cachedResultName": "zF07_문자 발송 및 결과 처리_서브"
+          "cachedResultName": "F07_문자 발송 및 결과 처리_서브"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -501,22 +477,6 @@
         [
           {
             "node": "Call 'zF07_문자 발송 및 결과 처리_서브'",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "테스트 ": {
-      "main": [
-        []
-      ]
-    },
-    "테스트": {
-      "main": [
-        [
-          {
-            "node": "테스트 ",
             "type": "main",
             "index": 0
           }

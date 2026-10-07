@@ -251,942 +251,6 @@
     },
     {
       "parameters": {
-        "content": "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\n기존 워크플로우의 빈틈을 여기서 보완한다.\n- F04는 update만 하므로 **상담 행을 먼저 insert**\n- 재상담 예정일을 `reconsultation_at` 에 저장 (F06 재상담이 이 값을 요구)\n- F04의 `contract_expiry` → F06의 `contract` 로 매핑\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
-        "height": 300,
-        "width": 460
-      },
-      "id": "d49b54fc-e0bf-4e00-926e-72d1814da143",
-      "name": "안내: 상담 결과",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -512,
-        -1744
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "web/consultation-result",
-        "authentication": "headerAuth",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "3594647a-04df-4d66-94e4-abcac17f49b7",
-      "position": [
-        16,
-        -1712
-      ],
-      "name": "상담 결과 Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "webhookId": "e5003623-d865-4cd9-aa35-2bf1d22da5bb",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "8QrcxiVCBX9yQfnT",
-          "name": "local연동용"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH inserted AS (\n    INSERT INTO public.consultations (\n        consultation_id,\n        customer_id,\n        consulted_at,\n        staff_id,\n        store_id,\n        summary,\n        reconsultation_at\n    )\n    SELECT\n        'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n        c.customer_id,\n        NOW(),\n        $2,\n        $3,\n        $4,\n        CASE\n            WHEN NULLIF($5, '') IS NULL THEN NULL\n            ELSE ((NULLIF($5, '')::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul')\n        END\n    FROM public.customers c\n    WHERE c.customer_id = $1\n    RETURNING consultation_id, customer_id\n)\nSELECT\n    i.consultation_id,\n    i.customer_id,\n    COALESCE((\n        SELECT analysis_id\n        FROM public.customer_analyses\n        WHERE customer_id = i.customer_id\n        ORDER BY created_at DESC\n        LIMIT 1\n    ), '') AS analysis_id\nFROM inserted i;",
-        "options": {
-          "queryReplacement": "={{ [\n  $json.body.customer_id,\n  $json.body.staff_id,\n  $json.body.store_id,\n  $json.body.notes,\n  $json.body.reconsultation_date ?? ''\n] }}"
-        }
-      },
-      "id": "33197f6d-7704-4063-b933-413275074949",
-      "position": [
-        272,
-        -1712
-      ],
-      "name": "상담 행 생성",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "e93b9e6e-0701-45b7-ac28-6ec02b348839",
-              "leftValue": "={{ Boolean($json.consultation_id) }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "17b16156-243a-4784-97ff-a6448d1cf6a5",
-      "position": [
-        528,
-        -1712
-      ],
-      "name": "상담: 행 생성됨?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "1cmpN1S79uDoS2xw",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "customer_id": "={{ $json.customer_id }}",
-            "consultation_id": "={{ $json.consultation_id }}",
-            "staff_id": "={{ $('상담 결과 Webhook').first().json.body.staff_id }}",
-            "analysis_id": "={{ $json.analysis_id }}",
-            "consultation_result": "={{ {\n  notes: $('상담 결과 Webhook').first().json.body.notes ?? '',\n  customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,\n  selected_product: $('상담 결과 Webhook').first().json.body.selected_product ?? null,\n  selected_plan: $('상담 결과 Webhook').first().json.body.selected_plan ?? null,\n  follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,\n  preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null\n} }}",
-            "recording_url": "={{ $('상담 결과 Webhook').first().json.body.recording_url ?? '' }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "customer_id",
-              "displayName": "customer_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "consultation_id",
-              "displayName": "consultation_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "staff_id",
-              "displayName": "staff_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "analysis_id",
-              "displayName": "analysis_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "consultation_result",
-              "displayName": "consultation_result",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object",
-              "removed": false
-            },
-            {
-              "id": "recording_url",
-              "displayName": "recording_url",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "717e77a7-e047-49e9-80dd-f9b3e5c25360",
-      "position": [
-        800,
-        -1712
-      ],
-      "name": "F04 상담 결과 처리",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "const result = $input.first()?.json ?? {};\nconst body = $('상담 결과 Webhook').first().json.body ?? {};\nconst row = $('상담 행 생성').first().json;\nconst ok = result.success === true;\n\n// 직원이 재상담 예정일을 입력했다면 LLM 판단과 무관하게 재상담 일정을 만든다.\n// 그렇지 않고 F04가 약정 만료 안내가 필요하다고 판단하면 약정 일정을 만든다.\n// (F04는 'contract_expiry', F06은 'contract' 를 쓴다.)\nlet scheduleType = '';\nif (ok && body.reconsultation_date) scheduleType = 'reconsultation';\nelse if (ok && result.schedule_type === 'contract_expiry') scheduleType = 'contract';\n\nreturn [{ json: {\n  ok,\n  f04: result,\n  customer_id: row.customer_id,\n  consultation_id: row.consultation_id,\n  gateway_schedule_type: scheduleType,\n} }];"
-      },
-      "id": "09eb7c93-0e34-4c69-9f06-34f9e3362dd5",
-      "position": [
-        1056,
-        -1712
-      ],
-      "name": "F04 결과 확인",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "5c1a1211-77e2-4c1e-a7b7-e08da7628dd4",
-              "leftValue": "={{ $('F04 결과 확인').first().json.gateway_schedule_type !== '' }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "c33269b4-dcec-4ee4-a8ab-7f41466b12d9",
-      "position": [
-        1312,
-        -1712
-      ],
-      "name": "상담: 일정 필요?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "j9aDZV3iDfCQaFsM",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "schedule_type": "={{ $('F04 결과 확인').first().json.gateway_schedule_type }}",
-            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
-            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}",
-            "document_id": "={{ '' }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "schedule_type",
-              "displayName": "schedule_type",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "customer_id",
-              "displayName": "customer_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "consultation_id",
-              "displayName": "consultation_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "document_id",
-              "displayName": "document_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "c6859f38-6fe0-47d6-82e5-c791307b11ff",
-      "position": [
-        1568,
-        -2112
-      ],
-      "name": "상담: F06 일정 생성",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\nFROM public.message_schedules\nWHERE schedule_status = 'scheduled'\n  AND (\n      ($3 = 'reconsultation' AND consultation_id = $1)\n      OR ($3 = 'contract' AND customer_id = $2 AND schedule_type = 'contract')\n  )\nORDER BY scheduled_contact_at;",
-        "options": {
-          "queryReplacement": "={{ [\n  $('F04 결과 확인').first().json.consultation_id,\n  $('F04 결과 확인').first().json.customer_id,\n  $('F04 결과 확인').first().json.gateway_schedule_type\n] }}"
-        }
-      },
-      "id": "061a3597-e632-4f04-b2e7-3aff5ee5286e",
-      "position": [
-        1856,
-        -1920
-      ],
-      "name": "상담: 생성된 일정 조회",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const checked = $('F04 결과 확인').first().json;\nconst schedules = $input.all().map((item) => item.json).filter((row) => row && row.schedule_id);\n\nif (!checked.ok) {\n  const error = checked.f04?.error;\n  return [{ json: {\n    success: false,\n    error_code: 'CONSULTATION_FAILED',\n    message: error\n      ? 'F04 실행 중 오류: ' + String(error.message ?? error)\n      : 'F04 상담 결과 처리가 결과를 반환하지 않았습니다. 상담 메모는 저장되었습니다.',\n    consultation_id: checked.consultation_id,\n  } }];\n}\n\nreturn [{ json: { ...checked.f04, success: true, schedules } }];"
-      },
-      "id": "84d762d5-d1fc-47bd-af48-d227108984af",
-      "position": [
-        2096,
-        -1712
-      ],
-      "name": "상담 응답 구성",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];"
-      },
-      "id": "d0434819-9ff2-4d31-83a1-e86aad67edb6",
-      "position": [
-        800,
-        -1552
-      ],
-      "name": "상담: 고객 없음",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "c6704c3b-9994-42a7-a38e-d8d280b493c3",
-      "position": [
-        2352,
-        -1712
-      ],
-      "name": "상담 응답",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "504712cf-093c-412c-a8a4-67627db0fb51",
-              "leftValue": "={{ $('F04 결과 확인').first().json.ok === true }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "b98cf677-f4a0-44c8-adaa-0b3b42d061f6",
-      "position": [
-        2608,
-        -1712
-      ],
-      "name": "상담: F04 성공?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "NGN6YgDidp9E3vtf",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
-            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "customer_id",
-              "displayName": "customer_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "consultation_id",
-              "displayName": "consultation_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "888dea03-fcd8-456f-a8b9-252e142a4da8",
-      "position": [
-        2880,
-        -1712
-      ],
-      "name": "상담: F02 분석 갱신",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "content": "## POST /webhook/web/send-now\n요청: `{ schedule_id }`\n\nF07 메인은 당일 예정분만 조회하므로, 시연에서는 일정 1건을 골라 F07-S01을 **현재 시각**으로 호출한다 (예약 시각 대기 없이 바로 처리).\n\n조회 쿼리는 F07 메인의 `[조회] 오늘의 메시지 발송 대상` 과 같은 형태다.\n\n응답: `{ success, schedule_id, schedule_status, message_id, send_status }`",
-        "height": 260,
-        "width": 460
-      },
-      "id": "4bef07fe-be32-422b-9f54-bc84033e07c4",
-      "name": "안내: 즉시 발송1",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -3376,
-        -656
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "web/send-now",
-        "authentication": "headerAuth",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "bb43c239-36df-4fbb-af04-19fe2ab4bac6",
-      "position": [
-        -2848,
-        -624
-      ],
-      "name": "즉시 발송 Webhook1",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "webhookId": "13bf3110-7f18-4c81-a19f-bb0012debfd1",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "8QrcxiVCBX9yQfnT",
-          "name": "local연동용"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n    ms.schedule_id,\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n    con.summary AS consultation_summary\nFROM public.message_schedules AS ms\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\nWHERE ms.schedule_id = $1\n  AND ms.schedule_status = 'scheduled'\nLIMIT 1;",
-        "options": {
-          "queryReplacement": "={{ [ $json.body.schedule_id ] }}"
-        }
-      },
-      "id": "8bd2921c-df08-40cf-87df-3f64f94d8dad",
-      "position": [
-        -2592,
-        -624
-      ],
-      "name": "발송: 일정 조회1",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "32889224-eb69-41f4-a3c9-0f487afbfc9f",
-              "leftValue": "={{ Boolean($json.schedule_id) }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "0ddf25f4-5c46-4c6e-8f47-d09e741ae1d9",
-      "position": [
-        -2336,
-        -624
-      ],
-      "name": "발송: 예정 상태 일정 있음?1",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "QFjC2ARP9Q6fCExH",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "schedule_id": "={{ $json.schedule_id }}",
-            "scheduled_contact_at": "={{ $now.toISO() }}",
-            "message_data": "={{ {\n  customer_id: $json.customer_id,\n  schedule_type: $json.schedule_type,\n  schedule_subtype: $json.schedule_subtype ?? null,\n  contact_reason: $json.contact_reason ?? null,\n  customer_name: $json.customer_name,\n  phone: $json.phone,\n  current_device: $json.current_device ?? null,\n  current_plan: $json.current_plan ?? null,\n  usage_pattern: $json.usage_pattern ?? null,\n  contract_end_date: $json.contract_end_date ?? null,\n  device_use_months: $json.device_use_months ?? null,\n  preferred_brand: $json.preferred_brand ?? null,\n  target_monthly_budget: $json.target_monthly_budget ?? null,\n  interests: $json.interests ?? null,\n  consultation_summary: $json.consultation_summary ?? null,\n  document_id: $json.document_id ?? null\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "schedule_id",
-              "displayName": "schedule_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "scheduled_contact_at",
-              "displayName": "scheduled_contact_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "message_data",
-              "displayName": "message_data",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "8d0539b7-37b1-46de-8773-7309efcba32b",
-      "position": [
-        -2064,
-        -624
-      ],
-      "name": "F07-S01 개별 메시지 처리1",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n    ms.schedule_id,\n    ms.schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
-        "options": {
-          "queryReplacement": "={{ [ $('즉시 발송 Webhook1').first().json.body.schedule_id ] }}"
-        }
-      },
-      "id": "5236cd56-06f8-42c1-9966-7f36f97dd16b",
-      "position": [
-        -1808,
-        -624
-      ],
-      "name": "발송: 결과 조회1",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "alwaysOutputData": true,
-      "credentials": {
-        "postgres": {
-          "id": "YVkzsBzhXmXxNLug",
-          "name": "KT_Project_Supabase_Postgres"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const row = $input.first()?.json ?? {};\nconst called = $('F07-S01 개별 메시지 처리1').first()?.json ?? {};\nconst scheduleId = row.schedule_id ?? $('즉시 발송 Webhook1').first().json.body.schedule_id;\n\n// 발송 여부는 n8n 실행 결과가 아니라 DB에 기록된 상태로 판단한다.\n// 호출 뒤에도 일정이 scheduled 그대로면 F07-S01이 시작되지 못한 것이다.\n// (예: 하위 워크플로우의 호출 허용 설정, 입력 오류) 원인을 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nif (called.error || row.schedule_status === 'scheduled') {\n  const detail = called.error ? String(called.error.message ?? called.error) : null;\n  return [{ json: {\n    success: false,\n    error_code: 'SEND_NOT_STARTED',\n    message: detail\n      ? 'F07-S01 실행 중 오류: ' + detail\n      : 'F07-S01 개별 메시지 처리가 일정을 처리하지 않았습니다. n8n 실행 기록을 확인하세요.',\n    schedule_id: scheduleId,\n    schedule_status: row.schedule_status ?? null,\n  } }];\n}\n\nreturn [{ json: {\n  success: true,\n  schedule_id: scheduleId,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
-      },
-      "id": "d6a5bab1-9036-4e39-8c3d-8615cbf9bec4",
-      "position": [
-        -1552,
-        -624
-      ],
-      "name": "발송 응답 구성1",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다.' } }];"
-      },
-      "id": "386c6f7a-b052-4f65-be56-25fd0f4969f4",
-      "position": [
-        -2064,
-        -480
-      ],
-      "name": "발송: 일정 없음1",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "e369b2d5-c6fb-4416-9f7c-ca901783b6af",
-      "position": [
-        -1296,
-        -624
-      ],
-      "name": "발송 응답1",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1
-    },
-    {
-      "parameters": {
-        "content": "## POST /webhook/web/promotion\n요청: `{ document_id, store_id }`\n\nF05로 대상을 선정하고, `targeted` 이면 F06(promotion)으로 일정을 만든다.\n\n응답: F05 반환값 그대로 (`status`, `target_count`, `target_customers[]`)",
-        "height": 200,
-        "width": 460
-      },
-      "id": "677450a6-dd45-45c9-bd50-91f195724e44",
-      "name": "안내: 프로모션1",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -3408,
-        -80
-      ]
-    },
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "web/promotion",
-        "authentication": "headerAuth",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "fb3d1f63-3602-469a-b268-5703a7ddfebf",
-      "position": [
-        -2896,
-        -32
-      ],
-      "name": "프로모션 Webhook1",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "webhookId": "1cdb82ad-486e-4df5-a7c8-82a3b49b5285",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "8QrcxiVCBX9yQfnT",
-          "name": "local연동용"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "kSNl11r9lqQjBO5E",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "document_id": "={{ $json.body.document_id }}",
-            "store_id": "={{ $json.body.store_id }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "document_id",
-              "displayName": "document_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "store_id",
-              "displayName": "store_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "76fa2af4-c727-4a4c-96bb-0d6aef93dec8",
-      "position": [
-        -2624,
-        -32
-      ],
-      "name": "F05 프로모션 대상 고객 선정1",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "const result = $input.first()?.json ?? {};\n\nif (typeof result.status !== 'string') {\n  return [{ json: { targeted: false, response: {\n    success: false,\n    error_code: 'PROMOTION_FAILED',\n    message: result.error\n      ? 'F05 실행 중 오류: ' + String(result.error.message ?? result.error)\n      : 'F05 프로모션 대상 고객 선정이 결과를 반환하지 않았습니다.',\n  } } }];\n}\n\n// F06 프로모션 일정이 F05가 선정한 고객에게만 만들어지도록, 대상 고객 ID를 쉼표로 이어 넘긴다.\n// (F06 일정 관리의 customer_id 입력을 사용. F06 쪽 수정 전에는 이 값이 무시된다.)\nconst targetIds = Array.isArray(result.target_customers)\n  ? result.target_customers.map((c) => c.customer_id).filter(Boolean).join(',')\n  : '';\n\nreturn [{ json: { targeted: result.status === 'targeted', document_id: result.document_id, target_ids: targetIds, response: result } }];"
-      },
-      "id": "467929ea-32f0-4719-b4a5-70b9ea01f3ea",
-      "position": [
-        -2368,
-        -32
-      ],
-      "name": "F05 결과 확인1",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "700c4b9e-102a-49ee-a9df-2565441bcdd0",
-              "leftValue": "={{ $json.targeted === true }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "b4049de9-3fdf-44e5-829a-2fd1ab5fcbe1",
-      "position": [
-        -2112,
-        -32
-      ],
-      "name": "프로모션: 대상 있음?1",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "j9aDZV3iDfCQaFsM",
-          "mode": "id"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "schedule_type": "={{ 'promotion' }}",
-            "customer_id": "={{ $json.target_ids }}",
-            "consultation_id": "={{ '' }}",
-            "document_id": "={{ $json.document_id }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "schedule_type",
-              "displayName": "schedule_type",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "customer_id",
-              "displayName": "customer_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "consultation_id",
-              "displayName": "consultation_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "document_id",
-              "displayName": "document_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        }
-      },
-      "id": "cd95f872-6b67-4e01-9f30-16667f6863d5",
-      "position": [
-        -1840,
-        -160
-      ],
-      "name": "프로모션: F06 일정 생성1",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: $('F05 결과 확인1').first().json.response }];"
-      },
-      "id": "b42061b7-9b6e-4d2a-acbd-f965bd83ddeb",
-      "position": [
-        -1584,
-        -32
-      ],
-      "name": "프로모션 응답 구성1",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "options": {}
-      },
-      "id": "8b4408dd-0f30-4f69-93c6-3121e449d141",
-      "position": [
-        -1328,
-        -32
-      ],
-      "name": "프로모션 응답1",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1
-    },
-    {
-      "parameters": {
         "content": "## POST /webhook/web/customer-intake\n고객 화면(/join)의 제출을 받는다.\n\nF01 저장 → **먼저 응답** → 약정 만료일이 있으면 F06(contract) → F02 분석.\n\n응답: `{ success, customer_id }`",
         "height": 200,
         "width": 460
@@ -1571,6 +635,26 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -1582,8 +666,8 @@
       },
       "id": "28f96fe1-4fe0-4561-a5f6-71722f311892",
       "position": [
-        -1312,
-        -1856
+        -1296,
+        -1952
       ],
       "name": "접수: F06 약정 일정 생성1",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -1637,7 +721,7 @@
       "id": "7b9767de-1404-4a56-9676-519e6dd03643",
       "position": [
         -1040,
-        -1856
+        -1840
       ],
       "name": "접수: F02 고객 분석1",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -1647,17 +731,1020 @@
     },
     {
       "parameters": {
-        "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, 메타데이터에 `document_id`)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
+        "content": "## POST /webhook/web/promotion\n요청: `{ document_id, store_id }`\n\nF05로 대상을 선정하고, `targeted` 이면 F06(promotion)으로 일정을 만든다.\n\n응답: F05 반환값 그대로 (`status`, `target_count`, `target_customers[]`)",
+        "height": 200,
+        "width": 460
+      },
+      "id": "7160db7a-d898-453c-9bc8-afbf2b20979b",
+      "name": "안내: 프로모션",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3360,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/promotion",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6f5a81e1-403e-42fe-bafc-b714e2700acc",
+      "position": [
+        -2848,
+        96
+      ],
+      "name": "프로모션 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "1cdb82ad-486e-4df5-a7c8-82a3b49b5285",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "kSNl11r9lqQjBO5E",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "document_id": "={{ $json.body.document_id }}",
+            "store_id": "={{ $json.body.store_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "store_id",
+              "displayName": "store_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "a1bb6078-a65d-410f-83b9-87e187961ff4",
+      "position": [
+        -2576,
+        96
+      ],
+      "name": "F05 프로모션 대상 고객 선정",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\n\nif (typeof result.status !== 'string') {\n  return [{ json: { targeted: false, response: {\n    success: false,\n    error_code: 'PROMOTION_FAILED',\n    message: result.error\n      ? 'F05 실행 중 오류: ' + String(result.error.message ?? result.error)\n      : 'F05 프로모션 대상 고객 선정이 결과를 반환하지 않았습니다.',\n  } } }];\n}\n\n// F06 프로모션 일정은 고객 한 명씩 만든다. F05가 선정한 고객 ID 목록을 넘겨 다음 노드에서 한 명씩 나눈다.\nconst targetIds = Array.isArray(result.target_customers)\n  ? result.target_customers.map((c) => c.customer_id).filter(Boolean)\n  : [];\n\nreturn [{ json: { targeted: result.status === 'targeted' && targetIds.length > 0, document_id: result.document_id, target_ids: targetIds, response: result } }];"
+      },
+      "id": "f5028159-3a4a-4cc4-a7e0-81e90978357f",
+      "position": [
+        -2320,
+        96
+      ],
+      "name": "F05 결과 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "700c4b9e-102a-49ee-a9df-2565441bcdd0",
+              "leftValue": "={{ $json.targeted === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "04861140-1ce7-43e3-b11e-b880a7197583",
+      "position": [
+        -2064,
+        96
+      ],
+      "name": "프로모션: 대상 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const checked = $('F05 결과 확인').first().json;\nreturn checked.target_ids.map((customerId) => ({ json: { document_id: checked.document_id, customer_id: customerId } }));"
+      },
+      "id": "27ddac39-3331-4344-a2e1-4b56688fb045",
+      "position": [
+        -1824,
+        -64
+      ],
+      "name": "프로모션: 대상 고객 나누기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "j9aDZV3iDfCQaFsM"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_type": "={{ 'promotion' }}",
+            "customer_id": "={{ $json.customer_id }}",
+            "consultation_id": "={{ '' }}",
+            "document_id": "={{ $json.document_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "a94c95af-2c9d-4917-88d2-9f39fe056919",
+      "position": [
+        -1552,
+        -64
+      ],
+      "name": "프로모션: F06 일정 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('F05 결과 확인').first().json.response }];"
+      },
+      "id": "2605e536-e98a-4d35-add9-1a80e657fc42",
+      "position": [
+        -1280,
+        96
+      ],
+      "name": "프로모션 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4779f755-2b12-4bd1-94d0-82ed96099dc7",
+      "position": [
+        -1008,
+        96
+      ],
+      "name": "프로모션 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/consultation-result\n요청: `customer_id, staff_id, store_id, notes, customer_response?, selected_product?, selected_plan?, follow_up_requested?, reconsultation_date?, recording_url?`\n\nF04·F06의 입력에 맞춘다.\n- 상담 행을 먼저 만들어 ID를 정한다 (F04가 같은 ID로 다시 저장)\n- 메모는 `consultation_text` 로, 고른 기기·요금제 이름은 메모 끝에 붙여 넘긴다\n- 재상담 예정일이 있으면 F06(reconsultation)에 `preferred_follow_up_date`, `contact_reason` 을 넘긴다\n- F04가 비우는 `store_id` 를 일정 조회 때 되돌린다\n\n순서: F04 → F06(일정) → **응답** → F02(분석 갱신). F02는 LLM 호출이라 30초쯤 걸리므로 응답을 먼저 보낸다 (응답 전에 두면 47초, 실측).\n\n응답: F04 반환값 + `schedules[]`",
+        "height": 300,
+        "width": 460
+      },
+      "id": "69bfe1cd-ba14-42da-b1f9-6b3b4e1b3bab",
+      "name": "안내: 상담 결과",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        -2464
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/consultation-result",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "29835cfc-c38b-411b-969c-f23479248f8b",
+      "position": [
+        -272,
+        -2432
+      ],
+      "name": "상담 결과 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "e5003623-d865-4cd9-aa35-2bf1d22da5bb",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH inserted AS (\n    INSERT INTO public.consultations (\n        consultation_id,\n        customer_id,\n        consulted_at,\n        staff_id,\n        store_id,\n        summary,\n        reconsultation_at\n    )\n    SELECT\n        'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n        c.customer_id,\n        NOW(),\n        $2,\n        $3,\n        $4,\n        CASE\n            WHEN NULLIF($5, '') IS NULL THEN NULL\n            ELSE ((NULLIF($5, '')::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul')\n        END\n    FROM public.customers c\n    WHERE c.customer_id = $1\n    RETURNING consultation_id, customer_id\n)\nSELECT\n    i.consultation_id,\n    i.customer_id,\n    COALESCE((\n        SELECT analysis_id\n        FROM public.customer_analyses\n        WHERE customer_id = i.customer_id\n        ORDER BY created_at DESC\n        LIMIT 1\n    ), '') AS analysis_id\nFROM inserted i;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.body.customer_id,\n  $json.body.staff_id,\n  $json.body.store_id,\n  $json.body.notes,\n  $json.body.reconsultation_date ?? ''\n] }}"
+        }
+      },
+      "id": "189ee01a-3576-4366-ba83-28686bacb362",
+      "position": [
+        -16,
+        -2432
+      ],
+      "name": "상담 행 생성",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e93b9e6e-0701-45b7-ac28-6ec02b348839",
+              "leftValue": "={{ Boolean($json.consultation_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "43314ca6-745a-488b-8cdd-1251c4bdc49b",
+      "position": [
+        240,
+        -2432
+      ],
+      "name": "상담: 행 생성됨?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "1cmpN1S79uDoS2xw",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $json.customer_id }}",
+            "consultation_id": "={{ $json.consultation_id }}",
+            "staff_id": "={{ $('상담 결과 Webhook').first().json.body.staff_id }}",
+            "analysis_id": "={{ $json.analysis_id }}",
+            "consultation_result": "={{ {\n  consultation_text: [\n    $('상담 결과 Webhook').first().json.body.notes ?? '',\n    $('상담 결과 Webhook').first().json.body.selected_product ? '선택한 기기: ' + $('상담 결과 Webhook').first().json.body.selected_product : '',\n    $('상담 결과 Webhook').first().json.body.selected_plan ? '선택한 요금제: ' + $('상담 결과 Webhook').first().json.body.selected_plan : ''\n  ].filter(Boolean).join('\\n'),\n  customer_response: $('상담 결과 Webhook').first().json.body.customer_response ?? null,\n  follow_up_requested: $('상담 결과 Webhook').first().json.body.follow_up_requested ?? null,\n  preferred_follow_up_date: $('상담 결과 Webhook').first().json.body.reconsultation_date ?? null\n} }}",
+            "recording_url": "={{ $('상담 결과 Webhook').first().json.body.recording_url ?? '' }}",
+            "store_id": "={{ $('상담 결과 Webhook').first().json.body.store_id ?? '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "staff_id",
+              "displayName": "staff_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "analysis_id",
+              "displayName": "analysis_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_result",
+              "displayName": "consultation_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "recording_url",
+              "displayName": "recording_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "store_id",
+              "displayName": "store_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "643738f9-3ed8-4820-8ef5-91c3fee2c2f3",
+      "position": [
+        512,
+        -2432
+      ],
+      "name": "F04 상담 결과 처리",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\nconst body = $('상담 결과 Webhook').first().json.body ?? {};\nconst row = $('상담 행 생성').first().json;\nconst ok = result.success === true;\n\n// 직원이 재상담 예정일을 입력했으면 재상담 일정을 만든다.\n// (F04는 일정 유형을 정하지 않는다. 약정 일정은 접수 때 만든다.)\nlet scheduleType = '';\nif (ok && body.reconsultation_date) scheduleType = 'reconsultation';\n\nreturn [{ json: {\n  ok,\n  f04: result,\n  customer_id: row.customer_id,\n  consultation_id: row.consultation_id,\n  gateway_schedule_type: scheduleType,\n  follow_up_date: body.reconsultation_date ?? '',\n  contact_reason: result.follow_up_reason || '재상담 안내',\n} }];"
+      },
+      "id": "cdbc687d-7d5b-48ca-8f70-0e8d2b29e12b",
+      "position": [
+        768,
+        -2432
+      ],
+      "name": "F04 결과 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5c1a1211-77e2-4c1e-a7b7-e08da7628dd4",
+              "leftValue": "={{ $('F04 결과 확인').first().json.gateway_schedule_type !== '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2c28832b-ff25-446c-ad20-970c00cdb87f",
+      "position": [
+        1024,
+        -2432
+      ],
+      "name": "상담: 일정 필요?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "j9aDZV3iDfCQaFsM",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_type": "={{ $('F04 결과 확인').first().json.gateway_schedule_type }}",
+            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
+            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}",
+            "document_id": "={{ '' }}",
+            "preferred_follow_up_date": "={{ $('F04 결과 확인').first().json.follow_up_date }}",
+            "contact_reason": "={{ $('F04 결과 확인').first().json.contact_reason }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_type",
+              "displayName": "schedule_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "preferred_follow_up_date",
+              "displayName": "preferred_follow_up_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "contact_reason",
+              "displayName": "contact_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "aea0cca0-bcfd-4f2e-ab10-ae8790c9a9bc",
+      "position": [
+        1280,
+        -2288
+      ],
+      "name": "상담: F06 일정 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- F04가 상담 행을 다시 저장하면서 store_id 를 비우므로(F04 입력에 매장이 없음) 여기서 되돌린다.\nWITH kept AS (\n    UPDATE public.consultations\n    SET store_id = $4\n    WHERE consultation_id = $1\n      AND NULLIF($4, '') IS NOT NULL\n      AND store_id IS DISTINCT FROM $4\n    RETURNING consultation_id\n)\nSELECT\n    schedule_id,\n    customer_id,\n    schedule_type,\n    reference_date,\n    scheduled_contact_at,\n    calendar_event_id,\n    schedule_status,\n    contact_reason,\n    consultation_id,\n    schedule_subtype,\n    document_id\nFROM public.message_schedules\nWHERE schedule_status = 'scheduled'\n  AND (\n      ($3 = 'reconsultation' AND consultation_id = $1)\n      OR ($3 = 'contract' AND customer_id = $2 AND schedule_type = 'contract')\n  )\nORDER BY scheduled_contact_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('F04 결과 확인').first().json.consultation_id,\n  $('F04 결과 확인').first().json.customer_id,\n  $('F04 결과 확인').first().json.gateway_schedule_type,\n  $('상담 결과 Webhook').first().json.body.store_id ?? ''\n] }}"
+        }
+      },
+      "id": "b8c7c7e3-b069-4a50-bd15-d48eb75a5b14",
+      "position": [
+        1552,
+        -2432
+      ],
+      "name": "상담: 생성된 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const checked = $('F04 결과 확인').first().json;\nconst schedules = $input.all().map((item) => item.json).filter((row) => row && row.schedule_id);\n\nif (!checked.ok) {\n  const error = checked.f04?.error;\n  return [{ json: {\n    success: false,\n    error_code: 'CONSULTATION_FAILED',\n    message: error\n      ? 'F04 실행 중 오류: ' + String(error.message ?? error)\n      : 'F04 상담 결과 처리가 결과를 반환하지 않았습니다. 상담 메모는 저장되었습니다.',\n    consultation_id: checked.consultation_id,\n  } }];\n}\n\nreturn [{ json: { ...checked.f04, success: true, schedules } }];"
+      },
+      "id": "69d77742-82d1-424d-bbe9-e51f371290b8",
+      "position": [
+        1808,
+        -2432
+      ],
+      "name": "상담 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];"
+      },
+      "id": "951aed55-3ed1-45cc-8775-1dac5df5833a",
+      "position": [
+        512,
+        -2288
+      ],
+      "name": "상담: 고객 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "089126a7-7f70-4d91-ad31-ca35e38f78f6",
+      "position": [
+        2064,
+        -2432
+      ],
+      "name": "상담 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "504712cf-093c-412c-a8a4-67627db0fb51",
+              "leftValue": "={{ $('F04 결과 확인').first().json.ok === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "be4cc749-a804-4780-b589-66cd8adcccf0",
+      "position": [
+        2320,
+        -2432
+      ],
+      "name": "상담: F04 성공?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "NGN6YgDidp9E3vtf",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $('F04 결과 확인').first().json.customer_id }}",
+            "consultation_id": "={{ $('F04 결과 확인').first().json.consultation_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "consultation_id",
+              "displayName": "consultation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "6796d2fa-c8de-4c95-90c6-bc1e0b31421e",
+      "position": [
+        2592,
+        -2432
+      ],
+      "name": "상담: F02 분석 갱신2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/send-now\n요청: `{ schedule_id }`\n\nF07 메인은 당일 예정분만 조회하므로, 시연에서는 일정 1건을 골라 F07-S01을 **현재 시각**으로 호출한다 (예약 시각 대기 없이 바로 처리).\n\n조회 쿼리는 F07 메인의 `[조회] 오늘의 메시지 발송 대상` 과 같은 형태다.\n\n응답: `{ success, schedule_id, schedule_status, message_id, send_status }`",
+        "height": 260,
+        "width": 460
+      },
+      "id": "cd927052-699e-45a6-8ba4-c88a74f5a6e2",
+      "name": "안내: 즉시 발송",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3360,
+        -720
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/send-now",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2a84b50b-af25-4cf5-990e-042e19bc7a53",
+      "position": [
+        -2832,
+        -672
+      ],
+      "name": "즉시 발송 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "13bf3110-7f18-4c81-a19f-bb0012debfd1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n    con.summary AS consultation_summary\nFROM public.message_schedules AS ms\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\nWHERE ms.schedule_id = $1\n  AND ms.schedule_status = 'scheduled'\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.schedule_id ] }}"
+        }
+      },
+      "id": "267081a6-10eb-410c-8b17-f832e20d13e2",
+      "position": [
+        -2576,
+        -672
+      ],
+      "name": "발송: 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "32889224-eb69-41f4-a3c9-0f487afbfc9f",
+              "leftValue": "={{ Boolean($json.schedule_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e5ada41b-91ad-4088-a58d-6266228354ac",
+      "position": [
+        -2320,
+        -672
+      ],
+      "name": "발송: 예정 상태 일정 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "QFjC2ARP9Q6fCExH",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "scheduled_contact_at": "={{ $now.toISO() }}",
+            "message_data": "={{ {\n  customer_id: $json.customer_id,\n  schedule_type: $json.schedule_type,\n  schedule_subtype: $json.schedule_subtype ?? null,\n  contact_reason: $json.contact_reason ?? null,\n  customer_name: $json.customer_name,\n  phone: $json.phone,\n  current_device: $json.current_device ?? null,\n  current_plan: $json.current_plan ?? null,\n  usage_pattern: $json.usage_pattern ?? null,\n  contract_end_date: $json.contract_end_date ?? null,\n  device_use_months: $json.device_use_months ?? null,\n  preferred_brand: $json.preferred_brand ?? null,\n  target_monthly_budget: $json.target_monthly_budget ?? null,\n  interests: $json.interests ?? null,\n  consultation_summary: $json.consultation_summary ?? null,\n  document_id: $json.document_id ?? null\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "scheduled_contact_at",
+              "displayName": "scheduled_contact_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "1bc2a537-67cd-4d21-a0de-e8a12dd2de3d",
+      "position": [
+        -2048,
+        -672
+      ],
+      "name": "F07-S01 개별 메시지 처리",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('즉시 발송 Webhook').first().json.body.schedule_id ] }}"
+        }
+      },
+      "id": "7e68ea3e-2d63-4cc3-a808-7664b1444a02",
+      "position": [
+        -1792,
+        -672
+      ],
+      "name": "발송: 결과 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first()?.json ?? {};\nconst called = $('F07-S01 개별 메시지 처리').first()?.json ?? {};\nconst scheduleId = row.schedule_id ?? $('즉시 발송 Webhook').first().json.body.schedule_id;\n\n// 발송 여부는 n8n 실행 결과가 아니라 DB에 기록된 상태로 판단한다.\n// 호출 뒤에도 일정이 scheduled 그대로면 F07-S01이 시작되지 못한 것이다.\n// (예: 하위 워크플로우의 호출 허용 설정, 입력 오류) 원인을 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nif (called.error || row.schedule_status === 'scheduled') {\n  const detail = called.error ? String(called.error.message ?? called.error) : null;\n  return [{ json: {\n    success: false,\n    error_code: 'SEND_NOT_STARTED',\n    message: detail\n      ? 'F07-S01 실행 중 오류: ' + detail\n      : 'F07-S01 개별 메시지 처리가 일정을 처리하지 않았습니다. n8n 실행 기록을 확인하세요.',\n    schedule_id: scheduleId,\n    schedule_status: row.schedule_status ?? null,\n  } }];\n}\n\nreturn [{ json: {\n  success: true,\n  schedule_id: scheduleId,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
+      },
+      "id": "257568d1-5f46-4cdb-8080-75b13b0499aa",
+      "position": [
+        -1536,
+        -672
+      ],
+      "name": "발송 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다.' } }];"
+      },
+      "id": "eb7fe7fc-53ad-4ca1-ab1f-1c49035b04e5",
+      "position": [
+        -2048,
+        -528
+      ],
+      "name": "발송: 일정 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a04a7ff7-12d9-473e-8b3a-7c75f901c07d",
+      "position": [
+        -1280,
+        -672
+      ],
+      "name": "발송 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/promotion-register\n요청: `{ store_id, promotion_name, valid_from, valid_until, benefit, promotion_type?, target_device?, target_plan?, target_customer?, conditions? }`\n\n프로모션 문서 행(`documents`)과 본문 조각(`kt_promotion_vectors`, `document_id` 열과 메타데이터 양쪽에 문서 ID)을 한 번에 저장한다. F05가 대상 조건을 읽고 F07이 문자를 쓰는 데 이 조각을 쓴다.\n\n응답: `{ success, document_id, file_name, valid_from, valid_until }`",
         "height": 240,
         "width": 460
       },
-      "id": "b12dfa4f-33f3-437a-9aaa-104177fbd269",
-      "name": "안내: 프로모션 등록",
+      "id": "43f8fc98-813d-40e7-a8e1-a7d7bcaba602",
+      "name": "안내: 프로모션 등록1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -592,
-        -816
+        -720
       ]
     },
     {
@@ -1668,12 +1755,12 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "edb2067c-d43e-4be2-97e3-254d61e0a9e9",
+      "id": "723eb11a-b3e0-40dc-bbf1-d3034bae21c0",
       "position": [
         -64,
-        -784
+        -672
       ],
-      "name": "프로모션 등록 Webhook",
+      "name": "프로모션 등록 Webhook1",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "webhookId": "28968bdb-04bc-45ff-a6c1-271635b7171c",
@@ -1688,12 +1775,12 @@
       "parameters": {
         "jsCode": "const body = $input.first().json.body ?? {};\nconst text = (value) => (typeof value === 'string' ? value.trim() : '');\nconst isDate = (value) => /^\\d{4}-\\d{2}-\\d{2}$/.test(value);\n\nconst name = text(body.promotion_name);\nconst storeId = text(body.store_id);\nconst from = text(body.valid_from);\nconst until = text(body.valid_until);\nconst benefit = text(body.benefit);\n\nconst fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];\n\nif (!storeId) return fail('매장 정보가 없습니다.');\nif (!name) return fail('프로모션 이름을 입력해 주세요.');\nif (!isDate(from) || !isDate(until)) return fail('적용 기간을 입력해 주세요.');\nif (from > until) return fail('종료일이 시작일보다 빠릅니다.');\nif (!benefit) return fail('혜택 내용을 입력해 주세요.');\n\n// documents.document_id 는 varchar(20) 이다. 'PROMO-' + 13자리 = 19자.\nconst documentId = 'PROMO-' + Date.now();\n\n// F05(대상 조건 추출)와 F07(문자 생성)이 읽는 본문. 기존 프로모션 문서와 같은 형식으로 만든다.\nconst lines = [\n  ['프로모션 ID', documentId],\n  ['프로모션명', name],\n  ['프로모션 유형', text(body.promotion_type)],\n  ['대상 기기', text(body.target_device)],\n  ['대상 요금제', text(body.target_plan)],\n  ['대상 고객', text(body.target_customer)],\n  ['혜택', benefit],\n  ['조건', text(body.conditions)],\n  ['적용 기간', from + ' ~ ' + until],\n].filter(([, value]) => value).map(([label, value]) => label + ': ' + value);\n\nreturn [{ json: {\n  valid: true,\n  document_id: documentId,\n  store_id: storeId,\n  file_name: name,\n  file_path: 'web/' + documentId,\n  valid_from: from,\n  valid_until: until,\n  content: lines.join('\\n'),\n  metadata: JSON.stringify({\n    source: 'web',\n    store_id: storeId,\n    file_name: name,\n    document_id: documentId,\n    document_type: 'promotion',\n  }),\n} }];"
       },
-      "id": "9476d646-fa25-42be-b71e-17754a3a9d37",
+      "id": "8cf7b4c2-b0f9-403d-ba45-72a422362831",
       "position": [
         192,
-        -784
+        -672
       ],
-      "name": "등록 입력 정리",
+      "name": "등록 입력 정리1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2
     },
@@ -1722,12 +1809,12 @@
         },
         "options": {}
       },
-      "id": "a9aa6c3a-8aad-4664-8a37-7b60a1eb13f4",
+      "id": "1cc44705-d956-454f-aa8a-a539fca69c4e",
       "position": [
         448,
-        -784
+        -672
       ],
-      "name": "등록: 입력 유효?",
+      "name": "등록: 입력 유효?1",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2
     },
@@ -1742,12 +1829,12 @@
         "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: $json.content }) }}",
         "options": {}
       },
-      "id": "52f30e69-b74c-43a3-83f4-52f41c27dfab",
+      "id": "59935e32-80ff-45f1-bd33-3eafe4004e27",
       "position": [
         720,
-        -784
+        -672
       ],
-      "name": "등록: 본문 임베딩",
+      "name": "등록: 본문 임베딩1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "alwaysOutputData": true,
@@ -1762,17 +1849,17 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding)\n    SELECT $7, $8::jsonb, $9::vector\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
+        "query": "WITH doc AS (\n    INSERT INTO public.documents (\n        document_id, store_id, document_type, file_name, file_path, valid_from, valid_until\n    )\n    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)\n    RETURNING document_id, file_name, valid_from, valid_until\n),\nvec AS (\n    -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.\n    INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)\n    SELECT $7, $8::jsonb, $9::vector, doc.document_id\n    FROM doc\n    RETURNING vector_id\n)\nSELECT\n    doc.document_id,\n    doc.file_name,\n    doc.valid_from,\n    doc.valid_until,\n    (SELECT vector_id FROM vec) AS vector_id\nFROM doc;",
         "options": {
-          "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
+          "queryReplacement": "={{ (() => {\n  const p = $('등록 입력 정리1').first().json;\n  return [\n    p.document_id, p.store_id, p.file_name, p.file_path, p.valid_from, p.valid_until,\n    p.content, p.metadata,\n    JSON.stringify($json.data?.[0]?.embedding ?? null),\n  ];\n})() }}"
         }
       },
-      "id": "c391b5a5-0d5a-4fc3-83c8-193d05b1c43b",
+      "id": "40f09edd-2e06-4c4c-8bf9-47af0c7d96d6",
       "position": [
         976,
-        -784
+        -672
       ],
-      "name": "등록: 문서·본문 저장",
+      "name": "등록: 문서·본문 저장1",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "alwaysOutputData": true,
@@ -1786,14 +1873,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $('등록 입력 정리').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst saved = $input.first()?.json ?? {};\nif (saved.document_id && saved.vector_id) {\n  return [{ json: {\n    success: true,\n    document_id: saved.document_id,\n    file_name: input.file_name,\n    valid_from: input.valid_from,\n    valid_until: input.valid_until,\n  } }];\n}\n\n// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nlet embedding = {};\ntry { embedding = $('등록: 본문 임베딩').first()?.json ?? {}; } catch (error) { embedding = {}; }\nconst reason = !Array.isArray(embedding.data)\n  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')\n  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');\n\nreturn [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];"
+        "jsCode": "const input = $('등록 입력 정리1').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nconst saved = $input.first()?.json ?? {};\nif (saved.document_id && saved.vector_id) {\n  return [{ json: {\n    success: true,\n    document_id: saved.document_id,\n    file_name: input.file_name,\n    valid_from: input.valid_from,\n    valid_until: input.valid_until,\n  } }];\n}\n\n// 어느 단계에서 실패했는지 웹사이트에서 볼 수 있게 오류 내용을 함께 돌려준다.\nlet embedding = {};\ntry { embedding = $('등록: 본문 임베딩1').first()?.json ?? {}; } catch (error) { embedding = {}; }\nconst reason = !Array.isArray(embedding.data)\n  ? '본문 임베딩 실패: ' + String(embedding.error?.message ?? embedding.error ?? '응답 없음')\n  : '저장 실패: ' + String(saved.message ?? saved.error?.message ?? '결과 없음');\n\nreturn [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프로모션을 등록하지 못했습니다. ' + reason } }];"
       },
-      "id": "2bb00057-47cd-4ac1-a645-c035e702c9be",
+      "id": "a02db6ac-ac41-4d04-910b-020d285ae101",
       "position": [
         1232,
-        -784
+        -672
       ],
-      "name": "등록 응답 구성",
+      "name": "등록 응답 구성1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2
     },
@@ -1801,12 +1888,12 @@
       "parameters": {
         "options": {}
       },
-      "id": "bb15cf1c-8a19-49b6-8b62-8baebc2bccfc",
+      "id": "22fae1fc-c253-47ae-833d-4959eae7c1cc",
       "position": [
         1488,
-        -784
+        -672
       ],
-      "name": "등록 응답",
+      "name": "등록 응답1",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1
     }
@@ -1890,6 +1977,174 @@
         [
           {
             "node": "추천 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 Webhook1": {
+      "main": [
+        [
+          {
+            "node": "F01 고객 및 동의 정보 저장1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F01 고객 및 동의 정보 저장1": {
+      "main": [
+        [
+          {
+            "node": "접수 응답 구성1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 응답 구성1": {
+      "main": [
+        [
+          {
+            "node": "접수 응답1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 응답1": {
+      "main": [
+        [
+          {
+            "node": "접수: 저장 성공?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: 저장 성공?1": {
+      "main": [
+        [
+          {
+            "node": "접수: 약정 만료일 있음?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: 약정 만료일 있음?1": {
+      "main": [
+        [
+          {
+            "node": "접수: F06 약정 일정 생성1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "접수: F02 고객 분석1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수: F06 약정 일정 생성1": {
+      "main": [
+        [
+          {
+            "node": "접수: F02 고객 분석1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 Webhook": {
+      "main": [
+        [
+          {
+            "node": "F05 프로모션 대상 고객 선정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 프로모션 대상 고객 선정": {
+      "main": [
+        [
+          {
+            "node": "F05 결과 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F05 결과 확인": {
+      "main": [
+        [
+          {
+            "node": "프로모션: 대상 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: 대상 있음?": {
+      "main": [
+        [
+          {
+            "node": "프로모션: 대상 고객 나누기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "프로모션 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: 대상 고객 나누기": {
+      "main": [
+        [
+          {
+            "node": "프로모션: F06 일정 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션: F06 일정 생성": {
+      "main": [
+        [
+          {
+            "node": "프로모션 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "프로모션 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "프로모션 응답",
             "type": "main",
             "index": 0
           }
@@ -2029,321 +2284,164 @@
       "main": [
         [
           {
-            "node": "상담: F02 분석 갱신",
+            "node": "상담: F02 분석 갱신2",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "즉시 발송 Webhook1": {
+    "즉시 발송 Webhook": {
       "main": [
         [
           {
-            "node": "발송: 일정 조회1",
+            "node": "발송: 일정 조회",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "발송: 일정 조회1": {
+    "발송: 일정 조회": {
       "main": [
         [
           {
-            "node": "발송: 예정 상태 일정 있음?1",
+            "node": "발송: 예정 상태 일정 있음?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "발송: 예정 상태 일정 있음?1": {
+    "발송: 예정 상태 일정 있음?": {
       "main": [
         [
           {
-            "node": "F07-S01 개별 메시지 처리1",
+            "node": "F07-S01 개별 메시지 처리",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "발송: 일정 없음1",
+            "node": "발송: 일정 없음",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "F07-S01 개별 메시지 처리1": {
+    "F07-S01 개별 메시지 처리": {
       "main": [
         [
           {
-            "node": "발송: 결과 조회1",
+            "node": "발송: 결과 조회",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "발송: 결과 조회1": {
+    "발송: 결과 조회": {
       "main": [
         [
           {
-            "node": "발송 응답 구성1",
+            "node": "발송 응답 구성",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "발송 응답 구성1": {
+    "발송 응답 구성": {
       "main": [
         [
           {
-            "node": "발송 응답1",
+            "node": "발송 응답",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "발송: 일정 없음1": {
+    "발송: 일정 없음": {
       "main": [
         [
           {
-            "node": "발송 응답1",
+            "node": "발송 응답",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "프로모션 Webhook1": {
+    "프로모션 등록 Webhook1": {
       "main": [
         [
           {
-            "node": "F05 프로모션 대상 고객 선정1",
+            "node": "등록 입력 정리1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "F05 프로모션 대상 고객 선정1": {
+    "등록 입력 정리1": {
       "main": [
         [
           {
-            "node": "F05 결과 확인1",
+            "node": "등록: 입력 유효?1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "F05 결과 확인1": {
+    "등록: 입력 유효?1": {
       "main": [
         [
           {
-            "node": "프로모션: 대상 있음?1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "프로모션: 대상 있음?1": {
-      "main": [
-        [
-          {
-            "node": "프로모션: F06 일정 생성1",
+            "node": "등록: 본문 임베딩1",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "프로모션 응답 구성1",
+            "node": "등록 응답 구성1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "프로모션: F06 일정 생성1": {
+    "등록: 본문 임베딩1": {
       "main": [
         [
           {
-            "node": "프로모션 응답 구성1",
+            "node": "등록: 문서·본문 저장1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "프로모션 응답 구성1": {
+    "등록: 문서·본문 저장1": {
       "main": [
         [
           {
-            "node": "프로모션 응답1",
+            "node": "등록 응답 구성1",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "접수 Webhook1": {
+    "등록 응답 구성1": {
       "main": [
         [
           {
-            "node": "F01 고객 및 동의 정보 저장1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "F01 고객 및 동의 정보 저장1": {
-      "main": [
-        [
-          {
-            "node": "접수 응답 구성1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "접수 응답 구성1": {
-      "main": [
-        [
-          {
-            "node": "접수 응답1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "접수 응답1": {
-      "main": [
-        [
-          {
-            "node": "접수: 저장 성공?1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "접수: 저장 성공?1": {
-      "main": [
-        [
-          {
-            "node": "접수: 약정 만료일 있음?1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "접수: 약정 만료일 있음?1": {
-      "main": [
-        [
-          {
-            "node": "접수: F06 약정 일정 생성1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "접수: F02 고객 분석1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "접수: F06 약정 일정 생성1": {
-      "main": [
-        [
-          {
-            "node": "접수: F02 고객 분석1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "프로모션 등록 Webhook": {
-      "main": [
-        [
-          {
-            "node": "등록 입력 정리",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "등록 입력 정리": {
-      "main": [
-        [
-          {
-            "node": "등록: 입력 유효?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "등록: 입력 유효?": {
-      "main": [
-        [
-          {
-            "node": "등록: 본문 임베딩",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "등록 응답 구성",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "등록: 본문 임베딩": {
-      "main": [
-        [
-          {
-            "node": "등록: 문서·본문 저장",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "등록: 문서·본문 저장": {
-      "main": [
-        [
-          {
-            "node": "등록 응답 구성",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "등록 응답 구성": {
-      "main": [
-        [
-          {
-            "node": "등록 응답",
+            "node": "등록 응답1",
             "type": "main",
             "index": 0
           }

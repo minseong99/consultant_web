@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
-import { Button, ErrorNote, inputClass } from "@/components/ui";
-import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey } from "@/lib/fields";
+import { useEffect, useState, type ReactNode } from "react";
+import { Button, Drawer, ErrorNote, inputClass } from "@/components/ui";
+import { CONSENT_ITEMS, CUSTOMER_FIELDS, isValidPhone, OTHER_OPTION, type ConsentKey, type FieldDef, type FieldKey, type OptionGroup } from "@/lib/fields";
 import { formatDate, formatPhone, formatWon } from "@/lib/format";
 import { Wordmark } from "@/components/Wordmark";
 
@@ -36,6 +36,31 @@ export default function JoinPage() {
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 기기·요금제 선택지는 DB에서 받아 온다. 받기 전이나 실패했을 때는 lib/fields.ts 의 대비용 목록을 쓴다.
+  const [catalog, setCatalog] = useState<Partial<Record<FieldKey, OptionGroup[]>>>({});
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/join/options")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!alive || !data.success) return;
+        const next: Partial<Record<FieldKey, OptionGroup[]>> = {};
+        for (const key of ["current_device", "current_plan"] as const) {
+          if (Array.isArray(data[key]) && data[key].length > 0) next[key] = data[key];
+        }
+        setCatalog(next);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const fieldOf = (key: FieldKey): FieldDef => {
+    const groups = catalog[key];
+    return groups ? { ...FIELD_BY_KEY[key], groups, options: groups.flatMap((group) => group.options) } : FIELD_BY_KEY[key];
+  };
 
   const allChecked = CONSENT_ITEMS.every((item) => consents[item.key]);
 
@@ -146,7 +171,7 @@ export default function JoinPage() {
               const fields = (
                 <div className="flex flex-col gap-5">
                   {group.keys.map((key) => (
-                    <FieldInput key={key} field={FIELD_BY_KEY[key]} value={values[key]} error={errors[key]} onChange={(v) => setValues((p) => ({ ...p, [key]: v }))} />
+                    <FieldInput key={key} field={fieldOf(key)} value={values[key]} error={errors[key]} onChange={(v) => setValues((p) => ({ ...p, [key]: v }))} />
                   ))}
                 </div>
               );
@@ -214,7 +239,7 @@ export default function JoinPage() {
 type FieldProps = { field: FieldDef; value: string; error?: string; onChange: (value: string) => void };
 
 function FieldInput(props: FieldProps) {
-  if (props.field.type === "select") return <SelectField {...props} />;
+  if (props.field.type === "select") return props.field.groups ? <PickerField {...props} /> : <SelectField {...props} />;
   if (props.field.type === "multi") return <MultiField {...props} />;
   return <TextField {...props} />;
 }
@@ -301,6 +326,155 @@ function SelectField({ field, value, error, onChange }: FieldProps) {
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+    </FieldFrame>
+  );
+}
+
+// 선택지가 많은 항목. 누르면 창이 열리고, 검색하거나 묶음을 골라 좁힌 뒤 하나를 고른다.
+// 목록에 없으면 직접 입력으로 넘어간다. 저장되는 값은 SelectField 와 같다(고른 선택지나 입력한 글자).
+const squash = (text: string) => text.toLowerCase().replace(/\s+/g, "");
+
+function PickerField({ field, value, error, onChange }: FieldProps) {
+  const id = `field-${field.key}`;
+  const groups = field.groups ?? [];
+  const options = field.options ?? [];
+  const [open, setOpen] = useState(false);
+  const [other, setOther] = useState(value !== "" && !options.includes(value));
+  const [query, setQuery] = useState("");
+  const [groupLabel, setGroupLabel] = useState<string | null>(null);
+  const fieldClass = `${inputClass} !py-3 !text-[16px] ${error ? "!border-red-500" : ""}`;
+
+  const needle = squash(query);
+  // 띄어 쓴 낱말이 모두 들어 있는 선택지를 찾는다. 묶음 이름과 검색어(keywords)도 함께 본다 ("아이폰 15" → iPhone 15).
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  // 검색어가 있으면 묶음 선택과 무관하게 전체에서 찾는다.
+  const shown = groups
+    .filter((group) => needle !== "" || groupLabel === null || group.label === groupLabel)
+    .map((group) => {
+      const groupText = squash(`${group.label} ${group.keywords ?? ""}`);
+      return {
+        ...group,
+        options: group.options.filter(
+          (option) => squash(option).includes(needle) || words.every((word) => squash(option).includes(word) || groupText.includes(word)),
+        ),
+      };
+    })
+    .filter((group) => group.options.length > 0);
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+    setGroupLabel(null);
+  }
+  function choose(option: string) {
+    setOther(false);
+    onChange(option);
+    close();
+  }
+  function typeInstead() {
+    setOther(true);
+    onChange(query.trim());
+    close();
+  }
+
+  const chip = (active: boolean) =>
+    `inline-flex h-11 shrink-0 items-center rounded-full px-4 text-[14px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+      active ? "bg-ink text-white" : "bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50"
+    }`;
+
+  return (
+    <FieldFrame field={field} error={error} labelFor={id}>
+      <button
+        id={id}
+        type="button"
+        aria-haspopup="dialog"
+        data-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
+        onClick={() => setOpen(true)}
+        className={`${fieldClass} flex items-center justify-between gap-3 text-left`}
+      >
+        <span className={other || value === "" ? "text-stone-400" : ""}>{other ? "직접 입력" : value || (field.placeholder ?? "선택해 주세요")}</span>
+        <span aria-hidden className="text-stone-400">
+          ▾
+        </span>
+      </button>
+      {other && (
+        <input
+          className={`${fieldClass} mt-2`}
+          aria-label={`${field.label} 직접 입력`}
+          placeholder={field.otherPlaceholder}
+          value={value}
+          autoFocus
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+
+      <Drawer open={open} title={field.label} onClose={close}>
+        <input
+          type="search"
+          className={`${inputClass} !py-3 !text-[16px]`}
+          placeholder="이름으로 찾기"
+          aria-label={`${field.label} 검색`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {needle === "" && (
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="종류">
+            <button type="button" aria-pressed={groupLabel === null} className={chip(groupLabel === null)} onClick={() => setGroupLabel(null)}>
+              전체
+            </button>
+            {groups.map((group) => (
+              <button
+                key={group.label}
+                type="button"
+                aria-pressed={groupLabel === group.label}
+                className={chip(groupLabel === group.label)}
+                onClick={() => setGroupLabel(group.label)}
+              >
+                {group.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4">
+          {shown.length === 0 && <p className="py-6 text-center text-[15px] text-stone-500">찾는 이름이 목록에 없습니다.</p>}
+          {shown.map((group) => (
+            <section key={group.label} className="mb-4">
+              <h3 className="mb-1 text-[13px] font-semibold text-stone-500">{group.label}</h3>
+              <ul className="divide-y divide-stone-100 rounded-xl ring-1 ring-stone-200">
+                {group.options.map((option) => (
+                  <li key={option}>
+                    <button
+                      type="button"
+                      aria-pressed={!other && option === value}
+                      onClick={() => choose(option)}
+                      className="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left text-[16px] hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600"
+                    >
+                      <span className={`py-2 ${!other && option === value ? "font-bold" : ""}`}>
+                        {option}
+                        {group.notes?.[option] && <span className="mt-0.5 block text-[13px] font-normal tabular-nums text-stone-500">{group.notes[option]}</span>}
+                      </span>
+                      {!other && option === value && (
+                        <span aria-hidden className="font-bold text-brand-600">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <button
+            type="button"
+            onClick={typeInstead}
+            className="flex min-h-12 w-full items-center justify-center rounded-xl text-[15px] font-semibold text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-brand-600"
+          >
+            {query.trim() ? `"${query.trim()}" 직접 입력` : "목록에 없어요 · 직접 입력"}
+          </button>
+        </div>
+      </Drawer>
     </FieldFrame>
   );
 }

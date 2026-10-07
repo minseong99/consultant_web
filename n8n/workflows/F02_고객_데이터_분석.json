@@ -27,12 +27,12 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=다음 고객의 현재 정보, 이전 분석 결과, 최근 상담 정보를 종합하여 고객 상태를 분석하세요.\n\n[고객 기본정보]\n\n고객 ID: {{ $json.customer_id }}\n나이: {{ $json.age }}\n현재 사용 기종: {{ $json.current_device }}\n현재 사용 요금제: {{ $json.current_plan }}\n약정 종료일: {{ $json.contract_end_date }}\n현재 휴대폰 사용기간: {{ $json.device_use_months }}개월\n주요 사용 패턴: {{ $json.usage_pattern }}\n상담 목적: {{ $json.consultation_goal }}\n선호 브랜드: {{ $json.preferred_brand }}\n희망 월 예산: {{ $json.target_monthly_budget }}원\n관심사항: {{ $json.interests }}\n\n[이전 고객 분석 존재 여부]\n\n{{ $json.previous_analysis_available }}\n\n[이전 고객 분석]\n\n{{ JSON.stringify($json.previous_analysis_data ?? {}) }}\n\n[최근 상담 존재 여부]\n\n{{ $json.consultation_available }}\n\n[최근 상담 ID]\n\n{{ $json.consultation_id }}\n\n[최근 상담 내용]\n\n{{ $json.consultation_summary }}\n\n[최근 상담 일시]\n\n{{ $json.consulted_at }}\n\n[재상담 예정일]\n\n{{ $json.reconsultation_at }}",
+        "text": "=다음 고객의 현재 정보, 이전 분석 결과, 최근 상담 정보를 종합하여 고객 상태를 분석하세요.\n\n[고객 기본정보]\n\n고객 ID: {{ $json.customer_id }}\n나이: {{ $json.age }}\n현재 사용 기종: {{ $json.current_device }}\n현재 사용 요금제: {{ $json.current_plan }}\n약정 종료일: {{ $json.contract_end_date }}\n현재 휴대폰 사용기간: {{ $json.device_use_months }}개월\n주요 사용 패턴: {{ $json.usage_pattern }}\n상담 목적: {{ $json.consultation_goal }}\n선호 브랜드: {{ $json.preferred_brand }}\n희망 월 예산: {{ $json.target_monthly_budget }}원\n관심사항: {{ $json.interests }}\n\n[이전 고객 분석 존재 여부]\n\n{{ $json.previous_analysis_available }}\n\n[이전 고객 분석]\n\n{{ JSON.stringify($json.previous_analysis_data ?? {}) }}\n\n[최근 상담 존재 여부]\n\n{{ $json.consultation_available }}\n\n[최근 상담 ID]\n\n{{ $json.consultation_id }}\n\n[최근 상담 내용]\n\n{{ $json.consultation_summary }}\n\n[최근 상담 일시]\n\n{{ $json.consulted_at }}\n\n[재상담 예정일]\n\n{{ $json.preferred_follow_up_date }}",
         "hasOutputParser": true,
         "messages": {
           "messageValues": [
             {
-              "message": "당신은 이동통신 매장의 상담 지원을 위한 고객 분석 AI Agent입니다.\n\n당신의 역할은 고객의 기본정보, 이전 고객 분석이 존재하는 경우 해당 분석 내용,\n그리고 이번 상담 녹취 내용을 종합하여\n이후 휴대폰·요금제 추천 및 상담에 활용할 수 있는 최신 고객 특성을 구조화하는 것입니다.\n\n다음 항목을 분석하세요.\n\n1. 고객의 주요 휴대폰 사용 성향\n2. 기기 변경을 고려하는 주요 이유\n3. 고객이 중요하게 생각하는 기능\n4. 가격에 대한 민감도\n5. 브랜드 또는 제품군 선호\n6. 기기 교체 필요성 또는 교체 의향\n7. 이후 상품 추천 시 고려해야 할 핵심 요소\n8. 현재 데이터만으로 판단할 수 없는 정보\n\n규칙:\n- 제공된 고객 기본정보, 이전 고객 분석, 이번 상담 녹취 내용만 사용합니다.\n- 입력되지 않은 정보를 임의로 추측하지 않습니다.\n- 불명확한 정보는 판단 불가 또는 정보 부족으로 표시합니다.\n- 이전 고객 분석이 존재하면 참고하되, 이번 상담에서 새롭게 확인된 내용을 우선하여 최신 상태로 갱신합니다.\n- 이전 고객 분석과 이번 상담 내용이 서로 다를 경우 이번 상담에서 직접 확인된 내용을 우선합니다.\n- 이전 고객 분석이 없더라도 고객 기본정보와 이번 상담 녹취를 바탕으로 정상적으로 분석합니다.\n- 이번 상담 녹취가 없더라도 고객 기본정보와 이전 고객 분석을 바탕으로 가능한 범위에서 분석합니다.\n- 이전 고객 분석과 상담 녹취가 모두 없는 경우 고객 기본정보만으로 판단 가능한 내용만 분석합니다.\n- 이 단계에서는 특정 휴대폰이나 요금제를 직접 추천하지 않습니다.\n- 상품 추천은 이후 별도의 추천 단계에서 수행합니다.\n- 분석 결과는 상담 직원이 이해하기 쉽도록 명확하고 간결하게 작성합니다.\n- 이전 분석 결과가 존재하는 경우 이를 참고하되, 현재 고객정보와 최근 상담정보를 우선하여 최신 상태로 다시 분석합니다.\n- 이전 분석 결과가 없거나 최근 상담정보가 없는 경우에도 제공된 정보만으로 분석을 진행합니다.\n- 고객의 성별, 직업, 가족 구성, 거주지 등 입력에 없는 인적 사항은 어떤 형태로도 쓰지 않습니다. \"추정\"이라고 표시해도 쓰지 않습니다.\n- 고객을 가리킬 때는 \"고객\"이라고만 쓰고, 나이는 입력된 경우에만 \"31세 고객\"처럼 씁니다.\n- analysis_summary 는 2~3문장의 자연스러운 요약 문단으로 씁니다. 입력에 실제로 적힌 사실만 담고, 대괄호 제목·항목 나열·고객 ID는 넣지 않습니다."
+              "message": "당신은 이동통신 매장의 상담 지원을 위한 고객 분석 AI Agent입니다.\n\n당신의 역할은 고객의 기본정보, 이전 고객 분석이 존재하는 경우 해당 분석 내용,\n그리고 최근 상담 정보를 종합하여 이후 휴대폰·요금제 추천 및 상담에 활용할 수 있는\n최신 고객 특성을 구조화하는 것입니다.\n\n다음 항목을 분석하세요.\n\n1. 고객의 주요 휴대폰 사용 성향\n2. 기기 변경을 고려하는 주요 이유\n3. 고객이 중요하게 생각하는 기능\n4. 가격에 대한 민감도\n5. 브랜드 또는 제품군 선호\n6. 기기 교체 필요성 또는 교체 의향\n7. 이후 상품 추천 시 고려해야 할 핵심 요소\n8. 현재 데이터만으로 판단할 수 없는 정보\n\n규칙:\n- 제공된 고객 기본정보, 이전 고객 분석, 최근 상담 정보만 사용합니다.\n- 입력되지 않은 정보를 임의로 추측하지 않습니다.\n- 불명확한 정보는 판단 불가 또는 정보 부족으로 표시합니다.\n- 이전 고객 분석이 존재하면 참고하되, 현재 고객정보와 최근 상담정보를 우선하여 최신 상태로 다시 분석합니다.\n- 이전 고객 분석과 최근 상담정보가 서로 다를 경우 최근 상담에서 직접 확인된 내용을 우선합니다.\n- 이전 고객 분석이 없더라도 고객 기본정보와 최근 상담정보를 바탕으로 정상적으로 분석합니다.\n- 최근 상담정보가 없더라도 고객 기본정보와 이전 고객 분석을 바탕으로 가능한 범위에서 분석합니다.\n- 이전 고객 분석과 최근 상담정보가 모두 없는 경우 고객 기본정보만으로 판단 가능한 내용만 분석합니다.\n- 이 단계에서는 특정 휴대폰이나 요금제를 직접 추천하지 않습니다.\n- 상품 추천은 이후 별도의 추천 단계에서 수행합니다.\n- 분석 결과는 상담 직원이 이해하기 쉽도록 명확하고 간결하게 작성합니다.\n- 고객의 성별, 직업, 가족 구성, 거주지 등 입력에 없는 인적 사항은 어떤 형태로도 작성하지 않습니다. \"추정\"이라고 표시하는 경우에도 작성하지 않습니다.\n- 고객을 가리킬 때는 \"고객\"이라고만 표현하며, 나이가 입력된 경우에만 \"31세 고객\"처럼 표현합니다.\n- analysis_summary는 2~3문장의 자연스러운 요약 문단으로 작성합니다.\n- analysis_summary에는 입력 데이터에서 확인된 사실만 포함하며, 대괄호 제목, 항목 나열, 고객 ID는 포함하지 않습니다."
             }
           ]
         },
@@ -74,7 +74,7 @@
     },
     {
       "parameters": {
-        "jsonSchemaExample": "{\n  \"customer_id\": \"CUST-001\",\n  \"analysis_summary\": \"고객 특성 요약\",\n  \"usage_profile\": \"영상·SNS 중심\",\n  \"replacement_reason\": \"배터리 성능 저하\",\n  \"important_features\": [\n    \"카메라\",\n    \"배터리\"\n  ],\n  \"price_sensitivity\": \"높음\",\n  \"preferred_product_group\": \"Galaxy S 시리즈\",\n  \"device_change_signal\": \"높음\",\n  \"recommendation_factors\": [\n    \"현재 단말 사용기간\",\n    \"카메라 선호\",\n    \"가격 민감도\"\n  ],\n  \"missing_information\": []\n}"
+        "jsonSchemaExample": "{\n  \"analysis_summary\": \"고객 특성 요약\",\n  \"usage_profile\": \"영상·SNS 중심\",\n  \"replacement_reason\": \"배터리 성능 저하\",\n  \"important_features\": [\n    \"카메라\",\n    \"배터리\"\n  ],\n  \"price_sensitivity\": \"높음\",\n  \"preferred_product_group\": \"Galaxy S 시리즈\",\n  \"device_change_signal\": \"높음\",\n  \"recommendation_factors\": [\n    \"현재 단말 사용기간\",\n    \"카메라 선호\",\n    \"가격 민감도\"\n  ],\n  \"missing_information\": []\n}"
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
@@ -84,45 +84,6 @@
       ],
       "id": "f5cc1a22-cf68-4719-8426-3f3b3d190a40",
       "name": "Structured Output Parser"
-    },
-    {
-      "parameters": {
-        "tableId": "customer_analyses",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldId": "analysis_id",
-              "fieldValue": "={{ 'ANA-' + $now.toMillis() }}"
-            },
-            {
-              "fieldId": "customer_id",
-              "fieldValue": "={{ $('Get Customer Data').item.json.customer_id }}"
-            },
-            {
-              "fieldId": "analysis_data",
-              "fieldValue": "={{ $json.output }}"
-            },
-            {
-              "fieldId": "consultation_id",
-              "fieldValue": "={{ $('Merge Analysis Context').first().json.consultation_id || null }}"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        96,
-        384
-      ],
-      "id": "602cbea6-e978-49f4-917a-d6e5e99e48ba",
-      "name": "Save Customer Analysis",
-      "credentials": {
-        "supabaseApi": {
-          "id": "4cP1uNV1vcc3nrqf",
-          "name": "Supabase account"
-        }
-      }
     },
     {
       "parameters": {
@@ -165,7 +126,7 @@
           "conditions": [
             {
               "id": "99b23eae-8fa0-4c54-af78-b1a3b5977175",
-              "leftValue": "={{ $json.customer_id ?? '' }}",
+              "leftValue": "={{ $json.customer_id }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -193,6 +154,7 @@
         "tableId": "customer_analyses",
         "limit": 1,
         "orderBy": "created_at.desc",
+        "matchType": "allFilters",
         "filters": {
           "conditions": [
             {
@@ -206,8 +168,8 @@
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        -864,
-        272
+        -928,
+        384
       ],
       "id": "3a5318d1-e1c7-4231-a157-a276b67f816e",
       "name": "Get Latest Analysis",
@@ -218,54 +180,6 @@
           "name": "Supabase account"
         }
       }
-    },
-    {
-      "parameters": {
-        "operation": "getAll",
-        "tableId": "consultations",
-        "limit": 1,
-        "orderBy": "consulted_at.desc",
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "customer_id",
-              "condition": "eq",
-              "keyValue": "={{ $('Get Customer Data').item.json.customer_id }}"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        -864,
-        480
-      ],
-      "id": "0785157c-4349-415c-98a7-e048732032eb",
-      "name": "Get Consultation",
-      "alwaysOutputData": true,
-      "credentials": {
-        "supabaseApi": {
-          "id": "4cP1uNV1vcc3nrqf",
-          "name": "Supabase account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 3,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        -608,
-        368
-      ],
-      "id": "c22e4e27-ef98-4337-9413-d00167d01509",
-      "name": "Merge Analysis Context"
     },
     {
       "parameters": {
@@ -369,16 +283,63 @@
     },
     {
       "parameters": {
-        "jsCode": "const customer = $('Get Customer Data').first().json;\nconst prev = $('Get Latest Analysis').first()?.json ?? {};\nconst consultation = $('Get Consultation').first()?.json ?? {};\n\nconst hasPrev = Boolean(prev.analysis_id);\nconst hasConsultation = Boolean(consultation.consultation_id);\n\n// 프롬프트의 [최근 상담 내용] 칸에 들어갈 글. 요약 외에 F04가 구조화한 항목도 함께 넣는다.\nconst consultationText = hasConsultation\n  ? [\n      consultation.summary,\n      consultation.customer_response ? `고객 반응: ${consultation.customer_response}` : null,\n      consultation.interested_product ? `관심 상품: ${consultation.interested_product}` : null,\n      consultation.interested_plan ? `관심 요금제: ${consultation.interested_plan}` : null,\n      consultation.special_notes ? `특이사항: ${consultation.special_notes}` : null,\n      consultation.follow_up_reason ? `후속 연락 사유: ${consultation.follow_up_reason}` : null,\n    ].filter(Boolean).join('\\n')\n  : '없음';\n\nreturn [{\n  json: {\n    ...customer,\n    previous_analysis_available: hasPrev ? '있음' : '없음',\n    previous_analysis_data: hasPrev ? prev.analysis_data : null,\n    consultation_available: hasConsultation ? '있음' : '없음',\n    consultation_id: hasConsultation ? consultation.consultation_id : null,\n    consultation_summary: consultationText,\n    consulted_at: consultation.consulted_at ?? null,\n    reconsultation_at: consultation.reconsultation_at ?? null,\n  },\n  // 뒤의 저장 노드가 $('Get Customer Data').item 으로 앞 노드를 찾을 수 있게 연결 정보를 유지한다.\n  pairedItem: { item: 0 },\n}];"
+        "jsCode": "const customer = $('Get Customer Data').first().json;\nconst prev = $('Get Latest Analysis').first()?.json ?? {};\nconst consultation = $('Get Consultation').first()?.json ?? {};\n\nconst hasPrev = Boolean(prev.analysis_id);\nconst hasConsultation = Boolean(consultation.consultation_id);\n\n// 프롬프트의 [최근 상담 내용] 칸에 들어갈 글. 요약 외에 F04가 구조화한 항목도 함께 넣는다.\nconst consultationText = hasConsultation\n  ? [\n      consultation.summary,\n      consultation.customer_response ? `고객 반응: ${consultation.customer_response}` : null,\n      consultation.interested_product ? `관심 상품: ${consultation.interested_product}` : null,\n      consultation.interested_plan ? `관심 요금제: ${consultation.interested_plan}` : null,\n      consultation.special_notes ? `특이사항: ${consultation.special_notes}` : null,\n      consultation.follow_up_reason ? `후속 연락 사유: ${consultation.follow_up_reason}` : null,\n    ].filter(Boolean).join('\\n')\n  : '없음';\n\nreturn [{\n  json: {\n    ...customer,\n    previous_analysis_available: hasPrev ? '있음' : '없음',\n    previous_analysis_data: hasPrev ? prev.analysis_data : null,\n\n    consultation_available: hasConsultation ? '있음' : '없음',\n    consultation_id: hasConsultation ? consultation.consultation_id : null,\n    consultation_summary: consultationText,\n    consulted_at: consultation.consulted_at ?? null,\n    preferred_follow_up_date: consultation.preferred_follow_up_date ?? null,\n  },\n  pairedItem: { item: 0 },\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -400,
+        -512,
         384
       ],
       "id": "86cd9f6f-f75d-47b8-824a-5993c5d1dd27",
       "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM public.consultations\nWHERE\n  (\n    NULLIF($1::text, '') IS NOT NULL\n    AND consultation_id = NULLIF($1::text, '')\n    AND customer_id = $2\n  )\n  OR\n  (\n    NULLIF($1::text, '') IS NULL\n    AND customer_id = $2\n  )\nORDER BY consulted_at DESC\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('When Executed by Another Workflow').first().json.consultation_id ?? '', $('Get Customer Data').first().json.customer_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -736,
+        384
+      ],
+      "id": "c6bc7acc-7fb1-42ea-bdf0-3a1070c7aa2e",
+      "name": "Get Consultation",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.customer_analyses (\n  analysis_id,\n  customer_id,\n  analysis_data,\n  consultation_id\n)\nVALUES (\n  'ANA-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n  $1,\n  $2::jsonb,\n  NULLIF($3::text, '')\n)\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ [ $('Get Customer Data').first().json.customer_id, JSON.stringify($json.output ?? $json.text ?? $json), $('Get Consultation').first().json.consultation_id ?? '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        112,
+        384
+      ],
+      "id": "bb421866-b0db-4800-906f-416a5cc0fcad",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
     }
   ],
   "connections": {
@@ -397,7 +358,7 @@
       "main": [
         [
           {
-            "node": "Save Customer Analysis",
+            "node": "Execute a SQL query",
             "type": "main",
             "index": 0
           }
@@ -426,17 +387,6 @@
         ]
       ]
     },
-    "Save Customer Analysis": {
-      "main": [
-        [
-          {
-            "node": "Return F02 Result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Customer Data": {
       "main": [
         [
@@ -452,17 +402,7 @@
       "main": [
         [
           {
-            "node": "Merge Analysis Context",
-            "type": "main",
-            "index": 1
-          },
-          {
             "node": "Get Latest Analysis",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get Consultation",
             "type": "main",
             "index": 0
           }
@@ -480,29 +420,7 @@
       "main": [
         [
           {
-            "node": "Merge Analysis Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Consultation": {
-      "main": [
-        [
-          {
-            "node": "Merge Analysis Context",
-            "type": "main",
-            "index": 2
-          }
-        ]
-      ]
-    },
-    "Merge Analysis Context": {
-      "main": [
-        [
-          {
-            "node": "Code in JavaScript",
+            "node": "Get Consultation",
             "type": "main",
             "index": 0
           }
@@ -514,6 +432,28 @@
         [
           {
             "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Consultation": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Return F02 Result",
             "type": "main",
             "index": 0
           }
