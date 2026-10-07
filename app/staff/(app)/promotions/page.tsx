@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Badge, Button, Disclosure, Drawer, EmptyState, ErrorNote, inputClass, Skeleton, SourceLabel, Spinner, StatusLine } from "@/components/ui";
+import { PromotionPdfImport } from "@/components/staff/PromotionPdfImport";
 import { todayKST, formatDate, formatPhone } from "@/lib/format";
 import { lookup, PROMOTION_STATUS } from "@/lib/labels";
 import type { DocumentRow, PromotionRegisterResult, PromotionResult } from "@/lib/types";
@@ -39,6 +40,10 @@ export default function PromotionsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [registered, setRegistered] = useState<string | null>(null);
+  // PDF로 한 번에 등록한 프로모션들
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [imported, setImported] = useState<string[]>([]);
+  const isNew = (documentId: string) => documentId === registered || imported.includes(documentId);
 
   const load = useCallback(() => {
     return fetch("/api/staff/promotions", { cache: "no-store" })
@@ -113,7 +118,7 @@ export default function PromotionsPage() {
       ? []
       : // 방금 등록한 프로모션을 맨 위에 두고, 기간이 끝난 프로모션은 아래로 내려 실행을 막는다.
         [...promotions].sort(
-          (a, b) => Number(b.document_id === registered) - Number(a.document_id === registered) || Number(isEnded(a.valid_until)) - Number(isEnded(b.valid_until)),
+          (a, b) => Number(isNew(b.document_id)) - Number(isNew(a.document_id)) || Number(isEnded(a.valid_until)) - Number(isEnded(b.valid_until)),
         );
 
   return (
@@ -123,12 +128,17 @@ export default function PromotionsPage() {
           <h1 className="text-[24px] font-bold">프로모션</h1>
           <p className="mt-1 text-[14px] text-stone-600">프로모션을 등록하고 조건에 맞는 고객에게 안내 일정을 만듭니다. 마케팅·재연락에 동의한 고객만 대상입니다.</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>새 프로모션 등록</Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" onClick={() => setFormOpen(true)}>
+            직접 입력
+          </Button>
+          <Button onClick={() => setPdfOpen(true)}>PDF로 등록</Button>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
         {error && <ErrorNote>{error}</ErrorNote>}
-        {registered && !formOpen && (
+        {(registered || imported.length > 0) && !formOpen && !pdfOpen && (
           <p className="flex items-center gap-2 text-[13px] text-stone-700">
             <StatusLine state="done" label="프로모션을 등록했습니다" note="아래에서 [대상 선정 및 일정 생성]을 실행하세요" />
           </p>
@@ -139,7 +149,7 @@ export default function PromotionsPage() {
             <Spinner className="!size-6" />
           </div>
         ) : ordered.length === 0 ? (
-          !error && <EmptyState>이 매장에 등록된 프로모션이 없습니다. [새 프로모션 등록]으로 시작하세요.</EmptyState>
+          !error && <EmptyState>이 매장에 등록된 프로모션이 없습니다. [PDF로 등록]이나 [직접 입력]으로 시작하세요.</EmptyState>
         ) : (
           <ul className="flex flex-col gap-3">
             {ordered.map((promotion) => {
@@ -155,7 +165,7 @@ export default function PromotionsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="flex flex-wrap items-center gap-2">
                         <span className="truncate text-[16px] font-bold">{promotion.file_name}</span>
-                        {promotion.document_id === registered && <Badge tone="red">방금 등록</Badge>}
+                        {isNew(promotion.document_id) && <Badge tone="red">방금 등록</Badge>}
                         <Badge tone={ended ? "gray" : upcoming ? "blue" : "green"}>{ended ? "기간 종료" : upcoming ? "시작 전" : "진행 중"}</Badge>
                       </p>
                       <p className="mt-0.5 text-[13px] tabular-nums text-stone-600">
@@ -211,7 +221,16 @@ export default function PromotionsPage() {
         )}
       </div>
 
-      <Drawer open={formOpen} title="새 프로모션 등록" source="staff" onClose={() => setFormOpen(false)}>
+      <PromotionPdfImport
+        open={pdfOpen}
+        onClose={() => setPdfOpen(false)}
+        onRegistered={(documentIds) => {
+          if (documentIds.length) setImported((list) => [...list, ...documentIds]);
+          load();
+        }}
+      />
+
+      <Drawer open={formOpen} title="프로모션 직접 입력" source="staff" onClose={() => setFormOpen(false)}>
         <form onSubmit={register} className="flex flex-col gap-5">
           <div>
             <label htmlFor="promotion_name" className={labelClass}>

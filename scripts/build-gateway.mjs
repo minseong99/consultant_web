@@ -914,7 +914,8 @@ return [{ json: {
   document_id: documentId,
   store_id: storeId,
   file_name: name,
-  file_path: 'web/' + documentId,
+  // PDF에서 등록하면 원본이 보관된 경로가 온다. 직접 입력이면 web/<문서 ID>.
+  file_path: text(body.file_path) || 'web/' + documentId,
   valid_from: from,
   valid_until: until,
   content: lines.join('\\n'),
@@ -959,18 +960,46 @@ return [{ json: {
     {
       ...postgres(
         "등록: 문서·본문 저장",
-        `WITH doc AS (
+        `-- 같은 매장에 같은 이름의 프로모션이 있으면 새로 만들지 않고 그것을 돌려준다.
+WITH existing AS (
+    SELECT document_id, file_name, valid_from, valid_until
+    FROM public.documents
+    WHERE store_id = $2
+      AND document_type = 'promotion'
+      AND file_name = $3
+    ORDER BY document_id
+    LIMIT 1
+),
+doc AS (
     INSERT INTO public.documents (
         document_id, store_id, document_type, file_name, file_path, valid_from, valid_until
     )
-    VALUES ($1, $2, 'promotion', $3, $4, $5::date, $6::date)
+    SELECT $1, $2, 'promotion', $3, $4, $5::date, $6::date
+    WHERE NOT EXISTS (SELECT 1 FROM existing)
     RETURNING document_id, file_name, valid_from, valid_until
+),
+-- 문서에 연결되지 않은 본문 조각 중 같은 프로모션명이 있으면(예전에 CSV로 넣은 자료) 새로 넣지 않고 그 조각을 이 문서에 연결한다.
+linked AS (
+    UPDATE public.kt_promotion_vectors v
+    SET document_id = doc.document_id,
+        metadata = COALESCE(v.metadata, '{}'::jsonb) || $8::jsonb
+    FROM doc
+    WHERE v.vector_id = (
+        SELECT c.vector_id
+        FROM public.kt_promotion_vectors c
+        WHERE c.document_id IS NULL
+          AND position('프로모션명: ' || $3::text || E'\\n' IN c.content || E'\\n') > 0
+        ORDER BY c.vector_id
+        LIMIT 1
+    )
+    RETURNING v.vector_id
 ),
 vec AS (
     -- F05의 조각 확인과 F07의 본문 조회는 document_id 열을, F05의 검색은 metadata 의 document_id 를 본다. 둘 다 채운다.
     INSERT INTO public.kt_promotion_vectors (content, metadata, embedding, document_id)
     SELECT $7, $8::jsonb, $9::vector, doc.document_id
     FROM doc
+    WHERE NOT EXISTS (SELECT 1 FROM linked)
     RETURNING vector_id
 )
 SELECT
@@ -978,8 +1007,18 @@ SELECT
     doc.file_name,
     doc.valid_from,
     doc.valid_until,
-    (SELECT vector_id FROM vec) AS vector_id
-FROM doc;`,
+    COALESCE((SELECT vector_id FROM linked), (SELECT vector_id FROM vec)) AS vector_id,
+    false AS already_exists
+FROM doc
+UNION ALL
+SELECT
+    existing.document_id,
+    existing.file_name,
+    existing.valid_from,
+    existing.valid_until,
+    NULL,
+    true
+FROM existing;`,
         `(() => {
   const p = $('등록 입력 정리').first().json;
   return [
@@ -1001,6 +1040,16 @@ FROM doc;`,
 if (!input.valid) return [{ json: input.response }];
 
 const saved = $input.first()?.json ?? {};
+if (saved.document_id && saved.already_exists === true) {
+  return [{ json: {
+    success: true,
+    already_exists: true,
+    document_id: saved.document_id,
+    file_name: saved.file_name,
+    valid_from: String(saved.valid_from ?? '').slice(0, 10),
+    valid_until: String(saved.valid_until ?? '').slice(0, 10),
+  } }];
+}
 if (saved.document_id && saved.vector_id) {
   return [{ json: {
     success: true,
@@ -1030,6 +1079,155 @@ return [{ json: { success: false, error_code: 'REGISTER_FAILED', message: '프�
   link(valid, build, 1);
   link(embed, save);
   link(save, build);
+  link(build, reply);
+}
+
+// ---------------------------------------------------------------------------
+// 7. 프로모션 PDF 분석: PDF에서 꺼낸 글자 → AI가 프로모션별로 나눔 → 응답
+//    저장은 하지 않는다. 직원이 확인한 뒤 6번 경로(web/promotion-register)로 한 건씩 등록한다.
+// ---------------------------------------------------------------------------
+{
+  const r = 9.9;
+  group = "promotion-parse";
+  note(
+    "안내: 프로모션 PDF 분석",
+    "## POST /webhook/web/promotion-parse\n요청: `{ text, file_name }` (웹사이트가 PDF에서 꺼낸 글자)\n\nAI가 문서 안의 프로모션을 하나씩 나눠 항목을 뽑는다. DB에는 쓰지 않는다.\n\n응답: `{ success, promotions: [{ promotion_name, promotion_type, target_device, target_plan, target_customer, benefit, conditions, valid_from, valid_until }] }`",
+    r,
+    240,
+  );
+  const hook = add(webhook("프로모션 분석 Webhook", "web/promotion-parse"), r, 0);
+  const prepare = add(
+    code(
+      "분석 요청 구성",
+      `const body = $input.first().json.body ?? {};
+const text = typeof body.text === 'string' ? body.text.trim() : '';
+if (text.length < 20) {
+  return [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message: '분석할 내용이 없습니다.' } } }];
+}
+
+const field = { type: 'string' };
+const names = ['promotion_name', 'promotion_type', 'target_device', 'target_plan', 'target_customer', 'benefit', 'conditions', 'valid_from', 'valid_until'];
+
+const system = [
+  '당신은 이동통신 매장의 프로모션 문서를 정리하는 도우미입니다.',
+  '문서에 들어 있는 프로모션을 하나씩 나눠, 주어진 형식으로 돌려줍니다.',
+  '',
+  '규칙:',
+  '- 문서에 실제로 적힌 내용만 씁니다. 없는 혜택, 조건, 날짜를 만들지 않습니다.',
+  '- 같은 프로모션이 목록과 상세에 두 번 나오면 한 건으로 합칩니다.',
+  '- promotion_name 에는 프로모션 이름만 넣습니다. P001 같은 문서 안의 번호는 넣지 않습니다.',
+  '- benefit 에는 혜택과 혜택 금액을 함께 적습니다.',
+  '- conditions 에는 조건과 제외 조건을 함께 적습니다.',
+  '- valid_from, valid_until 은 YYYY-MM-DD 형식입니다. 문서에 날짜가 없거나 "-" 이면 빈 문자열로 둡니다. 날짜를 추측하지 않습니다.',
+  '- 해당 값이 없는 칸은 빈 문자열로 둡니다.',
+  '- 문서에 나온 순서대로 돌려줍니다.',
+].join('\\n');
+
+return [{ json: {
+  valid: true,
+  request: {
+    model: 'gpt-5-mini',
+    reasoning_effort: 'minimal',
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: '[파일 이름]\\n' + String(body.file_name ?? '') + '\\n\\n[문서 내용]\\n' + text },
+    ],
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'promotions',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['promotions'],
+          properties: {
+            promotions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: names,
+                properties: Object.fromEntries(names.map((name) => [name, field])),
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} }];`,
+    ),
+    r,
+    1,
+  );
+  const valid = add(iff("분석: 입력 유효?", "$json.valid === true"), r, 2);
+  const llm = add(
+    {
+      name: "분석: 프로모션 나누기",
+      type: "n8n-nodes-base.httpRequest",
+      typeVersion: 4.2,
+      alwaysOutputData: true,
+      onError: "continueRegularOutput",
+      credentials: OPENAI_CREDENTIAL,
+      parameters: {
+        method: "POST",
+        url: "https://api.openai.com/v1/chat/completions",
+        authentication: "predefinedCredentialType",
+        nodeCredentialType: "openAiApi",
+        sendBody: true,
+        specifyBody: "json",
+        jsonBody: "={{ JSON.stringify($json.request) }}",
+        options: { timeout: 95000 },
+      },
+    },
+    r,
+    3,
+  );
+  const build = add(
+    code(
+      "분석 응답 구성",
+      `const input = $('분석 요청 구성').first().json;
+if (!input.valid) return [{ json: input.response }];
+
+const reply = $input.first()?.json ?? {};
+const fail = (reason) => [{ json: { success: false, error_code: 'PARSE_FAILED', message: 'PDF 내용을 분석하지 못했습니다. ' + reason } }];
+
+const content = reply.choices?.[0]?.message?.content;
+if (typeof content !== 'string') return fail(String(reply.error?.message ?? reply.error ?? '응답 없음'));
+
+let parsed;
+try { parsed = JSON.parse(content); } catch (error) { return fail('결과 형식 오류'); }
+
+const text = (value) => (typeof value === 'string' ? value.trim() : '');
+const blank = (value) => (value === '-' ? '' : value);
+const date = (value) => (/^\\d{4}-\\d{2}-\\d{2}$/.test(text(value)) ? text(value) : '');
+
+const promotions = (Array.isArray(parsed.promotions) ? parsed.promotions : [])
+  .map((item) => ({
+    promotion_name: text(item.promotion_name),
+    promotion_type: blank(text(item.promotion_type)),
+    target_device: blank(text(item.target_device)),
+    target_plan: blank(text(item.target_plan)),
+    target_customer: blank(text(item.target_customer)),
+    benefit: blank(text(item.benefit)),
+    conditions: blank(text(item.conditions)),
+    valid_from: date(item.valid_from),
+    valid_until: date(item.valid_until),
+  }))
+  .filter((item) => item.promotion_name);
+
+return [{ json: { success: true, promotions } }];`,
+    ),
+    r,
+    4,
+  );
+  const reply = add(respond("분석 응답"), r, 5);
+  link(hook, prepare);
+  link(prepare, valid);
+  link(valid, llm, 0);
+  link(valid, build, 1);
+  link(llm, build);
   link(build, reply);
 }
 
