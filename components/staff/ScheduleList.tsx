@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Steps, type Step } from "@/components/Steps";
 import { Badge, Button, EmptyState, ErrorNote, inputClass, SourceLabel, StatusLine } from "@/components/ui";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { lookup, SCHEDULE_STATUS, SCHEDULE_SUBTYPE, SCHEDULE_TYPE, SEND_STATUS } from "@/lib/labels";
 import { MESSAGE_MAX_LENGTH, messageBytes, SMS_BYTES } from "@/lib/message";
 import type { MessageDraftResult, ScheduleItem, SendNowResult } from "@/lib/types";
@@ -51,6 +51,7 @@ function sendSteps(schedule: ScheduleItem, tracking: Tracking): Step[] {
 export function ScheduleList({
   items,
   showCustomer = true,
+  timeOnly = false,
   focusId,
   fresh,
   onChanged,
@@ -60,6 +61,8 @@ export function ScheduleList({
 }: {
   items: ScheduleItem[];
   showCustomer?: boolean;
+  /** 같은 날의 일정만 보여 줄 때 날짜를 빼고 시각만 적는다 */
+  timeOnly?: boolean;
   focusId?: string | null;
   fresh?: Set<string>;
   onChanged?: () => void;
@@ -172,7 +175,7 @@ export function ScheduleList({
                 aria-controls={panelId}
                 className="flex min-h-14 min-w-0 flex-1 items-center gap-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600"
               >
-                <span className="w-32 shrink-0 text-[14px] font-semibold tabular-nums">{formatDateTime(schedule.scheduled_contact_at)}</span>
+                <span className={`shrink-0 text-[14px] font-semibold tabular-nums ${timeOnly ? "w-14" : "w-32"}`}>{timeOnly ? formatTime(schedule.scheduled_contact_at) : formatDateTime(schedule.scheduled_contact_at)}</span>
                 {showCustomer && <span className="w-20 shrink-0 truncate text-[15px] font-semibold sm:w-28">{schedule.customer_name}</span>}
                 <span className="line-clamp-2 min-w-0 flex-1 text-[14px] text-stone-700">
                   {type.label}

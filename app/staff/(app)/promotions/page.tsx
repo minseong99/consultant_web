@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Badge, Button, Disclosure, Drawer, EmptyState, ErrorNote, inputClass, Spinner, StatusLine, TextButton } from "@/components/ui";
+import { Badge, Button, Disclosure, Drawer, EmptyState, ErrorNote, inputClass, Pagination, Spinner, StatusLine, TextButton } from "@/components/ui";
 import { PromotionPdfImport } from "@/components/staff/PromotionPdfImport";
 import { PromotionVisual } from "@/components/staff/PromotionVisual";
 import { todayKST, formatDate, formatPhone } from "@/lib/format";
@@ -31,10 +31,28 @@ function isEnded(validUntil: string | null) {
   return Boolean(validUntil) && String(validUntil).slice(0, 10) < todayKST();
 }
 
+function isUpcoming(validFrom: string | null) {
+  return Boolean(validFrom) && String(validFrom).slice(0, 10) > todayKST();
+}
+
+// 한 쪽에 3열 2행. 프로모션이 늘어도 아래로 길어지지 않게 쪽으로 나눈다.
+const PAGE_SIZE = 6;
+
+type FilterKey = "all" | "upcoming" | "active" | "ended";
+const FILTERS: { key: FilterKey; label: string; test: (promotion: PromotionListItem) => boolean }[] = [
+  { key: "all", label: "전체", test: () => true },
+  { key: "active", label: "진행 중", test: (p) => !isEnded(p.valid_until) && !isUpcoming(p.valid_from) },
+  { key: "upcoming", label: "시작 전", test: (p) => !isEnded(p.valid_until) && isUpcoming(p.valid_from) },
+  { key: "ended", label: "기간 종료", test: (p) => isEnded(p.valid_until) },
+];
+
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<PromotionListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<Record<string, Run>>({});
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [page, setPage] = useState(1);
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -123,6 +141,20 @@ export default function PromotionsPage() {
         [...promotions].sort(
           (a, b) => Number(isNew(b.document_id)) - Number(isNew(a.document_id)) || Number(isEnded(a.valid_until)) - Number(isEnded(b.valid_until)),
         );
+  // 이름, 혜택, 유형, 대상 기기·요금제에서 낱말을 모두 포함하는 것만 남긴다.
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searched = ordered.filter((p) => {
+    const text = [p.file_name, p.summary?.benefit, p.summary?.promotion_type, p.summary?.target_device, p.summary?.target_plan]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+  const matched = searched.filter(FILTERS.find((f) => f.key === filter)!.test);
+  const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+  // 검색이나 분류로 쪽 수가 줄면 마지막 쪽을 보여 준다.
+  const current = Math.min(page, pageCount);
+  const shown = matched.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   return (
     <>
@@ -154,10 +186,49 @@ export default function PromotionsPage() {
         ) : ordered.length === 0 ? (
           !error && <EmptyState>이 매장에 등록된 프로모션이 없습니다. [PDF로 등록]이나 [직접 입력]으로 시작하세요.</EmptyState>
         ) : (
+          <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="프로모션 분류">
+              {FILTERS.map((f) => {
+                const selected = f.key === filter;
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setFilter(f.key);
+                      setPage(1);
+                    }}
+                    className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${
+                      selected ? "bg-ink text-white" : "bg-white text-stone-700 ring-1 ring-inset ring-stone-200 hover:bg-stone-50"
+                    }`}
+                  >
+                    {f.label}
+                    <span className={`tabular-nums ${selected ? "text-stone-300" : "text-stone-500"}`}>{searched.filter(f.test).length}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="search"
+              className={`${inputClass} max-w-xs`}
+              placeholder="이름, 혜택, 기기로 검색"
+              aria-label="프로모션 검색"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          {shown.length === 0 ? (
+            <EmptyState>{words.length > 0 ? "검색 결과가 없습니다." : "해당하는 프로모션이 없습니다."}</EmptyState>
+          ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {ordered.map((promotion) => {
+            {shown.map((promotion) => {
               const ended = isEnded(promotion.valid_until);
-              const upcoming = Boolean(promotion.valid_from) && String(promotion.valid_from).slice(0, 10) > todayKST();
+              const upcoming = isUpcoming(promotion.valid_from);
               const state = runs[promotion.document_id];
               const result = state?.result;
               const status = result && "status" in result ? lookup(PROMOTION_STATUS, result.status) : null;
@@ -211,6 +282,17 @@ export default function PromotionsPage() {
               );
             })}
           </ul>
+          )}
+          {shown.length > 0 && (
+            <Pagination
+              label="프로모션 목록 쪽 이동"
+              summary={`${matched.length}건 중 ${(current - 1) * PAGE_SIZE + 1}–${Math.min(current * PAGE_SIZE, matched.length)}`}
+              current={current}
+              pageCount={pageCount}
+              onChange={setPage}
+            />
+          )}
+          </>
         )}
       </div>
 

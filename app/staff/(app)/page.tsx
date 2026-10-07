@@ -161,7 +161,7 @@ function Section({
 }) {
   const tone = warning ? "text-danger" : count === 0 ? "text-stone-400" : emphasis ? "text-brand-600" : "text-ink";
   return (
-    <section id={id} className={`scroll-mt-16 rounded-xl bg-white p-5 ring-1 ${warning ? "ring-red-200" : "ring-stone-200"} ${wide ? "md:col-span-2" : ""}`}>
+    <section id={id} className={`surface scroll-mt-6 p-5 ${warning ? "ring-1 ring-red-200" : ""} ${wide ? "md:col-span-2" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="flex items-baseline gap-2 text-[16px] font-bold">
           {title}

@@ -68,6 +68,30 @@ const MOCK_SUMMARIES = new Map<string, PromotionSummary>([
       conditions: "",
     },
   ],
+  [
+    "DOC-PROMO-003",
+    { promotion_type: "보상 판매", target_device: "iPhone 17", target_plan: "", target_customer: "쓰던 아이폰을 반납하는 고객", benefit: "쓰던 기기 반납 시 최대 40만원 추가 보상", conditions: "반납 기기 상태에 따라 금액이 달라짐" },
+  ],
+  [
+    "DOC-PROMO-004",
+    { promotion_type: "사은품", target_device: "Galaxy Z Flip8", target_plan: "", target_customer: "Z 플립8 구매 고객", benefit: "정품 케이스와 충전기 증정", conditions: "재고 소진 시 종료" },
+  ],
+  [
+    "DOC-PROMO-005",
+    { promotion_type: "요금 할인", target_device: "", target_plan: "요고 요금제", target_customer: "요고 요금제 신규 가입 고객", benefit: "첫 달 요금 50% 할인", conditions: "" },
+  ],
+  [
+    "DOC-PROMO-006",
+    { promotion_type: "기기 할인", target_device: "Galaxy S26", target_plan: "", target_customer: "기기 변경 고객", benefit: "기기값 15만원 할인", conditions: "" },
+  ],
+  [
+    "DOC-PROMO-007",
+    { promotion_type: "부가서비스", target_device: "", target_plan: "초이스 요금제", target_customer: "초이스 요금제 이용 고객", benefit: "OTT 구독권 3개월 무료", conditions: "" },
+  ],
+  [
+    "DOC-PROMO-008",
+    { promotion_type: "사전예약", target_device: "Galaxy Z Fold8", target_plan: "", target_customer: "폴더블에 관심 있는 고객", benefit: "사전예약 시 저장 용량 2배 업그레이드", conditions: "매장 방문 개통" },
+  ],
 ]);
 const kst = (date: string, hour: number) => `${date}T${String(hour).padStart(2, "0")}:00:00+09:00`;
 const isoMinutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -218,6 +242,66 @@ function seed(): Store_ {
       valid_from: addDays(today, -5),
       valid_until: addDays(today, 30),
       condition_data: { interest_keywords: ["폴더블 워치"] },
+    },
+    {
+      document_id: "DOC-PROMO-003",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "아이폰 17 보상 판매 이벤트",
+      file_path: "promotions/iphone-tradein.pdf",
+      valid_from: addDays(today, -10),
+      valid_until: addDays(today, 20),
+      condition_data: {},
+    },
+    {
+      document_id: "DOC-PROMO-004",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "Z 플립8 액세서리 증정",
+      file_path: "promotions/flip-gift.pdf",
+      valid_from: addDays(today, 1),
+      valid_until: addDays(today, 14),
+      condition_data: {},
+    },
+    {
+      document_id: "DOC-PROMO-005",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "요고 요금제 첫 달 할인",
+      file_path: "promotions/yogo-first-month.pdf",
+      valid_from: addDays(today, -2),
+      valid_until: addDays(today, 40),
+      condition_data: {},
+    },
+    {
+      document_id: "DOC-PROMO-006",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "추석 맞이 기기값 할인",
+      file_path: "promotions/holiday-sale.pdf",
+      valid_from: addDays(today, -30),
+      valid_until: addDays(today, -3),
+      condition_data: {},
+    },
+    {
+      document_id: "DOC-PROMO-007",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "OTT 구독 3개월 무료",
+      file_path: "promotions/ott-free.pdf",
+      valid_from: addDays(today, -7),
+      valid_until: addDays(today, 25),
+      condition_data: {},
+    },
+    {
+      document_id: "DOC-PROMO-008",
+      store_id: "STORE-001",
+      document_type: "promotion",
+      file_name: "Z 폴드8 사전예약 혜택",
+      file_path: "promotions/fold-preorder.pdf",
+      valid_from: addDays(today, 7),
+      valid_until: addDays(today, 28),
+      condition_data: {},
     },
   ];
 
