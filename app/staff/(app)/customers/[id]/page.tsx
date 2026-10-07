@@ -17,7 +17,6 @@ import { Steps, type Step } from "@/components/Steps";
 import {
   Badge,
   Button,
-  Card,
   Chips,
   Clamp,
   Disclosure,
@@ -135,6 +134,11 @@ function CustomerView({
   const [tab, setTab] = useState<TabKey>("brief");
   const [drawer, setDrawer] = useState<"customer" | "analysis" | null>(null);
   const [recommendUnseen, setRecommendUnseen] = useState(false);
+  // 상담 탭의 상태. 평소(idle)에는 지난 상담을 보여 주고, [상담 시작]을 누르면 기록 칸만 보이며(recording),
+  // [상담 기록 저장 및 종료]로 저장이 끝나면 정리 결과만 보여 주고(done), [닫기]를 누르면 평소로 돌아간다.
+  const [phase, setPhase] = useState<"idle" | "recording" | "done">("idle");
+  // 새 상담을 시작할 때마다 기록 칸을 새로 만든다(앞 상담의 결과가 남지 않게).
+  const [session, setSession] = useState(0);
   const tabRef = useRef<TabKey>("brief");
   // 다른 탭을 보는 동안 추천이 도착했을 때만 탭에 표시한다.
   const recommend = useRecommend(customer.customer_id, saved_recommendation, () =>
@@ -147,20 +151,46 @@ function CustomerView({
   );
   const canRecontact = consent.recontact && !consent.withdrawn;
 
+  function startRecording() {
+    go("record");
+    if (phase === "done") setSession((value) => value + 1);
+    setPhase("recording");
+    // 기록 칸이 열리면 바로 적을 수 있게 메모 칸으로 간다.
+    window.setTimeout(() => document.getElementById("notes")?.focus(), 80);
+  }
+
   function go(next: TabKey) {
     tabRef.current = next;
     setTab(next);
     if (next === "recommend") setRecommendUnseen(false);
   }
 
+  // 상담 순서(분석 → 추천 → 상담 기록)에서 지금 할 일 하나. 탭을 넘나드는 안내는 헤더의 이 한 줄뿐이다.
+  const next: NextStep | null = recommend.loading
+    ? { label: "추천 생성 중", since: recommend.startedAt, onClick: () => go("recommend") }
+    : !analysis
+      ? null
+      : recommend.result?.success !== true
+        ? {
+            label: "맞춤 추천 받기",
+            onClick: () => {
+              go("recommend");
+              recommend.request();
+            },
+          }
+        : consultations.length === 0
+          ? { label: "상담 시작", onClick: startRecording }
+          : null;
+
   const tabs: TabDef<TabKey>[] = [
     { key: "brief", label: "고객 브리프" },
     {
       key: "recommend",
       label: "추천",
+      count: recommend.result?.success ? recommend.result.recommendations.length : undefined,
       dot: recommendUnseen && tab !== "recommend",
     },
-    { key: "record", label: "상담 기록", count: consultations.length },
+    { key: "record", label: "상담", count: consultations.length },
     { key: "followup", label: "후속 연락", count: upcoming.length },
   ];
 
@@ -174,6 +204,7 @@ function CustomerView({
         customer={customer}
         consent={consent}
         onOpenAll={() => setDrawer("customer")}
+        next={next}
       />
       {error && (
         <div className="mt-4">
@@ -190,26 +221,7 @@ function CustomerView({
               analysis={analysis}
               onOpenFull={() => setDrawer("analysis")}
             />
-            <aside className="flex flex-col gap-4">
-              <NextAction
-                hasAnalysis={Boolean(analysis)}
-                recommend={recommend}
-                onRecommend={() => {
-                  go("recommend");
-                  recommend.request();
-                }}
-                onGo={go}
-              />
-              <NextFollowUpSummary
-                next={upcoming[0]}
-                canRecontact={canRecontact}
-                onGo={() => go("followup")}
-              />
-              <LatestConsultation
-                latest={consultations[0]}
-                onGo={() => go("record")}
-              />
-            </aside>
+            <CustomerSaid customer={customer} />
           </div>
         </TabPanel>
 
@@ -226,14 +238,25 @@ function CustomerView({
         </TabPanel>
 
         <TabPanel idPrefix={TAB_ID} tabKey="record" active={tab === "record"}>
-          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-8">
-            <ConsultationForm
-              customerId={customer.customer_id}
-              recontact={canRecontact}
-              analysisId={analysis?.analysis_id ?? null}
-              onSaved={reload}
-            />
-            <ConsultationHistory consultations={consultations} />
+          <div className="flex max-w-4xl flex-col gap-8">
+            {/* 취소해도 적던 내용이 남도록 기록 칸은 화면에서만 숨긴다. */}
+            <div hidden={phase === "idle"}>
+              <ConsultationForm
+                key={session}
+                customerId={customer.customer_id}
+                recontact={canRecontact}
+                analysisId={analysis?.analysis_id ?? null}
+                onSaved={reload}
+                onFinished={() => setPhase("done")}
+                onClose={() => {
+                  // 종료한 상담의 결과를 닫으면 다음 상담을 위해 기록 칸을 새로 만든다.
+                  if (phase === "done") setSession((value) => value + 1);
+                  setPhase("idle");
+                }}
+              />
+            </div>
+            {/* 기록하는 동안과 종료 결과를 보는 동안에는 지난 상담을 보여 주지 않는다. [닫기]를 누르면 돌아온다. */}
+            {phase === "idle" && <ConsultationHistory consultations={consultations} onStart={startRecording} />}
           </div>
         </TabPanel>
 
@@ -282,6 +305,8 @@ function CustomerView({
 // ---------------------------------------------------------------------------
 // 헤더: 누구인지, 왜 왔는지, 지금 무엇을 쓰는지
 // ---------------------------------------------------------------------------
+type NextStep = { label: string; onClick: () => void; since?: number | null };
+
 function daysUntil(dateString: string) {
   const [y, m, d] = dateString.slice(0, 10).split("-").map(Number);
   const [ty, tm, td] = todayKST().split("-").map(Number);
@@ -294,10 +319,12 @@ function CustomerHeader({
   customer,
   consent,
   onOpenAll,
+  next,
 }: {
   customer: Customer;
   consent: Consent;
   onOpenAll: () => void;
+  next: NextStep | null;
 }) {
   const remaining = customer.contract_end_date
     ? daysUntil(customer.contract_end_date)
@@ -320,9 +347,26 @@ function CustomerHeader({
             </p>
           </div>
         </div>
-        <TextButton onClick={onOpenAll} className="shrink-0">
-          고객 정보 전체
-        </TextButton>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <TextButton onClick={onOpenAll}>고객 정보 전체</TextButton>
+          {next && (
+            <button
+              type="button"
+              onClick={next.onClick}
+              className="inline-flex min-h-9 items-center gap-2 rounded-full bg-brand-50 px-3.5 text-[13px] font-semibold text-brand-700 transition-colors hover:bg-brand-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              {next.since ? (
+                <StatusLine state="active" label={next.label} since={next.since} />
+              ) : (
+                <>
+                  <span className="text-[12px] font-medium text-brand-700/70">다음</span>
+                  {next.label}
+                  <span aria-hidden>→</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
       <dl className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 py-3 text-[14px]">
         <HeaderItem label="현재 기기" value={customer.current_device} />
@@ -697,139 +741,28 @@ function BulletList({ items }: { items: string[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// 브리프 탭의 오른쪽: 다음 행동, 다음 연락, 최근 상담
+// 브리프 탭의 오른쪽: 고객이 접수할 때 직접 알려 준 내용. 왼쪽의 AI 분석과 나란히 본다.
 // ---------------------------------------------------------------------------
-function AsideSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function CustomerSaid({ customer }: { customer: Customer }) {
+  const rows = [
+    { label: "상담 목적", value: customer.consultation_goal },
+    { label: "주요 사용 패턴", value: customer.usage_pattern },
+    { label: "희망 월 예산", value: customer.target_monthly_budget != null ? formatWon(customer.target_monthly_budget) : null },
+    { label: "기기 사용 기간", value: customer.device_use_months != null ? `${customer.device_use_months}개월` : null },
+    { label: "선호 브랜드", value: customer.preferred_brand },
+    { label: "관심사", value: customer.interests },
+    { label: "나이", value: customer.age != null ? `${customer.age}세` : null },
+  ].filter((row): row is { label: string; value: string } => Boolean(row.value));
   return (
-    <section className="surface p-5">
-      <h2 className="text-[13px] font-semibold text-stone-500">{title}</h2>
-      <div className="mt-2">{children}</div>
+    <section>
+      <SourceLabel source="customer" />
+      <h2 className="mt-1 text-[17px] font-bold">고객이 알려 준 내용</h2>
+      <dl className="surface mt-3 flex flex-col gap-4 p-5">
+        {rows.map((row) => (
+          <Field key={row.label} label={row.label} value={row.value} />
+        ))}
+      </dl>
     </section>
-  );
-}
-
-function NextAction({
-  hasAnalysis,
-  recommend,
-  onRecommend,
-  onGo,
-}: {
-  hasAnalysis: boolean;
-  recommend: RecommendState;
-  onRecommend: () => void;
-  onGo: (tab: TabKey) => void;
-}) {
-  const ready = recommend.result?.success === true;
-  return (
-    <Card>
-      <h2 className="text-[13px] font-semibold text-stone-500">다음 행동</h2>
-      {recommend.loading ? (
-        <div className="mt-3 flex flex-col gap-3">
-          <StatusLine
-            state="active"
-            label="추천 생성 중"
-            since={recommend.startedAt}
-          />
-          <p className="text-[13px] leading-relaxed text-stone-600">
-            기다리는 동안 브리프의 &lsquo;더 물어볼 것&rsquo; 항목을 고객에게
-            물어보세요.
-          </p>
-          <Button variant="secondary" onClick={() => onGo("recommend")}>
-            추천 탭 보기
-          </Button>
-        </div>
-      ) : ready ? (
-        <div className="mt-3 flex flex-col gap-3">
-          <StatusLine
-            state="done"
-            label={recommend.savedAt ? "받아 둔 추천이 있습니다" : "추천이 준비됐습니다"}
-          />
-          <Button onClick={() => onGo("recommend")}>추천 보기</Button>
-          <Button variant="secondary" onClick={() => onGo("record")}>
-            상담 기록 작성
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-3">
-          <p className="text-[14px] leading-relaxed">
-            {hasAnalysis
-              ? "브리프를 확인했다면 맞춤 추천을 받아 보세요."
-              : "분석이 끝나면 더 정확한 추천을 받을 수 있습니다."}
-          </p>
-          <Button onClick={onRecommend}>추천 받기</Button>
-          <Button variant="secondary" onClick={() => onGo("record")}>
-            상담 기록 작성
-          </Button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function NextFollowUpSummary({
-  next,
-  canRecontact,
-  onGo,
-}: {
-  next: ScheduleItem | undefined;
-  canRecontact: boolean;
-  onGo: () => void;
-}) {
-  return (
-    <AsideSection title="다음 후속 연락">
-      {next ? (
-        <>
-          <p className="text-[15px] font-semibold tabular-nums">
-            {formatDateTime(next.scheduled_contact_at)}
-          </p>
-          <p className="text-[14px] text-stone-700">
-            {scheduleTitle(next.schedule_type, next.schedule_subtype)}
-          </p>
-          <TextButton onClick={onGo} className="mt-1">
-            후속 연락 보기
-          </TextButton>
-        </>
-      ) : (
-        <p className="text-[14px] text-stone-600">
-          {canRecontact
-            ? "예정된 연락이 없습니다."
-            : "재연락에 동의하지 않아 안내 일정이 만들어지지 않습니다."}
-        </p>
-      )}
-    </AsideSection>
-  );
-}
-
-function LatestConsultation({
-  latest,
-  onGo,
-}: {
-  latest: Consultation | undefined;
-  onGo: () => void;
-}) {
-  if (!latest) return null;
-  const status = lookup(RESULT_STATUS, latest.result_status);
-  return (
-    <AsideSection title="최근 상담">
-      <p className="flex flex-wrap items-center gap-2 text-[13px] text-stone-500">
-        {formatDateTime(latest.consulted_at)}
-        {latest.result_status && (
-          <Badge tone={status.tone}>{status.label}</Badge>
-        )}
-      </p>
-      <p className="mt-1 text-[14px] leading-relaxed">
-        <Clamp lines={2}>{latest.summary}</Clamp>
-      </p>
-      <TextButton onClick={onGo} className="mt-1">
-        상담 이력 보기
-      </TextButton>
-    </AsideSection>
   );
 }
 
@@ -1199,11 +1132,16 @@ function ConsultationForm({
   recontact,
   analysisId,
   onSaved,
+  onFinished,
+  onClose,
 }: {
   customerId: string;
   recontact: boolean;
   analysisId: string | null;
   onSaved: () => void;
+  /** 저장에 성공해 상담이 끝났을 때 */
+  onFinished: () => void;
+  onClose: () => void;
 }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
@@ -1258,11 +1196,15 @@ function ConsultationForm({
     setResult(next);
     setLoading(false);
     setSavedAt(Date.now());
-    if (next.success) setForm(EMPTY_FORM);
+    if (next.success) {
+      setForm(EMPTY_FORM);
+      onFinished();
+    }
     onSaved();
   }
 
   const submitted = loading || result !== null;
+  const ended = result?.success === true;
   const reanalyzed =
     result?.success === true &&
     analysisAtSubmit !== undefined &&
@@ -1292,9 +1234,23 @@ function ConsultationForm({
 
   return (
     <section>
-      <SourceLabel source="staff" />
-      <h2 className="mt-1 text-[17px] font-bold">상담 기록</h2>
-      <div className="mt-3 surface p-6">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <SourceLabel source="staff" />
+          <h2 className="mt-1 text-[17px] font-bold">{ended ? "상담을 종료했습니다" : "이번 상담 기록하기"}</h2>
+        </div>
+        {ended ? (
+          <Button variant="secondary" onClick={onClose}>
+            닫기
+          </Button>
+        ) : (
+          <TextButton onClick={onClose} disabled={loading}>
+            취소
+          </TextButton>
+        )}
+      </div>
+      {/* 저장이 끝나면 입력 칸은 접고 정리 결과만 남긴다. */}
+      <div className="mt-3 surface p-6" hidden={ended}>
         <form onSubmit={submit} className="flex flex-col gap-5">
           <div>
             <label
@@ -1391,7 +1347,7 @@ function ConsultationForm({
           {formError && <ErrorNote>{formError}</ErrorNote>}
           <div>
             <Button type="submit" loading={loading}>
-              {loading ? "저장하는 중" : "상담 기록 저장"}
+              {loading ? "저장하는 중" : "상담 기록 저장 및 종료"}
             </Button>
           </div>
         </form>
@@ -1400,7 +1356,7 @@ function ConsultationForm({
       {submitted && (
         <div
           ref={resultRef}
-          className="mt-4 scroll-mb-6 rounded-xl border-l-[3px] border-info bg-ai-surface p-5 ring-1 ring-ai-line"
+          className="mt-4 scroll-mb-6 rounded-2xl bg-ai-surface p-5"
           aria-live="polite"
         >
           <SourceLabel source="ai" label="AI 상담 정리" />
@@ -1517,100 +1473,91 @@ function LabeledInput({
   );
 }
 
+// 이력은 날짜·상태·요약 한 줄만 보여 주고, 누르면 전체 내용이 서랍으로 열린다.
+const HISTORY_LIMIT = 5;
+
 function ConsultationHistory({
   consultations,
+  onStart,
 }: {
   consultations: Consultation[];
+  /** 기록 칸이 이미 열려 있으면 없다 */
+  onStart?: () => void;
 }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const opened = consultations.find((c) => c.consultation_id === openId);
+  const shown = showAll ? consultations : consultations.slice(0, HISTORY_LIMIT);
   return (
-    <aside className="surface p-5">
-      <h2 className="text-[13px] font-semibold text-stone-500">
-        상담 이력{" "}
-        {consultations.length > 0 && (
-          <span className="tabular-nums">{consultations.length}</span>
-        )}
-      </h2>
+    <section>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <SourceLabel source="staff" />
+          <h2 className="mt-1 text-[17px] font-bold">
+            지난 상담
+            {consultations.length > 0 && (
+              <span className="ml-1.5 text-[14px] font-semibold tabular-nums text-stone-500">{consultations.length}</span>
+            )}
+          </h2>
+        </div>
+        {onStart && <Button onClick={onStart}>상담 시작</Button>}
+      </div>
       {consultations.length === 0 ? (
-        <p className="mt-2 text-[14px] text-stone-600">
-          아직 상담 이력이 없습니다.
+        <p className="surface mt-3 p-5 text-[14px] text-stone-600">
+          아직 지난 상담이 없습니다.{onStart && " [상담 시작]을 눌러 첫 상담을 기록하세요."}
         </p>
       ) : (
-        <ul className="mt-2 flex flex-col divide-y divide-stone-200 border-t border-stone-200">
-          {consultations.map((c) => {
+        <ul className="surface mt-3 divide-y divide-stone-100 overflow-hidden">
+          {shown.map((c) => {
             const status = lookup(RESULT_STATUS, c.result_status);
-            const hasDetail =
-              c.customer_response ||
-              c.interested_product ||
-              c.interested_plan ||
-              c.special_notes ||
-              c.follow_up_reason ||
-              c.preferred_follow_up_date;
             return (
-              <li key={c.consultation_id} className="py-3">
-                <p className="flex flex-wrap items-center gap-2 text-[12px] text-stone-500">
-                  {formatDateTime(c.consulted_at)}
-                  {c.result_status && (
-                    <Badge tone={status.tone}>{status.label}</Badge>
-                  )}
-                  {c.follow_up_required && c.result_status !== "follow_up" && (
-                    <Badge tone="blue">후속 연락 필요</Badge>
-                  )}
-                </p>
-                <p className="mt-1.5 text-[14px] leading-relaxed">
-                  <Clamp lines={2}>{c.summary}</Clamp>
-                </p>
-                <Disclosure
-                  label="자세히 보기"
-                  openLabel="접기"
-                  className="mt-1"
+              <li key={c.consultation_id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(c.consultation_id)}
+                  className="flex w-full flex-col gap-1 px-5 py-3.5 text-left hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600"
                 >
-                  <dl className="flex flex-col gap-3">
-                    <Field label="요약" value={c.summary} />
-                    {hasDetail && (
-                      <>
-                        {c.customer_response && (
-                          <Field
-                            label="고객 반응"
-                            value={c.customer_response}
-                          />
-                        )}
-                        {c.interested_product && (
-                          <Field
-                            label="관심 상품"
-                            value={c.interested_product}
-                          />
-                        )}
-                        {c.interested_plan && (
-                          <Field
-                            label="관심 요금제"
-                            value={c.interested_plan}
-                          />
-                        )}
-                        {c.special_notes && (
-                          <Field label="특이사항" value={c.special_notes} />
-                        )}
-                        {c.follow_up_reason && (
-                          <Field
-                            label="후속 연락 사유"
-                            value={c.follow_up_reason}
-                          />
-                        )}
-                        {c.preferred_follow_up_date && (
-                          <Field
-                            label="재상담 예정일"
-                            value={formatDate(c.preferred_follow_up_date)}
-                          />
-                        )}
-                      </>
-                    )}
-                  </dl>
-                </Disclosure>
+                  <span className="flex flex-wrap items-center gap-2 text-[12px] tabular-nums text-stone-500">
+                    {formatDateTime(c.consulted_at)}
+                    {c.result_status && <Badge tone={status.tone}>{status.label}</Badge>}
+                    {c.follow_up_required && c.result_status !== "follow_up" && <Badge tone="blue">후속 연락 필요</Badge>}
+                  </span>
+                  <span className="text-[14px] leading-relaxed">
+                    <Clamp lines={1}>{c.summary}</Clamp>
+                  </span>
+                </button>
               </li>
             );
           })}
         </ul>
       )}
-    </aside>
+      {consultations.length > HISTORY_LIMIT && (
+        <TextButton className="mt-2" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? "최근 기록만 보기" : `이전 기록 ${consultations.length - HISTORY_LIMIT}건 더 보기`}
+        </TextButton>
+      )}
+
+      <Drawer open={opened !== undefined} title="상담 기록" source="staff" onClose={() => setOpenId(null)}>
+        {opened && (
+          <>
+            <p className="mb-4 flex flex-wrap items-center gap-2 text-[13px] tabular-nums text-stone-500">
+              {formatDateTime(opened.consulted_at)}
+              {opened.result_status && <Badge tone={lookup(RESULT_STATUS, opened.result_status).tone}>{lookup(RESULT_STATUS, opened.result_status).label}</Badge>}
+              {opened.follow_up_required && opened.result_status !== "follow_up" && <Badge tone="blue">후속 연락 필요</Badge>}
+            </p>
+            <dl className="flex flex-col gap-4">
+              <Field label="요약" value={opened.summary} />
+              {opened.customer_response && <Field label="고객 반응" value={opened.customer_response} />}
+              {opened.interested_product && <Field label="관심 상품" value={opened.interested_product} />}
+              {opened.interested_plan && <Field label="관심 요금제" value={opened.interested_plan} />}
+              {opened.special_notes && <Field label="특이사항" value={opened.special_notes} />}
+              {opened.follow_up_reason && <Field label="후속 연락 사유" value={opened.follow_up_reason} />}
+              {opened.preferred_follow_up_date && <Field label="재상담 예정일" value={formatDate(opened.preferred_follow_up_date)} />}
+            </dl>
+          </>
+        )}
+      </Drawer>
+    </section>
   );
 }
 
