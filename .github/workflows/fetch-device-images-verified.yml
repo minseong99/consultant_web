@@ -1,0 +1,38 @@
+name: Replace device images from verified official sources
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  replace-device-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/device_images/requirements.txt
+
+      - name: Fetch verified official product images
+        run: python scripts/device_images/fetch_verified_device_images.py
+
+      - name: Commit verified images and report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public/devices/DEV-*.webp scripts/device_images/verified_image_report.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Replace device images with verified official sources"
+            git push
+          fi
