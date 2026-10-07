@@ -1,6 +1,7 @@
 import "server-only";
 import { FALLBACK_DEVICE_GROUPS, FALLBACK_PLAN_GROUPS } from "../fields";
 import { addDays, todayKST } from "../format";
+import { matchDevices, type DeviceRef, type PromotionSummary } from "../promotion";
 import type {
   Consultation,
   Customer,
@@ -33,6 +34,39 @@ type Store_ = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 프로모션 목록에 보여 줄 요약. 실제 연동에서는 등록된 본문에서 읽는다.
+const MOCK_DEVICES: DeviceRef[] = [
+  { device_id: "DEV-001", device_name: "Galaxy S26 256GB" },
+  { device_id: "DEV-002", device_name: "Galaxy Z Fold8 256GB" },
+  { device_id: "DEV-003", device_name: "Galaxy Z Flip8 256GB" },
+  { device_id: "DEV-004", device_name: "iPhone 17 256GB" },
+  { device_id: "DEV-005", device_name: "iPhone 17 Pro 256GB" },
+];
+const MOCK_SUMMARIES = new Map<string, PromotionSummary>([
+  [
+    "DOC-PROMO-001",
+    {
+      promotion_type: "사전예약",
+      target_device: "Galaxy S26",
+      target_plan: "",
+      target_customer: "기기를 18개월 이상 사용한 고객",
+      benefit: "사전예약 시 Galaxy Watch 증정, 기기값 10만원 할인",
+      conditions: "매장 방문 개통",
+    },
+  ],
+  [
+    "DOC-PROMO-002",
+    {
+      promotion_type: "결합 할인",
+      target_device: "",
+      target_plan: "초이스 요금제",
+      target_customer: "가족 2인 이상 결합 고객",
+      benefit: "가족 결합 시 월 요금 최대 25% 할인",
+      conditions: "",
+    },
+  ],
+]);
 const kst = (date: string, hour: number) => `${date}T${String(hour).padStart(2, "0")}:00:00+09:00`;
 const isoMinutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
@@ -537,7 +571,12 @@ export const mockBackend: Backend = {
   },
 
   async listPromotions(storeId) {
-    return store().documents.filter((d) => d.store_id === storeId && d.document_type === "promotion");
+    return store()
+      .documents.filter((d) => d.store_id === storeId && d.document_type === "promotion")
+      .map((d) => {
+        const summary = MOCK_SUMMARIES.get(d.document_id) ?? null;
+        return { ...d, summary, devices: matchDevices(summary?.target_device, MOCK_DEVICES) };
+      });
   },
 
   async registerPromotion(input, storeId) {
@@ -547,6 +586,14 @@ export const mockBackend: Backend = {
       return { success: true, document_id: same.document_id, file_name: same.file_name, valid_from: same.valid_from ?? input.valid_from, valid_until: same.valid_until ?? input.valid_until, already_exists: true };
     }
     const documentId = `PROMO-${Date.now()}`;
+    MOCK_SUMMARIES.set(documentId, {
+      promotion_type: input.promotion_type ?? "",
+      target_device: input.target_device ?? "",
+      target_plan: input.target_plan ?? "",
+      target_customer: input.target_customer ?? "",
+      benefit: input.benefit,
+      conditions: input.conditions ?? "",
+    });
     // mock의 대상 선정은 condition_data의 키워드를 쓴다. 대상 기기를 관심 키워드로 넣어 둔다.
     const keyword = input.target_device?.split(/\s+/)[0];
     store().documents.unshift({

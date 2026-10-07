@@ -1,6 +1,8 @@
 // Supabase public 스키마(실제 조회 결과)를 그대로 옮긴 타입.
 // 여기에 없는 컬럼은 존재하지 않으므로 추측해서 쓰지 않는다.
 
+import type { DeviceRef, PromotionSummary } from "./promotion";
+
 export type Customer = {
   customer_id: string;
   customer_name: string;
@@ -100,6 +102,12 @@ export type DocumentRow = {
   valid_from: string | null;
   valid_until: string | null;
   condition_data: unknown;
+};
+
+/** 프로모션 목록의 한 줄. 요약과 대상 기기는 등록된 본문에서 읽은 것이며, 본문이 없으면 비어 있다. */
+export type PromotionListItem = DocumentRow & {
+  summary: PromotionSummary | null;
+  devices: DeviceRef[];
 };
 
 export type Staff = { staff_id: string; store_id: string; role: string };
