@@ -568,7 +568,6 @@ export const mockBackend: Backend = {
               }
             : null,
         plan: item.plan_id ? (MOCK_PLAN_INFO[item.plan_id] ?? null) : null,
-        reason: item.recommendation_reason,
       })),
       recommended_at: saved?.saved_at ?? null,
     };

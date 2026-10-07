@@ -184,7 +184,7 @@ function Screen({ view, onChange }: { view: ConsultView; onChange: (view: Consul
     <div className="animate-rise-in">
       <h1 className="mt-8 text-[30px] font-bold leading-tight sm:text-[34px]">
         {view.customer_name}
-        <span className="ml-1 text-[20px] font-semibold text-stone-500">님을 위한 추천</span>
+        <span className="ml-1 text-[20px] font-semibold text-stone-500">{view.recommendations.length > 0 ? "님을 위한 추천" : "님, 어서 오세요"}</span>
       </h1>
 
       <section aria-label="현재 이용 정보" className="surface mt-6 px-6 py-5">
@@ -261,12 +261,6 @@ function RecommendationCard({ item, first }: { item: ConsultRecommendation; firs
           )}
         </dl>
       </div>
-      {item.reason && (
-        <div className="mt-5 rounded-2xl bg-ai-surface px-5 py-4">
-          <SourceLabel source="recommend" label="AI가 추천한 이유" />
-          <p className="mt-1.5 text-[15px] leading-relaxed">{item.reason}</p>
-        </div>
-      )}
     </article>
   );
 }
@@ -274,17 +268,20 @@ function RecommendationCard({ item, first }: { item: ConsultRecommendation; firs
 // 기기 사진(public/devices/<기기 ID>.webp). 파일이 없는 기기는 형태를 그린 그림으로 대신한다.
 function DevicePhoto({ device }: { device: NonNullable<ConsultRecommendation["device"]> }) {
   const [broken, setBroken] = useState(false);
-  if (broken) return <DeviceVisual productId={device.device_id} deviceName={device.device_name} />;
   return (
     <span className="flex h-40 w-full shrink-0 items-center justify-center rounded-2xl bg-stone-100 sm:w-36">
-      <Image
-        src={`/devices/${device.device_id}.webp`}
-        alt={device.device_name}
-        width={144}
-        height={144}
-        className="h-32 w-auto rounded object-contain mix-blend-multiply"
-        onError={() => setBroken(true)}
-      />
+      {broken ? (
+        <DeviceVisual productId={device.device_id} deviceName={device.device_name} />
+      ) : (
+        <Image
+          src={`/devices/${device.device_id}.webp`}
+          alt={device.device_name}
+          width={144}
+          height={144}
+          className="h-32 w-auto rounded object-contain mix-blend-multiply"
+          onError={() => setBroken(true)}
+        />
+      )}
     </span>
   );
 }

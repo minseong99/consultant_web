@@ -217,7 +217,7 @@ function ContractBand({ endDate }: { endDate: string }) {
             </span>
           ))}
           <span className="absolute left-0 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-2 ring-white" />
-          <span className="absolute left-full top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600 ring-2 ring-white" />
+          <span className="absolute left-full top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink bg-white" />
         </div>
       </div>
       <div className="mt-7 flex justify-between text-[13px] tabular-nums">

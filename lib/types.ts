@@ -182,12 +182,12 @@ export type Recommendation = {
 };
 
 // 고객이 보는 상담 화면에 내보내는 값. 로그인 없이 열리는 화면이므로 여기에 있는 것만 나간다
-// (전화번호, 상담 메모, AI 분석은 넣지 않는다).
+// (전화번호, 상담 메모, AI 분석은 넣지 않는다). 추천 이유(recommendation_reason)도 넣지 않는다:
+// 직원에게 보여 주려고 쓴 글이라 직원용 분석과 상담 내용이 섞여 있다.
 export type ConsultRecommendation = {
   rank: number | null;
   device: { device_id: string; device_name: string; manufacturer: string | null; device_price: number | null } | null;
   plan: { plan_name: string; monthly_fee: number | null; allowance_info: string | null } | null;
-  reason: string | null;
 };
 
 export type ConsultView = {

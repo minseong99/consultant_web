@@ -240,7 +240,6 @@ export const realBackend: Backend = {
         rank: row.recommendation_rank,
         device: row.device_id ? (deviceOf.get(row.device_id) ?? null) : null,
         plan: row.plan_id ? (planOf.get(row.plan_id) ?? null) : null,
-        reason: row.recommendation_reason,
       })),
       recommended_at: batch?.saved_at ?? null,
     };
