@@ -8,7 +8,8 @@ export function Wordmark({ size = "md", label = "매장 상담 지원" }: { size
   const text = size === "md" ? "text-[16px]" : "text-[14px]";
   return (
     <span className="inline-flex items-center gap-2.5">
-      <Image src={logo} alt="KT" priority className={`w-auto shrink-0 ${height}`} />
+      {/* 로고 파일의 바탕이 흰색이라, 밝은 회색 바탕 위에서 흰 네모로 보이지 않게 바탕과 겹쳐 그린다. */}
+      <Image src={logo} alt="KT" priority className={`w-auto shrink-0 mix-blend-multiply ${height}`} />
       <span className={`font-bold tracking-tight text-ink ${text}`}>{label}</span>
     </span>
   );
