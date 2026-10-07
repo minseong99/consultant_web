@@ -740,8 +740,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -848,
-        752
+        2000,
+        288
       ]
     },
     {
@@ -754,8 +754,8 @@
       },
       "id": "2a84b50b-af25-4cf5-990e-042e19bc7a53",
       "position": [
-        -320,
-        800
+        2528,
+        336
       ],
       "name": "즉시 발송 Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -778,8 +778,8 @@
       },
       "id": "267081a6-10eb-410c-8b17-f832e20d13e2",
       "position": [
-        -64,
-        800
+        2784,
+        336
       ],
       "name": "발송: 일정 조회",
       "type": "n8n-nodes-base.postgres",
@@ -819,8 +819,8 @@
       },
       "id": "e5ada41b-91ad-4088-a58d-6266228354ac",
       "position": [
-        192,
-        800
+        3040,
+        336
       ],
       "name": "발송: 예정 상태 일정 있음?",
       "type": "n8n-nodes-base.if",
@@ -836,8 +836,8 @@
       },
       "id": "7e68ea3e-2d63-4cc3-a808-7664b1444a02",
       "position": [
-        720,
-        800
+        3568,
+        336
       ],
       "name": "발송: 결과 조회",
       "type": "n8n-nodes-base.postgres",
@@ -856,8 +856,8 @@
       },
       "id": "257568d1-5f46-4cdb-8080-75b13b0499aa",
       "position": [
-        976,
-        800
+        3824,
+        336
       ],
       "name": "발송 응답 구성",
       "type": "n8n-nodes-base.code",
@@ -869,8 +869,8 @@
       },
       "id": "eb7fe7fc-53ad-4ca1-ab1f-1c49035b04e5",
       "position": [
-        784,
-        1040
+        3632,
+        576
       ],
       "name": "발송: 일정 없음",
       "type": "n8n-nodes-base.code",
@@ -882,8 +882,8 @@
       },
       "id": "a04a7ff7-12d9-473e-8b3a-7c75f901c07d",
       "position": [
-        1232,
-        800
+        4080,
+        336
       ],
       "name": "발송 응답",
       "type": "n8n-nodes-base.respondToWebhook",
@@ -945,8 +945,8 @@
       },
       "id": "1bc2a537-67cd-4d21-a0de-e8a12dd2de3d",
       "position": [
-        480,
-        736
+        3328,
+        272
       ],
       "name": "F07-개별 메시지 처리",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -2039,6 +2039,472 @@
       "name": "프로모션 응답1",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/message-draft\n요청: `{ schedule_id }`\n\n예정 상태인 일정의 문자 초안을 만든다. **발송하지 않고 DB도 바꾸지 않는다.**\n\n예정일보다 먼저 보내는 문자이므로 오늘 날짜와 기준일까지 남은 일수(`send_now`, `today`, `reference_date`, `days_until_reference`)를 함께 넘겨 지금 시점에 맞게 쓰게 한다.\n\n응답: `{ success, schedule_id, message_text }`",
+        "height": 240,
+        "width": 460
+      },
+      "id": "44884df8-e6dd-4b84-b3e0-c6c3fb10ecfb",
+      "name": "안내: 문자 초안",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/message-draft",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "31077cbf-ff52-40da-be2e-0d05e3ed4d36",
+      "position": [
+        2512,
+        -576
+      ],
+      "name": "문자 초안 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "f8b21af4-92c3-4c19-a56b-c9098425fc66",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    ms.schedule_id,\n    ms.customer_id,\n    ms.schedule_type,\n    ms.schedule_subtype,\n    ms.contact_reason,\n    ms.document_id,\n    ms.reference_date::text AS reference_date,\n    c.customer_name,\n    c.phone,\n    c.current_device,\n    c.current_plan,\n    c.usage_pattern,\n    c.contract_end_date,\n    c.device_use_months,\n    c.preferred_brand,\n    c.target_monthly_budget,\n    c.interests,\n    con.summary AS consultation_summary\nFROM public.message_schedules AS ms\nINNER JOIN public.customers AS c\n    ON c.customer_id = ms.customer_id\nLEFT JOIN public.consultations AS con\n    ON con.consultation_id = ms.consultation_id\nWHERE ms.schedule_id = $1\n  AND ms.schedule_status = 'scheduled'\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.schedule_id ] }}"
+        }
+      },
+      "id": "710e41d1-8198-43d4-899b-f78327b06879",
+      "position": [
+        2768,
+        -576
+      ],
+      "name": "초안: 일정 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ee21d2fb-e234-4950-ab8c-3917114b8d44",
+              "leftValue": "={{ Boolean($json.schedule_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c00aceee-a296-400a-afef-57e5de17ed58",
+      "position": [
+        3024,
+        -576
+      ],
+      "name": "초안: 예정 상태 일정 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\n\n// 한국 시간 기준 오늘 날짜와, 기준일(약정 만료일·재상담 예정일·프로모션 시작/종료일)까지 남은 일수\nconst today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);\nconst reference = row.reference_date ? String(row.reference_date).slice(0, 10) : null;\nconst daysUntil = reference\n  ? Math.round((Date.parse(reference + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000)\n  : null;\n\nconst REFERENCE_LABELS = {\n  contract: '약정 만료일',\n  reconsultation: '재상담 예정일',\n  promotion_start: '프로모션 시작일',\n  promotion_end_2d_before: '프로모션 종료일',\n};\nconst referenceLabel = REFERENCE_LABELS[row.schedule_subtype] ?? REFERENCE_LABELS[row.schedule_type] ?? '기준일';\n\nreturn [{ json: {\n  schedule_id: row.schedule_id,\n  message_data: {\n    customer_id: row.customer_id,\n    schedule_type: row.schedule_type,\n    schedule_subtype: row.schedule_subtype ?? null,\n    contact_reason: row.contact_reason ?? null,\n    customer_name: row.customer_name,\n    phone: row.phone,\n    current_device: row.current_device ?? null,\n    current_plan: row.current_plan ?? null,\n    usage_pattern: row.usage_pattern ?? null,\n    contract_end_date: row.contract_end_date ?? null,\n    device_use_months: row.device_use_months ?? null,\n    preferred_brand: row.preferred_brand ?? null,\n    target_monthly_budget: row.target_monthly_budget ?? null,\n    interests: row.interests ?? null,\n    consultation_summary: row.consultation_summary ?? null,\n    document_id: row.document_id ?? null,\n    // 예정일을 기다리지 않고 지금 보내는 문자라는 정보 (F07-S02가 지금 시점에 맞게 쓰는 데 쓴다)\n    send_now: true,\n    today,\n    reference_date: reference,\n    reference_label: referenceLabel,\n    days_until_reference: daysUntil,\n  },\n} }];"
+      },
+      "id": "a3fba6f3-78ba-485e-8872-6d55ff48f313",
+      "position": [
+        3296,
+        -576
+      ],
+      "name": "초안 요청 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "fT4gWUVbI5Hpuegq",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "schedule_id": "={{ $json.schedule_id }}",
+            "message_data": "={{ $json.message_data }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "schedule_id",
+              "displayName": "schedule_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message_data",
+              "displayName": "message_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "3adeeb69-e9fc-453a-82fb-f2820fc24818",
+      "position": [
+        3552,
+        -576
+      ],
+      "name": "초안: F07-S02 문자 생성",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first()?.json ?? {};\nconst scheduleId = $('초안 요청 구성').first().json.schedule_id;\n\nif (result.generation_success === true && typeof result.message_text === 'string' && result.message_text.trim()) {\n  return [{ json: { success: true, schedule_id: scheduleId, message_text: result.message_text.trim() } }];\n}\n\n// 초안을 만들지 못해도 직원이 직접 써서 보낼 수 있으므로, 이유를 알려 준다.\nconst REASONS = {\n  EMPTY_MESSAGE: '문자에 쓸 정보가 부족합니다.',\n  INTERNAL_DATA_EXPOSED: '생성된 문자에 내부 정보가 섞여 사용하지 않았습니다.',\n};\nconst detail = result.error\n  ? String(result.error.message ?? result.error)\n  : (REASONS[result.generation_error] ?? '문자 생성 결과가 없습니다.');\n\nreturn [{ json: { success: false, error_code: 'DRAFT_FAILED', message: '문자 초안을 만들지 못했습니다. ' + detail, schedule_id: scheduleId } }];"
+      },
+      "id": "b489e075-c976-4c55-a8a4-2714e1b92d78",
+      "position": [
+        3808,
+        -576
+      ],
+      "name": "초안 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error_code: 'NOT_SCHEDULED', message: '예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다.' } }];"
+      },
+      "id": "6ddff3d4-af5f-4004-9475-c085d83730b3",
+      "position": [
+        3296,
+        -432
+      ],
+      "name": "초안: 일정 없음",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4c6e4298-82d7-4950-8aa9-b3360d74b2c0",
+      "position": [
+        4064,
+        -576
+      ],
+      "name": "초안 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "## POST /webhook/web/message-send\n요청: `{ schedule_id, message_text }` (직원이 확인·수정한 문자)\n\n1. 일정을 선점한다: 예정 상태이고, 연락처가 있고, 동의 조건이 맞으면 `processing`, 동의가 맞지 않으면 `skipped` (F07-S01의 선점 조건과 같다)\n2. 받은 글을 `messages` 에 `pending` 으로 저장\n3. F07-S03 으로 발송 (`sending` → `sent`, 일정 `sent`)\n4. 그래도 `processing` 에 머물러 있으면 `failed` 로 바꾼다\n\n응답: `{ success, schedule_id, schedule_status, message_id, send_status }`",
+        "height": 280,
+        "width": 460
+      },
+      "id": "c9604f52-9bd8-45c8-b118-1375a4f833f6",
+      "name": "안내: 확인한 문자 보내기",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "web/message-send",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ac41fb44-ac37-4138-a1e2-b03a759dd510",
+      "position": [
+        2544,
+        -144
+      ],
+      "name": "문자 보내기 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "f73d5695-5a2d-4234-a0f0-cfabc9c4d3c8",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "8QrcxiVCBX9yQfnT",
+          "name": "local연동용"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body ?? {};\nconst scheduleId = typeof body.schedule_id === 'string' ? body.schedule_id.trim() : '';\nconst text = typeof body.message_text === 'string' ? body.message_text.trim() : '';\n\nconst fail = (message) => [{ json: { valid: false, response: { success: false, error_code: 'INVALID_INPUT', message } } }];\nif (!scheduleId) return fail('일정 정보가 없습니다.');\nif (!text) return fail('보낼 문자 내용을 입력해 주세요.');\nif (text.length > 1000) return fail('문자가 너무 깁니다. 1,000자 이내로 줄여 주세요.');\n\nreturn [{ json: { valid: true, schedule_id: scheduleId, message_text: text } }];"
+      },
+      "id": "dce4d56d-0648-4d3a-9ef8-c772eae04fb4",
+      "position": [
+        2800,
+        -144
+      ],
+      "name": "보내기 입력 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6b5bdb59-c1cb-464d-aed9-ba65dfd5d30f",
+              "leftValue": "={{ $json.valid === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a7cde096-b38b-4e23-b29e-841c0c099072",
+      "position": [
+        3056,
+        -144
+      ],
+      "name": "보내기: 입력 유효?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH updated AS (\n    UPDATE public.message_schedules AS ms\n    SET schedule_status =\n        CASE\n            WHEN NULLIF(TRIM(c.phone), '') IS NOT NULL\n             AND cc.withdrawn_at IS NULL\n             AND cc.privacy_consent IS TRUE\n             AND cc.recontact_consent IS TRUE\n             AND ms.schedule_type IN ('contract', 'reconsultation', 'promotion')\n             AND (ms.schedule_type <> 'promotion' OR cc.marketing_consent IS TRUE)\n            THEN 'processing'\n            ELSE 'skipped'\n        END\n    FROM public.customers AS c\n    LEFT JOIN LATERAL (\n        SELECT privacy_consent, marketing_consent, recontact_consent, withdrawn_at\n        FROM public.customer_consents\n        WHERE customer_id = c.customer_id\n        ORDER BY consent_at DESC\n        LIMIT 1\n    ) cc ON true\n    WHERE ms.schedule_id = $1\n      AND ms.customer_id = c.customer_id\n      AND ms.schedule_status = 'scheduled'\n    RETURNING ms.schedule_id, ms.schedule_status\n)\nSELECT\n    $1::varchar AS schedule_id,\n    COALESCE((SELECT schedule_status FROM updated), 'unchanged') AS result_status,\n    EXISTS (SELECT 1 FROM updated WHERE schedule_status = 'processing') AS processing_started;",
+        "options": {
+          "queryReplacement": "={{ [ $json.schedule_id ] }}"
+        }
+      },
+      "id": "13510425-905c-41c4-ae8c-6986ef0a91c6",
+      "position": [
+        3328,
+        -144
+      ],
+      "name": "보내기: 일정 선점",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1a737752-84b9-4f67-a2ea-b36f9673fc6d",
+              "leftValue": "={{ $json.processing_started === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ee7f107a-5dd9-453f-b022-d14d9346601e",
+      "position": [
+        3584,
+        -144
+      ],
+      "name": "보내기: 선점됨?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- 직원이 확인한 글을 저장한다. 같은 일정의 문자가 이미 있으면(발송 전 상태) 내용을 바꾼다.\nINSERT INTO public.messages (\n    message_id,\n    schedule_id,\n    message_content,\n    send_status,\n    sent_at,\n    send_channel\n)\nVALUES ('MSG-' || $1, $1, $2, 'pending', NULL, 'sms')\nON CONFLICT (schedule_id) DO UPDATE\nSET message_content = EXCLUDED.message_content,\n    send_status = 'pending',\n    sent_at = NULL\nWHERE public.messages.send_status <> 'sent'\nRETURNING message_id, schedule_id, send_status;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('보내기 입력 확인').first().json.schedule_id,\n  $('보내기 입력 확인').first().json.message_text\n] }}"
+        }
+      },
+      "id": "8f1f975f-34e7-4ea0-9d06-69d02ef92975",
+      "position": [
+        3840,
+        -144
+      ],
+      "name": "보내기: 문자 저장",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "CfAOBLyDDNAD50yU",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message_id": "={{ $json.message_id ?? '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "e1f6fe10-43fa-4f2c-ad63-8dd7bfddd10f",
+      "position": [
+        4096,
+        -144
+      ],
+      "name": "보내기: F07-S03 문자 발송",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- 저장이나 발송이 중간에 멈춰 처리 중에 머물러 있으면 실패로 기록한다(F07-S01의 실패 처리와 같다).\nWITH stuck AS (\n    UPDATE public.message_schedules\n    SET schedule_status = 'failed'\n    WHERE schedule_id = $1\n      AND schedule_status = 'processing'\n    RETURNING schedule_id\n)\nSELECT\n    ms.schedule_id,\n    CASE WHEN EXISTS (SELECT 1 FROM stuck) THEN 'failed' ELSE ms.schedule_status END AS schedule_status,\n    m.message_id,\n    m.send_status\nFROM public.message_schedules ms\nLEFT JOIN public.messages m\n    ON m.schedule_id = ms.schedule_id\nWHERE ms.schedule_id = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [ $('보내기 입력 확인').first().json.schedule_id ] }}"
+        }
+      },
+      "id": "c216b4ad-6995-4f5e-a85d-7418d342696e",
+      "position": [
+        4368,
+        -144
+      ],
+      "name": "보내기: 결과 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "YVkzsBzhXmXxNLug",
+          "name": "KT_Project_Supabase_Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('보내기 입력 확인').first().json;\nif (!input.valid) return [{ json: input.response }];\n\nlet claimed = {};\ntry { claimed = $('보내기: 일정 선점').first()?.json ?? {}; } catch (error) { claimed = {}; }\n\n// 선점하지 못한 경우: 이미 처리된 일정이거나, 동의 조건이 맞지 않아 건너뛴 일정\nif (claimed.processing_started !== true) {\n  if (claimed.result_status === 'skipped') {\n    return [{ json: {\n      success: true,\n      schedule_id: input.schedule_id,\n      schedule_status: 'skipped',\n      message_id: null,\n      send_status: null,\n    } }];\n  }\n  const detail = claimed.error ? String(claimed.error.message ?? claimed.error) : (typeof claimed.message === 'string' ? claimed.message : '');\n  return [{ json: {\n    success: false,\n    error_code: detail ? 'SEND_NOT_STARTED' : 'NOT_SCHEDULED',\n    message: detail\n      ? '문자를 보내지 못했습니다. (' + detail + ')'\n      : '예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다.',\n    schedule_id: input.schedule_id,\n  } }];\n}\n\nconst row = $input.first()?.json ?? {};\nreturn [{ json: {\n  success: true,\n  schedule_id: input.schedule_id,\n  schedule_status: row.schedule_status ?? null,\n  message_id: row.message_id ?? null,\n  send_status: row.send_status ?? null,\n} }];"
+      },
+      "id": "9df982a5-23be-4372-a4ae-31a0a6eedccd",
+      "position": [
+        4624,
+        -144
+      ],
+      "name": "보내기 응답 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "644a4450-630c-4551-af5e-bed5c33dbad7",
+      "position": [
+        4880,
+        -144
+      ],
+      "name": "보내기 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1
     }
   ],
   "connections": {
@@ -2647,6 +3113,203 @@
         [
           {
             "node": "프로모션 응답1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "문자 초안 Webhook": {
+      "main": [
+        [
+          {
+            "node": "초안: 일정 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 일정 조회": {
+      "main": [
+        [
+          {
+            "node": "초안: 예정 상태 일정 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 예정 상태 일정 있음?": {
+      "main": [
+        [
+          {
+            "node": "초안 요청 구성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "초안: 일정 없음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안 요청 구성": {
+      "main": [
+        [
+          {
+            "node": "초안: F07-S02 문자 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: F07-S02 문자 생성": {
+      "main": [
+        [
+          {
+            "node": "초안 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "초안 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "초안: 일정 없음": {
+      "main": [
+        [
+          {
+            "node": "초안 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "문자 보내기 Webhook": {
+      "main": [
+        [
+          {
+            "node": "보내기 입력 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기 입력 확인": {
+      "main": [
+        [
+          {
+            "node": "보내기: 입력 유효?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: 입력 유효?": {
+      "main": [
+        [
+          {
+            "node": "보내기: 일정 선점",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "보내기 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: 일정 선점": {
+      "main": [
+        [
+          {
+            "node": "보내기: 선점됨?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: 선점됨?": {
+      "main": [
+        [
+          {
+            "node": "보내기: 문자 저장",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "보내기 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: 문자 저장": {
+      "main": [
+        [
+          {
+            "node": "보내기: F07-S03 문자 발송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: F07-S03 문자 발송": {
+      "main": [
+        [
+          {
+            "node": "보내기: 결과 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기: 결과 조회": {
+      "main": [
+        [
+          {
+            "node": "보내기 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보내기 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "보내기 응답",
             "type": "main",
             "index": 0
           }

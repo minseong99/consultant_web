@@ -568,6 +568,48 @@ export const mockBackend: Backend = {
     return { success: true, schedule_id: scheduleId, schedule_status: "sent", message_id: message.message_id, send_status: "sent" };
   },
 
+  async draftMessage(scheduleId) {
+    const s = store();
+    const schedule = s.schedules.find((row) => row.schedule_id === scheduleId);
+    if (!schedule || schedule.schedule_status !== "scheduled") {
+      return { success: false, error_code: "NOT_SCHEDULED", message: "예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다." };
+    }
+    const customer = s.customers.find((c) => c.customer_id === schedule.customer_id);
+    await sleep(2500);
+    const text = customer ? composeMessage(schedule, customer) : "";
+    if (!text) return { success: false, error_code: "DRAFT_FAILED", message: "문자 초안을 만들지 못했습니다. 문자에 쓸 정보가 부족합니다." };
+    return { success: true, schedule_id: scheduleId, message_text: text };
+  },
+
+  async sendMessage(scheduleId, messageText) {
+    const s = store();
+    const schedule = s.schedules.find((row) => row.schedule_id === scheduleId);
+    if (!schedule || schedule.schedule_status !== "scheduled") {
+      return { success: false, error_code: "NOT_SCHEDULED", message: "예정 상태의 일정을 찾을 수 없습니다. 이미 발송되었거나 취소된 일정입니다." };
+    }
+    // scheduled → processing (발송 직전 동의 재확인) → pending → sending → sent
+    if (!hasRecontact(schedule.customer_id)) {
+      schedule.schedule_status = "skipped";
+      return { success: true, schedule_id: scheduleId, schedule_status: "skipped", message_id: null, send_status: null };
+    }
+    schedule.schedule_status = "processing";
+    const message: Message = {
+      message_id: `MSG-${scheduleId}`,
+      schedule_id: scheduleId,
+      message_content: messageText,
+      send_status: "sending",
+      sent_at: null,
+      send_channel: "sms",
+      generated_at: new Date().toISOString(),
+    };
+    s.messages.push(message);
+    await sleep(1500);
+    message.send_status = "sent";
+    message.sent_at = new Date().toISOString();
+    schedule.schedule_status = "sent";
+    return { success: true, schedule_id: scheduleId, schedule_status: "sent", message_id: message.message_id, send_status: "sent" };
+  },
+
   async listPromotions(storeId) {
     return store()
       .documents.filter((d) => d.store_id === storeId && d.document_type === "promotion")

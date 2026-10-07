@@ -14,6 +14,7 @@ import type {
   IntakeResult,
   Message,
   MessageSchedule,
+  MessageDraftResult,
   PromotionDraft,
   PromotionRegisterResult,
   PromotionResult,
@@ -186,6 +187,14 @@ export const realBackend: Backend = {
 
   async registerPromotion(input, storeId) {
     return (await callN8n(N8N_PATHS.promotionRegister, { ...input, store_id: storeId })) as PromotionRegisterResult;
+  },
+
+  draftMessage(scheduleId) {
+    return callN8n<Extract<MessageDraftResult, { success: true }>>(N8N_PATHS.messageDraft, { schedule_id: scheduleId });
+  },
+
+  sendMessage(scheduleId, messageText) {
+    return callN8n<Extract<SendNowResult, { success: true }>>(N8N_PATHS.messageSend, { schedule_id: scheduleId, message_text: messageText });
   },
 
   async storePromotionFile(path, bytes) {

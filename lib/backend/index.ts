@@ -8,6 +8,7 @@ import type {
   Feed,
   IntakeInput,
   IntakeResult,
+  MessageDraftResult,
   PromotionDraft,
   PromotionListItem,
   PromotionRegisterInput,
@@ -33,6 +34,10 @@ export interface Backend {
   recommend(customerId: string): Promise<RecommendResult>;
   consultationResult(input: ConsultationInput): Promise<ConsultationResult>;
   sendNow(scheduleId: string): Promise<SendNowResult>;
+  /** 문자 초안을 만든다. 발송하지 않고 일정 상태도 바꾸지 않는다. */
+  draftMessage(scheduleId: string): Promise<MessageDraftResult>;
+  /** 직원이 확인한 문자를 보낸다. 결과 형식은 sendNow 와 같다. */
+  sendMessage(scheduleId: string, messageText: string): Promise<SendNowResult>;
   listPromotions(storeId: string): Promise<PromotionListItem[]>;
   registerPromotion(input: PromotionRegisterInput, storeId: string): Promise<PromotionRegisterResult>;
   /** 프로모션 PDF 원본을 보관한다. 같은 경로가 있으면 덮어쓴다. */
