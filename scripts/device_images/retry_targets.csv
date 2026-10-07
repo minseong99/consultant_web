@@ -1,0 +1,21 @@
+﻿device_id,device_name,manufacturer,official_source_page,expected_terms,reason
+DEV-007,Galaxy S26 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s26-ultra/specs/,Galaxy S26 Ultra|갤럭시 S26 울트라|S26 Ultra,명백한 오탐: Samsung 공용 로고 이미지
+DEV-009,Galaxy Z Fold8 Ultra 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-z-fold8-ultra/specs/,Galaxy Z Fold8 Ultra|갤럭시 Z 폴드8 울트라|Fold8 Ultra,명백한 오탐: Samsung 공용 로고 이미지
+DEV-011,Galaxy S25+ 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s25/specs/,Galaxy S25+|갤럭시 S25+|S25+,기존 자동 추출 실패
+DEV-018,Galaxy A37 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a37-5g-a376/SM-A376NZWAKOO/,Galaxy A37 5G|갤럭시 A37 5G|SM-A376,대표 이미지 개선: 기능 설명 이미지 대신 단말 대표 이미지
+DEV-019,Galaxy A36 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a36-5g-a366/SM-A366NZKAKOO/,Galaxy A36 5G|갤럭시 A36 5G|SM-A366,대표 이미지 개선: 기능 설명 이미지 대신 단말 대표 이미지
+DEV-025,iPhone 16e 128GB,Apple,https://support.apple.com/ko-kr/122208,iPhone 16e,기존 자동 추출 실패
+DEV-027,iPhone 17 Pro Max 256GB,Apple,https://www.apple.com/kr/iphone-17-pro/,iPhone 17 Pro Max|17 Pro Max,기존 자동 추출 실패
+DEV-030,iPhone 18 Pro Max 256GB,Apple,https://www.apple.com/kr/iphone-18-pro/,iPhone 18 Pro Max|18 Pro Max,기존 자동 추출 실패
+DEV-031,iPhone 15 128GB,Apple,https://support.apple.com/ko-kr/111831,iPhone 15,기존 자동 추출 실패
+DEV-032,iPhone 15 Plus 128GB,Apple,https://support.apple.com/ko-kr/111830,iPhone 15 Plus,기존 자동 추출 실패
+DEV-033,iPhone 15 Pro 128GB,Apple,https://support.apple.com/ko-kr/111829,iPhone 15 Pro,기존 자동 추출 실패
+DEV-034,iPhone 15 Pro Max 256GB,Apple,https://support.apple.com/ko-kr/111828,iPhone 15 Pro Max,기존 자동 추출 실패
+DEV-035,Galaxy S23 FE 256GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-s23-fe-5g-s711/SM-S711NZAWKOD/,Galaxy S23 FE|갤럭시 S23 FE|SM-S711,대표 이미지 개선: 기능 설명 이미지 대신 단말 대표 이미지
+DEV-036,Galaxy Jump3 128GB,Samsung,https://www.samsung.com/sec/support/model/SM-M446KZKAKTC/,Galaxy Jump3|갤럭시 Jump3|SM-M446,기존 자동 추출 실패
+DEV-040,Galaxy A25 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a25-5g-a256/SM-A256NZKAKOO/,Galaxy A25 5G|갤럭시 A25 5G|SM-A256,대표 이미지 개선: Smart Switch 이미지 대신 단말 대표 이미지
+DEV-041,Galaxy A35 5G 128GB,Samsung,https://www.samsung.com/sec/smartphones/galaxy-a35-5g-a356/SM-A356NLBWKOO/,Galaxy A35 5G|갤럭시 A35 5G|SM-A356,대표 이미지 개선: Smart Switch 이미지 대신 단말 대표 이미지
+DEV-044,iPhone 16 128GB,Apple,https://support.apple.com/ko-kr/121029,iPhone 16,기존 자동 추출 실패
+DEV-045,iPhone 16 Plus 128GB,Apple,https://support.apple.com/ko-kr/121030,iPhone 16 Plus,기존 자동 추출 실패
+DEV-046,iPhone 16 Pro 128GB,Apple,https://support.apple.com/ko-kr/121031,iPhone 16 Pro,기존 자동 추출 실패
+DEV-047,iPhone 16 Pro Max 256GB,Apple,https://support.apple.com/ko-kr/121032,iPhone 16 Pro Max,기존 자동 추출 실패
