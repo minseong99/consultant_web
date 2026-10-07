@@ -57,7 +57,6 @@ export type Consultation = {
   staff_id: string;
   store_id: string;
   summary: string;
-  reconsultation_at: string | null;
   result_status: string | null;
   customer_response: string | null;
   interested_product: string | null;

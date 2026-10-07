@@ -787,11 +787,12 @@
       },
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH inserted AS (\n    INSERT INTO public.consultations (\n        consultation_id,\n        customer_id,\n        consulted_at,\n        staff_id,\n        store_id,\n        summary,\n        reconsultation_at\n    )\n    SELECT\n        'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n        c.customer_id,\n        NOW(),\n        $2,\n        $3,\n        $4,\n        CASE\n            WHEN NULLIF($5, '') IS NULL THEN NULL\n            ELSE ((NULLIF($5, '')::date + TIME '10:00') AT TIME ZONE 'Asia/Seoul')\n        END\n    FROM public.customers c\n    WHERE c.customer_id = $1\n    RETURNING consultation_id, customer_id\n)\nSELECT\n    i.consultation_id,\n    i.customer_id,\n    COALESCE((\n        SELECT analysis_id\n        FROM public.customer_analyses\n        WHERE customer_id = i.customer_id\n        ORDER BY created_at DESC\n        LIMIT 1\n    ), '') AS analysis_id\nFROM inserted i;",
+        "query": "WITH inserted AS (\n    INSERT INTO public.consultations (\n        consultation_id,\n        customer_id,\n        consulted_at,\n        staff_id,\n        store_id,\n        summary,\n        preferred_follow_up_date\n    )\n    SELECT\n        'CONS-' || (EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,\n        c.customer_id,\n        NOW(),\n        $2,\n        $3,\n        $4,\n        -- 재상담 예정일. F04가 같은 값을 다시 저장하지만, F04가 실패해도 남도록 여기서도 넣는다.\n        NULLIF($5, '')::date\n    FROM public.customers c\n    WHERE c.customer_id = $1\n    RETURNING consultation_id, customer_id\n)\nSELECT\n    i.consultation_id,\n    i.customer_id,\n    COALESCE((\n        SELECT analysis_id\n        FROM public.customer_analyses\n        WHERE customer_id = i.customer_id\n        ORDER BY created_at DESC\n        LIMIT 1\n    ), '') AS analysis_id\nFROM inserted i;",
         "options": {
           "queryReplacement": "={{ [\n  $json.body.customer_id,\n  $json.body.staff_id,\n  $json.body.store_id,\n  $json.body.notes,\n  $json.body.reconsultation_date ?? ''\n] }}"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "aa6ac8c5-88b9-4782-a385-8d16042f720c",
@@ -1128,7 +1129,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "parameters": {
-        "jsCode": "return [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];"
+        "jsCode": "// 상담 행을 만들지 못한 경우. 고객이 없어서인지, 저장 자체가 실패했는지 구분해 알려 준다.\nconst row = $('상담 행 생성').first()?.json ?? {};\nconst detail = row.error ? String(row.error.message ?? row.error) : (typeof row.message === 'string' ? row.message : '');\nif (detail) {\n  return [{ json: { success: false, error_code: 'CONSULTATION_SAVE_FAILED', message: '상담 기록을 저장하지 못했습니다. (' + detail + ')' } }];\n}\nreturn [{ json: { success: false, error_code: 'CUSTOMER_NOT_FOUND', message: '고객 정보를 찾을 수 없습니다.' } }];"
       }
     },
     {
