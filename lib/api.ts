@@ -2,8 +2,10 @@ import "server-only";
 import { getSession } from "./session";
 import type { ApiFailure, StaffSession } from "./types";
 
+// 실패 응답은 저장해 두지 않게 한다. 404·410 은 브라우저가 스스로 저장해 다시 쓸 수 있는 상태 코드라서,
+// 상태가 바뀐 뒤에도 예전 응답이 돌아온 적이 있다(종료된 상담 화면이 계속 410 을 받음).
 export function fail(status: number, error_code: string, message: string) {
-  return Response.json({ success: false, error_code, message } satisfies ApiFailure, { status });
+  return Response.json({ success: false, error_code, message } satisfies ApiFailure, { status, headers: { "Cache-Control": "no-store" } });
 }
 
 /** 서명된 직원 세션이 없으면 401. 개인정보 조회 API는 모두 이 함수를 거친다. */

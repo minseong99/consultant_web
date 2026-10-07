@@ -4,6 +4,7 @@ import { USE_MOCK } from "../config";
 import type {
   ConsultationInput,
   ConsultationResult,
+  ConsultScreenState,
   ConsultView,
   CustomerDetail,
   Feed,
@@ -36,6 +37,10 @@ export interface Backend {
   findCustomerId(name: string, phone: string): Promise<string | null>;
   /** 고객 상담 화면에 내보낼 값만 모은다. AI를 부르지 않고 저장된 추천을 읽는다. */
   consultView(customerId: string): Promise<ConsultView | null>;
+  /** 고객 상담 화면의 원격 조작 상태. 없으면 null */
+  screenState(customerId: string): Promise<ConsultScreenState | null>;
+  /** 원격 조작 상태를 고친다(없으면 만든다). 웹사이트가 DB 테이블에 직접 쓰는 유일한 곳이다. */
+  setScreenState(customerId: string, patch: Partial<ConsultScreenState>): Promise<void>;
   recommend(customerId: string): Promise<RecommendResult>;
   consultationResult(input: ConsultationInput): Promise<ConsultationResult>;
   sendNow(scheduleId: string): Promise<SendNowResult>;

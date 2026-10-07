@@ -9,14 +9,16 @@ import { Button, ErrorNote, inputClass, Skeleton } from "@/components/ui";
 import { Wordmark } from "@/components/Wordmark";
 import { isValidPhone } from "@/lib/fields";
 import { formatDateTime, formatWon } from "@/lib/format";
-import type { ConsultRecommendation, ConsultView } from "@/lib/types";
+import type { ConsultRecommendation, ConsultScreenView, ConsultView } from "@/lib/types";
 import { usePolling } from "@/lib/usePolling";
 
 // 상담하는 자리에서 고객이 직접 보는 화면. 이름과 휴대폰 번호로 본인을 확인한 뒤,
 // 직원이 받아 둔 추천을 보여 준다. 조회만 하며 이 화면에서 추천을 새로 만들지 않는다.
 export default function ConsultPage() {
   // undefined: 확인 중, null: 본인 확인 필요
-  const [view, setView] = useState<ConsultView | null | undefined>(undefined);
+  const [view, setView] = useState<ConsultScreenView | null | undefined>(undefined);
+  // 직원이 화면을 종료했다. 인사 화면을 보여 주고, 다시 보려면 본인 확인부터 한다.
+  const [ended, setEnded] = useState(false);
 
   // 이미 확인된 고객(새로 고침, 직원이 열어 준 화면)은 바로 보여 준다.
   useEffect(() => {
@@ -43,6 +45,28 @@ export default function ConsultPage() {
       </Shell>
     );
   }
+  if (ended) {
+    return (
+      <Shell>
+        <section className="flex flex-1 animate-rise-in flex-col pt-8">
+          <h1 className="text-[28px] font-bold leading-snug">
+            상담이 끝났습니다
+            <br />
+            방문해 주셔서 감사합니다
+          </h1>
+          <p className="mt-2 text-[15px] text-stone-600">궁금한 점은 직원에게 편하게 물어봐 주세요.</p>
+          <div className="mt-auto pt-8">
+            <Link
+              href="/"
+              className="flex h-13 w-full items-center justify-center rounded-full bg-white text-[16px] font-semibold text-ink ring-1 ring-inset ring-stone-200 transition-colors hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              처음 화면으로
+            </Link>
+          </div>
+        </section>
+      </Shell>
+    );
+  }
   if (view === null) {
     return (
       <Shell>
@@ -52,7 +76,14 @@ export default function ConsultPage() {
   }
   return (
     <Shell wide onLeave={leave}>
-      <Screen view={view} onChange={setView} />
+      <Screen
+        view={view}
+        onChange={setView}
+        onEnded={() => {
+          setEnded(true);
+          setView(null);
+        }}
+      />
     </Shell>
   );
 }
@@ -77,7 +108,7 @@ function Shell({ wide, onLeave, children }: { wide?: boolean; onLeave?: () => vo
   );
 }
 
-function Identify({ onFound }: { onFound: (view: ConsultView) => void }) {
+function Identify({ onFound }: { onFound: (view: ConsultScreenView) => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -157,23 +188,33 @@ function Identify({ onFound }: { onFound: (view: ConsultView) => void }) {
   );
 }
 
-function Screen({ view, onChange }: { view: ConsultView; onChange: (view: ConsultView | null) => void }) {
-  // 직원이 추천을 새로 받으면 따라 바뀐다. 확인이 풀렸으면(시간 만료) 본인 확인으로 돌아간다.
+// 고객은 화면을 만지지 않고 보고만 있는 때가 많으므로, 조작이 없어도 이 간격으로 조회해 직원이 넘기는 대로 따라간다.
+const FOLLOW_MS = 2_000;
+
+function Screen({ view, onChange, onEnded }: { view: ConsultScreenView; onChange: (view: ConsultScreenView | null) => void; onEnded: () => void }) {
+  // 직원이 추천을 새로 받거나 장을 넘기면 따라 바뀐다. 확인이 풀렸으면(시간 만료) 본인 확인으로, 직원이 종료했으면 인사 화면으로 간다.
   const refresh = useCallback(async () => {
     try {
       const response = await fetch("/api/consult");
       const data = await response.json();
       if (data.success) onChange(data.view);
+      else if (data.error_code === "ENDED") onEnded();
       else if (response.status === 401 || response.status === 404) onChange(null);
     } catch {
       // 잠깐 끊긴 것은 다음 조회에서 따라잡는다.
     }
-  }, [onChange]);
-  usePolling(refresh);
+  }, [onChange, onEnded]);
+  usePolling(refresh, FOLLOW_MS);
 
   // 스크롤해서 찾지 않도록 한 장씩 보여 준다. 그릴 값이 있는 장만 생긴다.
   const slides: ConsultSlide[] = [{ key: "recommend", label: "추천", node: <Recommendations view={view} /> }, ...consultChartSlides(view)];
-  const [selected, setSelected] = useState("recommend");
+  // 이 화면에서 직접 고른 장과, 그때의 직원 조작 시각. 직원이 그 뒤에 장을 넘기면 직원 쪽을 따른다.
+  // 화면을 열기 전에 남아 있던 직원 조작(opened)은 따르지 않고 첫 장부터 시작한다.
+  const remoteAt = view.remote?.updated_at ?? null;
+  const [opened] = useState(remoteAt);
+  const [picked, setPicked] = useState<{ key: string; at: string | null }>({ key: "recommend", at: remoteAt });
+  const selected = view.remote && remoteAt !== picked.at && remoteAt !== opened ? view.remote.slide : picked.key;
+  const setSelected = (key: string) => setPicked({ key, at: remoteAt });
   const index = Math.max(
     0,
     slides.findIndex((slide) => slide.key === selected),

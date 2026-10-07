@@ -5,6 +5,7 @@ import { matchDevices, type DeviceRef, type PromotionSummary } from "../promotio
 import type {
   Consultation,
   ConsultRecommendation,
+  ConsultScreenState,
   Customer,
   CustomerAnalysis,
   CustomerConsent,
@@ -34,6 +35,7 @@ type Store_ = {
   staff: Staff[];
   stores: Store[];
   savedRecommendations?: Record<string, SavedRecommendation>;
+  screens?: Record<string, ConsultScreenState>;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -571,6 +573,16 @@ export const mockBackend: Backend = {
       })),
       recommended_at: saved?.saved_at ?? null,
     };
+  },
+
+  async screenState(customerId) {
+    return store().screens?.[customerId] ?? null;
+  },
+
+  async setScreenState(customerId, patch) {
+    const screens = (store().screens ??= {});
+    const before: ConsultScreenState = screens[customerId] ?? { slide: "recommend", updated_at: new Date().toISOString(), ended_at: null, seen_at: null };
+    screens[customerId] = { ...before, ...patch };
   },
 
   async recommend(customerId) {
