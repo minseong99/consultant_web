@@ -39,14 +39,14 @@ export default function CustomersPage() {
 
   return (
     <>
-      <div className="mb-5 flex items-end justify-between gap-4">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-[24px] font-bold">고객</h1>
           <p className="mt-1 text-[14px] text-stone-600">고객이 접수하면 이 목록 맨 위에 바로 나타납니다.</p>
         </div>
         <input
           type="search"
-          className={`${inputClass} max-w-xs`}
+          className={`${inputClass} sm:max-w-xs`}
           placeholder="이름 또는 전화번호 검색"
           aria-label="고객 검색"
           value={query}

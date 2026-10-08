@@ -90,7 +90,7 @@ export default function ConsultPage() {
 
 function Shell({ wide, onLeave, children }: { wide?: boolean; onLeave?: () => void; children: ReactNode }) {
   return (
-    <main className={`mx-auto flex min-h-screen w-full flex-col px-5 pb-12 pt-8 ${wide ? "max-w-4xl" : "max-w-md bg-white"}`}>
+    <main className={`mx-auto flex min-h-screen w-full flex-col pb-12 pt-8 ${wide ? "page-x" : "max-w-md bg-white px-5"}`}>
       <header className="flex min-h-9 items-center justify-between">
         <Wordmark size="sm" label="상담 화면" />
         {onLeave && (

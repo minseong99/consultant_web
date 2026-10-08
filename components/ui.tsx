@@ -248,7 +248,7 @@ export function Drawer({ open, title, source, wide, onClose, children }: { open:
         tabIndex={-1}
         className={`relative flex h-full max-w-full animate-drawer-in flex-col bg-white shadow-2xl outline-none ${wide ? "w-[42rem]" : "w-[30rem]"}`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-stone-100 px-4 py-4 sm:px-6">
           <div>
             {source && <SourceLabel source={source} />}
             <h2 id={titleId} className="text-[17px] font-bold">
@@ -283,7 +283,7 @@ export function Tabs<K extends string>({ tabs, active, onChange, idPrefix }: { t
     document.getElementById(`${idPrefix}-tab-${next.key}`)?.focus();
   }
   return (
-    <div role="tablist" onKeyDown={onKeyDown} className="flex gap-1 border-b border-stone-200">
+    <div role="tablist" onKeyDown={onKeyDown} className="flex gap-1 overflow-x-auto border-b border-stone-200">
       {tabs.map((tab) => {
         const selected = tab.key === active;
         return (
@@ -295,7 +295,7 @@ export function Tabs<K extends string>({ tabs, active, onChange, idPrefix }: { t
             aria-controls={`${idPrefix}-panel-${tab.key}`}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.key)}
-            className={`-mb-px flex min-h-11 items-center gap-1.5 border-b-2 px-4 text-[14px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
+            className={`-mb-px flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-[14px] font-semibold sm:px-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-600 ${
               selected ? "border-brand-600 text-ink" : "border-transparent text-stone-500 hover:text-ink"
             }`}
           >
@@ -317,7 +317,7 @@ export function Tabs<K extends string>({ tabs, active, onChange, idPrefix }: { t
 /** 탭 패널. 꺼진 탭도 내용은 유지해, 진행 중인 요청과 결과가 사라지지 않게 한다. */
 export function TabPanel({ idPrefix, tabKey, active, children }: { idPrefix: string; tabKey: string; active: boolean; children: ReactNode }) {
   return (
-    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="min-h-[calc(100dvh-4rem)] pt-6">
+    <div id={`${idPrefix}-panel-${tabKey}`} role="tabpanel" aria-labelledby={`${idPrefix}-tab-${tabKey}`} hidden={!active} className="min-h-[calc(100dvh/var(--page-zoom)-4rem)] pt-6">
       {children}
     </div>
   );

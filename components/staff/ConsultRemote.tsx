@@ -71,9 +71,9 @@ export function ConsultRemote({ customerId }: { customerId: string }) {
     <>
       {/* 띠가 내용의 마지막 줄을 가리지 않게 자리를 비워 둔다. */}
       <div aria-hidden className="h-24" />
-      <section aria-label="고객 화면 조작" className="fixed bottom-5 left-[calc(50%+1.75rem)] z-30 -translate-x-1/2">
-        <div className="flex items-center gap-3 rounded-full bg-white py-2 pl-5 pr-2 shadow-[0_14px_40px_-12px_rgb(28_25_23/0.35)] ring-1 ring-stone-200">
-          <p className="flex items-center gap-2 whitespace-nowrap text-[13px] font-bold">
+      <section aria-label="고객 화면 조작" className="fixed inset-x-3 bottom-3 z-30 ml-14 flex flex-col items-center md:bottom-5">
+        <div className="flex max-w-full flex-col items-stretch gap-2 rounded-3xl bg-white p-2.5 shadow-[0_14px_40px_-12px_rgb(28_25_23/0.35)] ring-1 ring-stone-200 md:flex-row md:items-center md:gap-3 md:rounded-full md:py-2 md:pl-5 md:pr-2">
+          <p className="flex items-center gap-2 whitespace-nowrap px-2 text-[13px] font-bold md:px-0">
             고객 화면
             <span className={`inline-flex items-center gap-1.5 font-semibold ${seen ? "text-success" : "text-stone-500"}`}>
               <span aria-hidden className={`size-2 rounded-full ${seen ? "animate-pulse-soft bg-success" : "bg-stone-300"}`} />
@@ -82,7 +82,7 @@ export function ConsultRemote({ customerId }: { customerId: string }) {
           </p>
 
           {confirming ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <p className="whitespace-nowrap px-2 text-[13px] font-semibold">고객 화면을 닫을까요?</p>
               <button
                 type="button"
@@ -99,8 +99,8 @@ export function ConsultRemote({ customerId }: { customerId: string }) {
               </button>
             </div>
           ) : (
-            <>
-              <div role="group" aria-label="보여 줄 장" className="flex gap-1 rounded-full bg-stone-100 p-1">
+            <div className="flex min-w-0 items-center gap-1 md:gap-3">
+              <div role="group" aria-label="보여 줄 장" className="flex min-w-0 gap-1 overflow-x-auto rounded-full bg-stone-100 p-1">
                 {slides.map((slide) => (
                   <button
                     key={slide.key}
@@ -127,7 +127,7 @@ export function ConsultRemote({ customerId }: { customerId: string }) {
               >
                 종료
               </button>
-            </>
+            </div>
           )}
         </div>
         {error && (

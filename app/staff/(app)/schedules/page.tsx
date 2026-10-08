@@ -43,12 +43,12 @@ function Schedules() {
 
   return (
     <>
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-[24px] font-bold">후속 연락 일정</h1>
           <p className="mt-1 text-[14px] text-stone-600">안내 문자는 예약 시각에 자동으로 작성·발송됩니다.</p>
         </div>
-        <div role="group" aria-label="보기 방식" className="flex rounded-lg bg-white p-0.5 ring-1 ring-stone-300">
+        <div role="group" aria-label="보기 방식" className="flex shrink-0 self-start rounded-lg bg-white p-0.5 ring-1 ring-stone-300 sm:self-auto">
           {(["calendar", "list"] as const).map((key) => (
             <button
               key={key}
@@ -206,7 +206,7 @@ function CalendarView({
                   >
                     {Number(day.slice(8))}
                   </span>
-                  {isToday && <span className="text-[11px] font-semibold text-brand-600">오늘</span>}
+                  {isToday && <span className="hidden text-[11px] font-semibold text-brand-600 sm:inline">오늘</span>}
                 </span>
                 {lines.slice(0, 3).map(([type, count]) => (
                   <span key={type} className={`flex items-center justify-between gap-1 rounded px-1.5 py-0.5 text-[12px] ${allSent ? "bg-stone-100 text-stone-500" : "bg-stone-200/70 text-stone-800"}`}>
