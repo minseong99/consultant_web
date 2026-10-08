@@ -7,10 +7,13 @@ const SLIDES = ["recommend", "fee", "price", "timeline"];
 // 고객 화면에 지금 나오는 내용과 원격 조작 상태. 조작 띠가 어떤 장이 있는지, 고객이 보고 있는지 알기 위해 쓴다.
 export function GET(request: Request) {
   return withStaff(async () => {
-    const customerId = new URL(request.url).searchParams.get("customer_id") ?? "";
+    const params = new URL(request.url).searchParams;
+    const customerId = params.get("customer_id") ?? "";
+    // ?light=1 이면 상태만 돌려준다(DB 조회 1건). 어떤 장이 있는지는 가끔만 다시 읽으면 된다.
+    const light = params.get("light") === "1";
     const backend = getBackend();
-    const view = customerId ? await backend.consultView(customerId) : null;
-    if (!view) return fail(404, "CUSTOMER_NOT_FOUND", "고객 정보를 찾을 수 없습니다.");
+    const view = light || !customerId ? null : await backend.consultView(customerId);
+    if (!customerId || (!light && !view)) return fail(404, "CUSTOMER_NOT_FOUND", "고객 정보를 찾을 수 없습니다.");
     try {
       return Response.json({ success: true, view, state: await backend.screenState(customerId), available: true });
     } catch (error) {

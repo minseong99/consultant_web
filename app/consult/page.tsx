@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { consultChartSlides, type ConsultSlide } from "@/components/consult/ConsultCharts";
 import { DeviceVisual } from "@/components/staff/DeviceVisual";
 import { Button, ErrorNote, inputClass, Skeleton } from "@/components/ui";
@@ -189,21 +189,36 @@ function Identify({ onFound }: { onFound: (view: ConsultScreenView) => void }) {
 }
 
 // 고객은 화면을 만지지 않고 보고만 있는 때가 많으므로, 조작이 없어도 이 간격으로 조회해 직원이 넘기는 대로 따라간다.
+// 이 조회는 직원이 고른 장만 묻는 가벼운 것이고, 화면 내용 전체는 장이 바뀌었을 때(직원이 넘기거나 추천을 새로 받음)와
+// FULL_MS 마다만 다시 읽는다. 추천을 기다리는 동안에는 바로 나타나도록 매번 전체를 읽는다.
 const FOLLOW_MS = 2_000;
+const FULL_MS = 60_000;
 
 function Screen({ view, onChange, onEnded }: { view: ConsultScreenView; onChange: (view: ConsultScreenView | null) => void; onEnded: () => void }) {
   // 직원이 추천을 새로 받거나 장을 넘기면 따라 바뀐다. 확인이 풀렸으면(시간 만료) 본인 확인으로, 직원이 종료했으면 인사 화면으로 간다.
+  const lastFull = useRef(0);
+  const waiting = view.recommendations.length === 0;
+  const followed = view.remote?.updated_at ?? null;
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/consult");
-      const data = await response.json();
-      if (data.success) onChange(data.view);
-      else if (data.error_code === "ENDED") onEnded();
+      let full = waiting || Date.now() - lastFull.current >= FULL_MS;
+      let response = await fetch(full ? "/api/consult" : "/api/consult?light=1", { cache: "no-store" });
+      let data = await response.json();
+      if (data.success && !full && data.remote && data.remote.updated_at !== followed) {
+        full = true;
+        response = await fetch("/api/consult", { cache: "no-store" });
+        data = await response.json();
+      }
+      if (data.success) {
+        if (!full) return;
+        lastFull.current = Date.now();
+        onChange(data.view);
+      } else if (data.error_code === "ENDED") onEnded();
       else if (response.status === 401 || response.status === 404) onChange(null);
     } catch {
       // 잠깐 끊긴 것은 다음 조회에서 따라잡는다.
     }
-  }, [onChange, onEnded]);
+  }, [onChange, onEnded, waiting, followed]);
   usePolling(refresh, FOLLOW_MS);
 
   // 스크롤해서 찾지 않도록 한 장씩 보여 준다. 그릴 값이 있는 장만 생긴다.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { consultChartSlides } from "@/components/consult/ConsultCharts";
 import type { ConsultScreenState, ConsultView } from "@/lib/types";
 import { usePolling } from "@/lib/usePolling";
@@ -10,6 +10,9 @@ import { usePolling } from "@/lib/usePolling";
 
 // 고객 화면은 10초마다 조회 시각을 남긴다. 이 시간 안에 남긴 것이 있으면 보고 있다고 본다.
 const SEEN_WITHIN_MS = 25_000;
+// 어떤 장이 있는지(추천 내용에 따라 달라짐)는 이 간격으로만 다시 읽는다. 그 사이에는 상태만 묻는다.
+const SLIDES_EVERY_MS = 60_000;
+const RECOMMEND_SLIDE = { key: "recommend", label: "추천" };
 
 type Remote = {
   slides: { key: string; label: string }[];
@@ -25,18 +28,22 @@ export function ConsultRemote({ customerId }: { customerId: string }) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const slidesAt = useRef(0);
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/staff/consult-screen?customer_id=${encodeURIComponent(customerId)}`, { cache: "no-store" });
-      const data: { success: boolean; available?: boolean; view: ConsultView; state: ConsultScreenState | null } = await response.json();
+      const full = Date.now() - slidesAt.current >= SLIDES_EVERY_MS;
+      const response = await fetch(`/api/staff/consult-screen?customer_id=${encodeURIComponent(customerId)}${full ? "" : "&light=1"}`, { cache: "no-store" });
+      const data: { success: boolean; available?: boolean; view: ConsultView | null; state: ConsultScreenState | null } = await response.json();
       // 원격 조작을 쓸 수 없으면(상태를 저장할 곳이 없음) 띠를 보이지 않는다.
       if (!data.success || !data.available) return setRemote(null);
-      const seenAt = data.state?.seen_at ? new Date(data.state.seen_at).getTime() : 0;
-      setRemote({
-        slides: [{ key: "recommend", label: "추천" }, ...consultChartSlides(data.view).map(({ key, label }) => ({ key, label }))],
-        state: data.state,
-        seen: !data.state?.ended_at && Date.now() - seenAt < SEEN_WITHIN_MS,
-      });
+      const { view, state } = data;
+      if (view) slidesAt.current = Date.now();
+      const seenAt = state?.seen_at ? new Date(state.seen_at).getTime() : 0;
+      setRemote((before) => ({
+        slides: view ? [RECOMMEND_SLIDE, ...consultChartSlides(view).map(({ key, label }) => ({ key, label }))] : (before?.slides ?? [RECOMMEND_SLIDE]),
+        state,
+        seen: !state?.ended_at && Date.now() - seenAt < SEEN_WITHIN_MS,
+      }));
       setPending(null);
     } catch {
       // 잠깐 끊긴 것은 다음 조회에서 따라잡는다.
