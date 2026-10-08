@@ -245,7 +245,7 @@ function Shell({ staffId, storeName, children }: Props) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="mx-auto w-full max-w-[76rem] flex-1 px-8 py-8">
+        <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8 2xl:px-12">
           {error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-2.5 text-[13px] font-semibold text-danger">연결 문제: {error}</p>}
           {children}
         </main>
@@ -299,7 +299,7 @@ function Bell({ expanded, rowClass }: { expanded: boolean; rowClass: string }) {
         {expanded && unread > 0 && <span className="flex min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-bold leading-5 text-white">{unread}</span>}
       </button>
       {open && (
-        <div className="absolute bottom-0 left-full ml-3 w-96 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-stone-200">
+        <div className="absolute bottom-0 left-full ml-3 w-[min(24rem,calc(100vw-5.5rem))] overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-stone-200">
           <p className="border-b border-stone-100 px-4 py-3 text-[14px] font-bold">알림</p>
           {notices.length === 0 ? (
             <p className="px-4 py-8 text-center text-stone-500">아직 알림이 없습니다.</p>
@@ -328,7 +328,7 @@ function Bell({ expanded, rowClass }: { expanded: boolean; rowClass: string }) {
 function Toasts() {
   const { toasts, dismissToast } = useStaffFeed();
   return (
-    <div aria-live="polite" className="pointer-events-none fixed right-6 top-6 z-50 flex w-[24rem] flex-col gap-2.5">
+    <div aria-live="polite" className="pointer-events-none fixed right-3 top-3 z-50 flex w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2.5 sm:right-6 sm:top-6">
       {toasts.map((toast) => (
         <Toast key={toast.id} notice={toast} onClose={() => dismissToast(toast.id)} />
       ))}

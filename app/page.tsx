@@ -12,7 +12,7 @@ const STEPS = [
 export default function Home() {
   return (
     <div className="home-glow flex min-h-screen flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
+      <header className="page-x flex w-full items-center justify-between py-5">
         <Wordmark />
         <Link
           href="/staff"
@@ -22,15 +22,15 @@ export default function Home() {
         </Link>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-16 pt-6">
-        <div className="flex items-center justify-between gap-12">
-        <section className="max-w-xl">
-          <h1 className="text-[34px] font-bold leading-[1.2] sm:text-[46px]">
+      <main className="page-x flex w-full flex-1 flex-col justify-center pb-16 pt-6">
+        <div className="flex items-center justify-between gap-12 lg:justify-evenly">
+        <section className="max-w-xl lg:max-w-[min(48rem,calc(46*var(--vw)))]">
+          <h1 className="text-[34px] font-bold leading-[1.2] sm:text-[46px] lg:text-[clamp(46px,calc(3.7*var(--vw)),76px)]">
             기다리는 동안,
             <br />
             상담 준비를 마쳐 둘게요
           </h1>
-          <p className="mt-5 text-[17px] leading-relaxed text-stone-600">
+          <p className="mt-5 text-[17px] leading-relaxed text-stone-600 lg:text-[clamp(17px,calc(1.25*var(--vw)),23px)]">
             1~2분만 내어 주세요. 직원이 미리 살펴보고 고객님께 꼭 맞는 기기와 요금제를 준비해 두겠습니다.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -52,7 +52,7 @@ export default function Home() {
           <p className="mt-4 text-[13px] text-stone-500">개인정보 수집·이용 동의 후 진행됩니다.</p>
         </section>
           {/* 넓은 화면에서만 보인다. 휴대폰으로 접수하는 고객에게는 글과 버튼만 보여 준다. */}
-          <div className="hidden shrink-0 lg:block">
+          <div className="hidden shrink-0 lg:block min-[1700px]:mx-10 min-[1700px]:my-12 min-[1700px]:scale-[1.25]">
             <HeroFlow />
           </div>
         </div>

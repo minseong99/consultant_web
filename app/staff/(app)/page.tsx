@@ -61,7 +61,7 @@ export default function TodayPage() {
       <h1 className="text-[24px] font-bold">오늘</h1>
       <p className="mt-1 text-[14px] text-stone-600">{formatDate(today)}</p>
 
-      <div className="mt-5 grid grid-cols-1 items-start gap-5 md:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 items-start gap-5 md:grid-cols-2 2xl:grid-cols-3">
         {/* 문제가 있을 때만 맨 위에 보여 준다. */}
         {attention.length > 0 && (
           <Section id="attention" title="확인 필요" count={attention.length} unit="건" warning wide note="어제와 오늘 발송되지 않았거나 예약 시각이 지난 연락">
@@ -161,7 +161,7 @@ function Section({
 }) {
   const tone = warning ? "text-danger" : count === 0 ? "text-stone-400" : emphasis ? "text-brand-600" : "text-ink";
   return (
-    <section id={id} className={`surface scroll-mt-6 p-5 ${warning ? "ring-1 ring-red-200" : ""} ${wide ? "md:col-span-2" : ""}`}>
+    <section id={id} className={`surface scroll-mt-6 p-5 ${warning ? "ring-1 ring-red-200" : ""} ${wide ? "md:col-span-2 2xl:col-span-3" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="flex items-baseline gap-2 text-[16px] font-bold">
           {title}

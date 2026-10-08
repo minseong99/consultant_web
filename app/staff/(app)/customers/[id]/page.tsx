@@ -259,7 +259,7 @@ function CustomerView({
         </TabPanel>
 
         <TabPanel idPrefix={TAB_ID} tabKey="record" active={tab === "record"}>
-          <div className="flex max-w-4xl flex-col gap-8">
+          <div className="flex flex-col gap-8">
             {/* 취소해도 적던 내용이 남도록 기록 칸은 화면에서만 숨긴다. */}
             <div hidden={phase === "idle"}>
               <ConsultationForm
@@ -353,7 +353,7 @@ function daysUntil(dateString: string) {
 // 상담 순서 표시. 지금 할 단계는 주요 버튼, 끝난 단계는 체크, 남은 단계는 옅은 번호로 보인다.
 function FlowSteps({ flow, current }: { flow: FlowStep[]; current: FlowStep["key"] }) {
   return (
-    <ol aria-label="상담 순서" className="flex shrink-0 items-center">
+    <ol aria-label="상담 순서" className="flex max-w-full items-center">
       {flow.map((step, index) => {
         const isCurrent = step.key === current;
         const className = isCurrent
@@ -362,7 +362,7 @@ function FlowSteps({ flow, current }: { flow: FlowStep[]; current: FlowStep["key
                 ? "bg-brand-50 text-brand-700"
                 : "bg-brand-600 text-white shadow-[0_10px_22px_-10px_rgb(200_30_30/0.6)] hover:bg-brand-700"
             }`
-          : `inline-flex h-11 items-center gap-2 rounded-full pl-1.5 pr-3 text-[13px] font-semibold transition-colors hover:bg-stone-100 ${step.done ? "text-stone-700" : "text-stone-400 hover:text-stone-700"}`;
+          : `inline-flex h-11 items-center gap-2 rounded-full px-1.5 text-[13px] font-semibold transition-colors hover:bg-stone-100 sm:pr-3 ${step.done ? "text-stone-700" : "text-stone-400 hover:text-stone-700"}`;
         const body = (
           <>
             <span
@@ -386,7 +386,8 @@ function FlowSteps({ flow, current }: { flow: FlowStep[]; current: FlowStep["key
               </>
             ) : (
               <>
-                {step.label}
+                {/* 좁은 화면에서는 지금 할 단계만 글자를 보이고 나머지는 동그라미만 둔다. */}
+                <span className="sr-only sm:not-sr-only">{step.label}</span>
                 {step.done && <span className="sr-only"> 완료</span>}
               </>
             )}
@@ -395,7 +396,7 @@ function FlowSteps({ flow, current }: { flow: FlowStep[]; current: FlowStep["key
         const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600";
         return (
           <li key={step.key} className="flex items-center" aria-current={isCurrent ? "step" : undefined}>
-            {index > 0 && <span aria-hidden className={`mx-1 h-px w-5 ${flow[index - 1].done ? "bg-stone-500" : "bg-stone-200"}`} />}
+            {index > 0 && <span aria-hidden className={`mx-0.5 h-px w-3 sm:mx-1 sm:w-5 ${flow[index - 1].done ? "bg-stone-500" : "bg-stone-200"}`} />}
             <button type="button" onClick={step.onClick} disabled={step.disabled} className={`${className} ${focus} disabled:cursor-default`}>
               {body}
             </button>
@@ -428,7 +429,7 @@ function CustomerHeader({
     ? daysUntil(customer.contract_end_date)
     : null;
   return (
-    <header className="surface mt-3 px-6 pb-3 pt-6">
+    <header className="surface mt-3 px-4 pb-3 pt-5 sm:px-6 sm:pt-6">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-5">
         <div className="flex min-w-0 items-center gap-4">
           {/* 사진 대신 이름 첫 글자. 고객을 번호가 아닌 사람으로 보이게 한다. */}
@@ -1010,7 +1011,7 @@ function RecommendationPanel({
             since={startedAt}
             note="요청이 전달되었습니다 · 보통 30~55초"
           />
-          <div className="mt-4 grid grid-cols-2 gap-5">
+          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-3">
             {[0, 1].map((i) => (
               <div
                 key={i}
@@ -1052,7 +1053,7 @@ function RecommendationPanel({
           {recommendations.length === 0 ? (
             <EmptyState>추천할 수 있는 상품을 찾지 못했습니다.</EmptyState>
           ) : (
-            <ol className="grid grid-cols-2 gap-5">
+            <ol className="grid grid-cols-1 gap-5 md:grid-cols-2 2xl:grid-cols-3">
               {recommendations.map((item, index) => (
                 <RecommendationCard key={index} item={item} rank={item.recommendation_rank ?? index + 1} primary={index === 0} onOpenEvidence={() => setEvidenceIndex(index)} />
               ))}
@@ -1352,7 +1353,7 @@ function ConsultationForm({
             </p>
           </div>
 
-          <div className="grid grid-cols-[14rem_minmax(0,1fr)] items-start gap-x-5 gap-y-1">
+          <div className="grid grid-cols-1 items-start gap-x-5 gap-y-4 md:grid-cols-[14rem_minmax(0,1fr)] md:gap-y-1">
             <div>
               <label
                 htmlFor="reconsult"
@@ -1392,7 +1393,7 @@ function ConsultationForm({
             label="고객 반응·관심 상품·녹취 입력"
             openLabel="추가 입력 접기"
           >
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <LabeledInput
                 id="response"
                 label="고객 반응"
@@ -1669,7 +1670,7 @@ function FollowUp({
       ? "방금 처리한 후속 연락"
       : "다음 후속 연락";
   return (
-    <section className="max-w-4xl">
+    <section>
       <SourceLabel source="auto" />
       <h2 className="mt-1 text-[17px] font-bold">{title}</h2>
       <div className="mt-3">

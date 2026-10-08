@@ -158,7 +158,7 @@ export default function PromotionsPage() {
 
   return (
     <>
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-[24px] font-bold">프로모션</h1>
           <p className="mt-1 text-[14px] text-stone-600">프로모션을 등록하고 조건에 맞는 고객에게 안내 일정을 만듭니다. 마케팅·재연락에 동의한 고객만 대상입니다.</p>
@@ -225,7 +225,7 @@ export default function PromotionsPage() {
           {shown.length === 0 ? (
             <EmptyState>{words.length > 0 ? "검색 결과가 없습니다." : "해당하는 프로모션이 없습니다."}</EmptyState>
           ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 min-[2000px]:grid-cols-5">
             {shown.map((promotion) => {
               const ended = isEnded(promotion.valid_until);
               const upcoming = isUpcoming(promotion.valid_from);

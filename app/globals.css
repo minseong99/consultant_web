@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 @theme inline {
+  /* 배치가 바뀌는 지점. 640px 이상의 창은 1200px 폭의 화면을 그대로 축소해 보여 주므로(public/viewport-scale.js),
+     md·lg·xl 을 모두 sm 과 같은 640px 에 맞춰 그 위에서는 배치가 바뀌지 않게 한다.
+     1200px 부터는 축소 없이 화면을 채우고, 2xl(1536px)에서 열 수가 늘어난다. */
+  --breakpoint-md: 40rem;
+  --breakpoint-lg: 40rem;
+  --breakpoint-xl: 40rem;
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Malgun Gothic", "Segoe UI", sans-serif;
   /* 포인트 색(레드). 1순위 추천, 주요 버튼, 선택 상태에만 쓴다. */
@@ -119,16 +125,36 @@
     0 10px 28px -14px rgb(28 25 23 / 0.12);
 }
 
+/* 쪽의 좌우 여백. 내용 폭에 상한을 두지 않고 화면을 채우되, 여백은 화면 폭에 따라 20px~80px 사이에서 늘어난다. */
+@utility page-x {
+  padding-inline: clamp(1.25rem, calc(4 * var(--vw)), 5rem);
+}
+
+/* 화면 전체를 축소하는 동안(--page-zoom < 1)에는 vh·vw 로 잡은 크기도 함께 줄어든다.
+   화면을 꽉 채워야 하는 높이와, 화면 폭에 비례하는 크기는 축소 비율로 나눠 되돌린다. */
+:root {
+  --page-zoom: 1;
+  --vw: calc(1vw / var(--page-zoom));
+}
+.min-h-screen {
+  min-height: calc(100vh / var(--page-zoom));
+}
+.h-screen {
+  height: calc(100vh / var(--page-zoom));
+}
+
 h1,
 h2 {
   letter-spacing: -0.015em;
 }
 
-/* 첫 화면 바탕의 옅은 빛. 포인트 색을 아주 옅게 깔아 차갑지 않게 한다. */
+/* 첫 화면 바탕의 빛. 오른쪽 위의 포인트 색(레드), 왼쪽의 파랑, 아래쪽의 따뜻한 빛이 겹쳐 번진다.
+   글자가 놓이는 가운데는 바탕색이 남도록 빛을 모서리 쪽에 둔다. */
 .home-glow {
   background:
-    radial-gradient(60rem 32rem at 85% -10%, rgb(200 30 30 / 0.07), transparent 60%),
-    radial-gradient(40rem 26rem at -5% 35%, rgb(29 78 216 / 0.05), transparent 60%);
+    radial-gradient(64rem 36rem at 88% -12%, rgb(200 30 30 / 0.2), transparent 62%),
+    radial-gradient(46rem 32rem at -8% 30%, rgb(29 78 216 / 0.14), transparent 62%),
+    radial-gradient(52rem 30rem at 70% 112%, rgb(234 138 30 / 0.13), transparent 60%);
 }
 
 body {
