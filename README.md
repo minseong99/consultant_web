@@ -1,13 +1,119 @@
-# consultant_web
+# KT 매장 상담 지원 AI Agent — 웹사이트
 
-통신 매장 "상담 지원 AI Agent"(n8n 워크플로우 + Supabase)의 **시연 영상 촬영용 웹사이트**입니다.
-분석·추천·일정 계산·문자 생성은 모두 n8n이 하고, 이 웹사이트는 n8n을 호출하고 결과를 보여 주기만 합니다.
+통신 매장에서 **고객이 접수하고, 직원이 AI의 분석과 추천을 받아 상담하고, 상담 뒤 안내 문자까지 이어지는** 흐름을 한 곳에서 다루는 웹사이트입니다.
 
-| 경로 | 대상 | 설명 |
-|---|---|---|
-| `/` | 고객 | 서비스 첫 화면. 상담 접수 시작, 오른쪽 위에 직원 로그인 |
-| `/join` | 고객 (모바일) | 동의 → 정보 입력 → 접수 완료 |
-| `/staff` | 직원 (PC) | 오늘 화면(상담 대기·오늘 나갈 연락·확인 필요), 고객 목록과 고객 상세(브리프·추천·상담 기록·후속 연락), 후속 연락 일정(캘린더·목록), 프로모션 등록·대상 선정, 알림 |
+- 배포 주소: https://consultant-web-beryl.vercel.app
+- 아래 화면은 모두 샘플 데이터 모드에서 찍은 것입니다. 다시 찍으려면 `node scripts/readme-shots.mjs` 를 씁니다.
+- 분석·추천·일정 계산·문자 생성은 n8n 워크플로우가 하고, 데이터는 Supabase에 있습니다. 이 저장소는 그것을 쓰는 화면과, 화면과 n8n을 잇는 게이트웨이입니다.
+
+![직원 화면의 추천 탭과 고객 상담 화면을 나란히 놓은 모습](docs/images/01-hero.png)
+
+왼쪽이 직원 화면, 오른쪽이 고객의 휴대폰에 열린 상담 화면입니다. 화면 속 고객과 값은 모두 샘플 데이터입니다.
+
+## 한 번의 방문을 따라가 보면
+
+고객 한 명이 매장에 와서 상담을 받고 돌아가기까지입니다.
+
+### 1. 고객이 기다리는 동안 접수합니다
+
+![첫 화면](docs/images/00-home.png)
+
+매장의 QR이나 태블릿으로 첫 화면을 열고 [상담 접수하기]를 누릅니다. 동의 항목을 확인한 뒤, 지금 쓰는 기기와 요금제, 사용 패턴, 상담 목적을 고릅니다. 기기와 요금제는 매장의 실제 목록에서 검색해 고릅니다.
+
+제출하면 AI가 고객을 분석하고(약 25초), 약정 만료일을 적었다면 만료 안내 일정이 만들어집니다. 고객은 기다릴 필요 없이 자리에 앉으면 됩니다.
+
+<img src="docs/images/02-join.png" alt="접수 화면에서 지금 쓰는 기기를 검색해 고르는 창" width="300">
+
+### 2. 직원 화면에 새 고객이 바로 나타납니다
+
+직원이 화면을 새로 고치지 않아도 "상담 대기"에 새 고객이 나타나고 알림이 뜹니다. 고객을 누르면 AI가 정리한 브리프(무엇을 원하는지, 기기를 바꿀 시기인지, 무엇을 중요하게 보는지)와 고객이 직접 적은 내용이 나란히 보입니다.
+
+화면 위쪽의 **상담 순서 줄**(추천 → 상담 → 후속 연락)이 지금 할 일을 알려 줍니다.
+
+![직원 화면의 고객 상세. 위쪽에 상담 순서 줄, 아래에 AI 브리프와 고객이 알려 준 내용](docs/images/03-brief.png)
+
+### 3. 직원이 맞춤 추천을 받습니다
+
+[맞춤 추천 받기]를 누르면 30~55초 뒤 추천이 순위별로 나옵니다. 매장의 실제 기기·요금제 목록과 등록된 프로모션 문서를 근거로 하며, 추천마다 이유와 적용 조건을 열어 볼 수 있습니다. 기다리는 동안에는 실제로 흐른 시간만 표시합니다.
+
+![추천 탭. 1순위와 2순위 추천 카드](docs/images/04-recommend.png)
+
+### 4. 고객에게 화면으로 보여 주며 설명합니다
+
+고객이 첫 화면의 [상담 화면 보기]에서 이름과 휴대폰 번호를 입력하면 자신의 추천이 열립니다. 화면은 스크롤 없이 한 장씩 넘어갑니다.
+
+| 장 | 내용 |
+|---|---|
+| 추천 | 순위별 기기(사진, 가격)와 요금제(월 요금, 제공량) |
+| 월 요금 | 지금 요금제와 추천 요금제의 비교. 희망 월 예산을 적었다면 그 위치도 표시 |
+| 기기 가격 | 추천 기기끼리의 비교 |
+| 약정 | 약정 만료까지 남은 기간, 지금 기기를 쓴 기간 |
+
+**직원이 자기 화면에서 고객의 화면을 넘깁니다.** 고객이 화면을 열면 직원 화면 아래쪽 조작 띠에 "보는 중"이 표시되고, 직원이 [월 요금]을 누르면 고객의 화면이 2초 안에 그 장으로 바뀝니다. 상담이 끝나면 [종료]로 고객의 화면을 닫습니다.
+
+그래프는 DB에 실제로 있는 값으로만 그리고, 계산한 값은 식을 함께 적습니다(예: "지금보다 월 14,000원 높습니다 (69,000원 − 55,000원)"). 이 화면은 저장된 추천을 읽기만 하고 AI를 부르지 않습니다.
+
+![직원이 조작 띠에서 월 요금을 누르자 고객 화면이 월 요금 비교로 바뀐 모습](docs/images/05-remote.png)
+
+직원이 아래쪽 조작 띠에서 [월 요금]을 누른 직후입니다. 오른쪽 고객 화면이 월 요금 비교 장으로 바뀌어 있습니다.
+
+### 5. 상담 결과를 기록합니다
+
+직원이 상담 메모를 자유롭게 적고, 고객이 다시 오기로 했다면 재상담 예정일을 넣어 저장합니다. AI가 메모를 요약하고 결과 상태와 관심 상품, 후속 연락 사유로 정리합니다. 재상담 예정일이 있으면 안내 일정이 만들어집니다.
+
+![상담 탭. 저장한 뒤 AI가 정리한 상담 결과](docs/images/06-record.png)
+
+### 6. 상담 뒤 안내 문자가 이어집니다
+
+후속 연락 일정은 달력에서 봅니다. 예약된 시각이 되면 AI가 그 고객의 상담 내용을 담은 문자를 만들어 보냅니다. 직원이 미리 보내고 싶으면 [지금 발송]으로 AI 초안을 받아 확인하고 고친 뒤 보냅니다.
+
+![후속 연락 일정 달력](docs/images/07-schedules.png)
+
+### 7. 프로모션이 생기면 맞는 고객에게 알립니다
+
+프로모션 안내 PDF를 올리면 AI가 프로모션별로 나눠 주고, 직원이 확인한 뒤 등록합니다. [대상 선정]을 누르면 조건에 맞고 마케팅 수신에 동의한 고객을 고르고, 고객마다 안내 일정을 만듭니다.
+
+![프로모션 카드 목록](docs/images/08-promotions.png)
+
+## 주요 기능
+
+| | 기능 |
+|---|---|
+| 고객 | 접수(동의, 기기·요금제 검색 선택) · 상담 화면(추천, 비교 그래프) |
+| 직원: 상담 | 오늘 할 일 · 고객 목록과 검색 · AI 브리프 · 맞춤 추천과 근거 · 고객 화면 원격 조작 · 상담 기록과 AI 정리 |
+| 직원: 상담 뒤 | 후속 연락 달력 · 문자 초안 확인 후 발송 · 프로모션 PDF 등록 · 대상 선정과 일정 생성 |
+| 공통 | 새 고객·일정·발송 알림(새로 고침 없이) · 창 크기에 따른 화면 맞춤 |
+
+## 구조
+
+```
+고객 (/join, /consult) ─┐
+                        ├─ 웹사이트 서버 (/api/…) ─┬─ n8n 게이트웨이 ─ 워크플로우 F01~F07
+직원 (/staff)          ─┘                          └─ Supabase (조회)
+```
+
+- **브라우저는 n8n이나 Supabase를 직접 부르지 않습니다.** 모두 웹사이트 서버를 거치므로 키와 개인정보 조회 권한이 브라우저에 나가지 않습니다.
+- **쓰기는 n8n이 합니다.** 웹사이트는 조회만 합니다. 예외는 두 가지입니다: 프로모션 PDF 원본 보관, 고객 화면의 원격 조작 상태(`consult_screens`).
+- **알림과 화면 갱신은 주기적 조회로 합니다.** 보고 있을 때는 2~3초, 조작이 없거나 탭이 가려지면 15~60초로 느려집니다.
+- **기존 워크플로우에는 웹 진입점이 없어서 게이트웨이가 잇습니다.** 게이트웨이(`WF Main`)가 웹사이트의 요청을 받아 워크플로우를 순서대로 부릅니다. 게이트웨이는 `scripts/build-gateway.mjs` 로 생성합니다.
+
+화면을 만들 때 지킨 원칙:
+
+- 처음부터 모든 정보를 펼치지 않고 필요할 때 열어 본다.
+- 없는 데이터(점수, 통계)를 화면에 만들지 않는다.
+- 기다리는 동안에는 실제 신호와 실제로 흐른 시간만 보여 준다. 가짜 진행률을 쓰지 않는다.
+- AI가 만든 내용, 고객이 입력한 내용, 직원이 적은 내용을 구분해 표시한다.
+
+| 워크플로우 | 하는 일 |
+|---|---|
+| F01 | 고객 정보와 동의 저장 |
+| F02 | 고객 분석 |
+| F03 | 맞춤 추천 |
+| F04 | 상담 결과 정리 |
+| F05 | 프로모션 대상 선정 |
+| F06 | 안내 일정 만들기 (약정 만료, 재상담, 프로모션) |
+| F07 | 문자 만들기와 발송 |
+| 매일 자동 발송 | 09시와 18시에 그날 예정된 일정을 발송 |
 
 ## 실행
 
@@ -17,160 +123,69 @@ cp .env.example .env.local
 npm run dev
 ```
 
-http://localhost:3000 을 엽니다. 기본값은 **MOCK 모드**(`USE_MOCK=true`)라서 n8n·Supabase 없이 내장 샘플 데이터로 전체 흐름이 동작합니다. MOCK 모드에서는 직원 로그인에 비밀번호가 필요 없습니다.
+http://localhost:3000 을 엽니다. 기본은 **샘플 데이터 모드**(`USE_MOCK=true`)라서 n8n과 Supabase 없이 전체 흐름이 동작합니다. 이 모드에서는 직원 로그인에 비밀번호가 필요 없습니다.
 
-MOCK 데이터는 서버 메모리에 있으므로 개발 서버를 다시 시작하면 초기화됩니다. 로컬 전용이며 Vercel 같은 서버리스 배포에서는 동작하지 않습니다.
+샘플 데이터는 서버 메모리에 있어 개발 서버를 다시 시작하면 처음 상태로 돌아갑니다. 로컬 전용입니다.
 
-## 환경변수
+원격 조작을 한 컴퓨터에서 해 보려면 창을 두 개 나란히 띄웁니다. 한쪽은 `/staff` 에서 고객 상세를 열어 추천을 받고, 다른 쪽은 `/consult` 에서 그 고객의 이름과 번호로 엽니다. 샘플 고객은 `lib/backend/mock.ts` 에 있습니다.
 
-모두 서버 전용입니다. `NEXT_PUBLIC_` 접두사를 붙이지 마세요.
+### 환경변수
+
+모두 서버 전용입니다. `NEXT_PUBLIC_` 접두사를 붙이지 않습니다. `.env.local` 은 저장소에 올라가지 않습니다.
 
 | 이름 | 설명 |
 |---|---|
 | `USE_MOCK` | `true`(기본)면 샘플 데이터, `false`면 실제 n8n·Supabase 연동 |
-| `N8N_BASE_URL` | 게이트웨이 webhook 기본 주소. 예: `https://gotu4545.app.n8n.cloud/webhook` |
+| `N8N_BASE_URL` | 게이트웨이 webhook 기본 주소 |
 | `N8N_WEB_SECRET` | 게이트웨이 Webhook 노드의 Header Auth(`x-web-secret`) 값 |
 | `SUPABASE_URL` | Supabase 프로젝트 주소 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 서버에서 조회할 때 쓰는 service role key. **절대 커밋하지 마세요** |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버에서 조회할 때 쓰는 키. **커밋하지 않습니다** |
 | `STAFF_DEMO_PASSWORD` | 직원 로그인 공용 비밀번호 |
-| `STAFF_DEFAULT_ID` | (선택) 로그인 화면에서 처음 선택되어 있을 직원 ID |
+| `STAFF_DEFAULT_ID` | (선택) 로그인 화면에서 처음 선택되어 있을 직원 |
 | `SESSION_SECRET` | 세션 쿠키 서명용 임의 문자열 (`openssl rand -hex 32`) |
+| `N8N_API_KEY` | (선택) `npm run n8n:export` 로 워크플로우를 내보낼 때만 사용 |
 
-`.env.local` 은 gitignore 되어 있습니다.
+실제 연동으로 바꾸는 방법, n8n에 워크플로우를 올리는 방법, 경로별 확인 방법은 [docs/n8n-연동.md](docs/n8n-연동.md)에 있습니다.
 
-## 구조
-
-```
-app/join                     고객 화면
-app/staff/(auth)/login       직원 로그인
-app/staff/(app)/...          직원 화면 (세션이 없으면 로그인으로 이동)
-app/api/join                 고객 접수 (로그인 불필요, 서버에서 입력 재검증)
-app/api/staff/*              직원용 API (서명된 세션이 없으면 401)
-lib/backend/index.ts         화면이 쓰는 데이터 접근 인터페이스
-lib/backend/mock.ts          MOCK 구현 (메모리)
-lib/backend/real.ts          실제 구현 (Supabase 조회 + n8n 게이트웨이 호출)
-lib/n8n.ts                   n8n 호출은 모두 이 파일을 거침
-lib/notify.ts                알림 생성 규칙 (직전 조회 결과와 비교)
-lib/labels.ts                상태값 → 한글 라벨·색
-lib/fields.ts                고객 입력 폼의 항목·문구
-lib/types.ts                 Supabase 스키마 타입
-n8n/workflows                n8n에서 현재 발행된 워크플로우 (내보낸 것)
-n8n/parts, web-gateway.json  게이트웨이 조각과 전체 (생성물)
-scripts/build-gateway.mjs    게이트웨이 JSON 생성·검증 스크립트
-scripts/export-workflows.mjs n8n 발행본을 n8n/workflows 로 내보내는 스크립트
-```
-
-- 브라우저는 n8n이나 Supabase를 직접 호출하지 않습니다. 모두 `/api/...` 를 거칩니다.
-- 웹사이트는 Supabase에 쓰지 않습니다. 쓰기는 전부 n8n을 통합니다.
-- 알림은 Supabase Realtime이 아니라 `/api/staff/feed` 를 3초 간격으로 조회해 만듭니다(`components/staff/FeedProvider.tsx`). Realtime·RLS 설정에 의존하지 않고, 브라우저에 개인정보 테이블 조회 권한을 열지 않기 위해서입니다.
-- 고객 입력 항목이나 문구를 바꾸려면 `lib/fields.ts` 만 고치면 됩니다.
-
-## 실제 연동
-
-### 1. n8n 워크플로우
-
-`n8n/` 폴더에 세 가지가 있습니다.
-
-| 경로 | 내용 |
-|---|---|
-| `n8n/workflows/*.json` | **n8n에서 현재 발행된 워크플로우 14개.** 게이트웨이(`WF Main`), F01~F07과 서브 워크플로우, 매일 자동 발송(`zWF04`). `npm run n8n:export` 로 갱신 |
-| `n8n/parts/*.json` | 게이트웨이의 경로별 조각. `WF Main` 에서 한 경로만 바꿀 때 캔버스에 붙여 넣음 |
-| `n8n/web-gateway.json` | 게이트웨이 전체. 새 n8n 인스턴스에 처음 import할 때 사용 |
-
-`n8n/workflows` 는 실제로 동작 중인 상태의 기록입니다. 공개 저장소이므로 pinData(테스트 데이터)는 빼고 Google Calendar ID는 `<GOOGLE_CALENDAR_ID>` 로 바꿔 저장합니다. 자격증명은 이름과 ID만 들어 있고 값은 없습니다.
-
-기존 워크플로우(F01~F07)에는 webhook이 없어서, 게이트웨이 `WF Main` 이 웹사이트의 요청을 받아 Execute Workflow 노드로 기존 워크플로우를 호출합니다. 경로는 6개입니다.
-
-| 경로 | 화면 | 호출 |
-|---|---|---|
-| `web/customer-intake` | 고객 접수 | F01 → 응답 → F06(약정) → F02 |
-| `web/recommend` | 추천 받기 | 고객·분석 조회 → F03 |
-| `web/consultation-result` | 상담 결과 저장 | 상담 행 생성 → F04 → F06 → 응답 → F02 |
-| `web/send-now` | 지금 발송 | 일정 조회 → F07 |
-| `web/promotion` | 대상 선정 및 일정 생성 | F05 → F06(프로모션) |
-| `web/promotion-register` | 새 프로모션 등록 | 본문 임베딩 → 문서·본문 저장 |
-
-**게이트웨이를 고칠 때**는 n8n에서 직접 고치지 않고 `scripts/build-gateway.mjs` 를 고쳐 다시 생성합니다. 그 경로의 기존 노드를 지운 뒤 `n8n/parts/<경로>.json` 의 내용을 `WF Main` 캔버스에 붙여 넣고 publish합니다. 기존 노드를 남긴 채 붙이면 노드 이름 끝에 숫자가 붙습니다(동작은 합니다).
+### 검사
 
 ```bash
-npm run gateway      # n8n/web-gateway.json 과 n8n/parts 생성. n8n/workflows 와 ID·입력 필드명을 대조
-npm run n8n:export   # n8n의 발행본을 n8n/workflows 로 다시 내보냄 (.env.local 의 N8N_API_KEY 필요, 읽기만 함)
+npx tsc --noEmit && npx eslint app lib components
 ```
 
-**새 인스턴스에 처음 올릴 때**: `n8n/workflows` 의 F01~F07·zWF04를 import하고 `<GOOGLE_CALENDAR_ID>` 와 자격증명(Postgres, Supabase, OpenAI, Google Calendar)을 연결한 뒤, `n8n/web-gateway.json` 을 import합니다. Webhook 노드 6개에 Header Auth 자격증명(Name `x-web-secret`, Value는 `.env.local` 의 `N8N_WEB_SECRET`)을 연결하고, 호출되는 워크플로우부터 차례로 publish합니다. 호출되는 워크플로우의 Settings에서 "This workflow can be called by" 가 호출을 허용하는지 확인하세요.
+PR마다 타입 검사, 린트, 게이트웨이 확인, 빌드가 돌고, `main` 에 병합하면 Vercel에 배포됩니다.
 
-### 2. 경로별 확인
+## 저장소 구성
 
-```bash
-export N8N=https://gotu4545.app.n8n.cloud/webhook
-export SECRET=<N8N_WEB_SECRET 값>
+```
+app/                     화면과 API
+  page.tsx               첫 화면
+  join/                  고객 접수
+  consult/               고객 상담 화면
+  staff/                 직원 화면 (로그인 필요)
+  api/                   Route Handler. 브라우저는 여기만 부른다
+components/              화면 조각 (공통은 ui.tsx)
+lib/
+  backend/               데이터 접근. index.ts(인터페이스), mock.ts(샘플), real.ts(실제 연동)
+  n8n.ts                 n8n 호출은 모두 이 파일을 거친다
+  usePolling.ts          주기적 조회
+  fields.ts              고객 접수 항목과 문구
+n8n/
+  workflows/             n8n에서 발행된 워크플로우를 내보낸 것
+  parts/, web-gateway.json   게이트웨이 (생성물)
+scripts/                 게이트웨이 생성, 워크플로우 내보내기, README 사진 찍기
+docs/                    연동 문서와 README 사진
+public/
+  devices/               기기 사진
+  viewport-scale.js      창 크기에 따라 화면 전체를 축소
 ```
 
-고객 접수 — `{ "success": true, "customer_id": "CUST-..." }` 가 오고, 잠시 뒤 `customer_analyses` 와 (약정 만료일이 있으면) `message_schedules` 에 행이 생깁니다.
+Next.js 16, React 19, TypeScript, Tailwind CSS 4를 씁니다.
 
-```bash
-curl -s -X POST "$N8N/web/customer-intake" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"customer_name":"테스트고객","phone":"01000000001","current_device":"Galaxy S23","current_plan":"5G 69 요금제","usage_pattern":"유튜브 시청","consultation_goal":"기기 변경 상담","age":30,"contract_end_date":"2027-01-31","device_use_months":24,"target_monthly_budget":70000,"interests":"카메라","privacy_consent":true,"marketing_consent":true,"recontact_consent":true}'
-```
+## 알아 둘 점
 
-추천 — `recommendations` 배열이 옵니다.
-
-```bash
-curl -s -X POST "$N8N/web/recommend" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"customer_id":"<customer_id>"}'
-```
-
-상담 결과 — F04 결과와 `schedules` 배열이 옵니다. `reconsultation_date` 는 내일 이후 날짜여야 일정이 생깁니다.
-
-```bash
-curl -s -X POST "$N8N/web/consultation-result" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"customer_id":"<customer_id>","staff_id":"<staff_id>","store_id":"<store_id>","notes":"가격을 가족과 상의한 뒤 다시 방문하기로 함","reconsultation_date":"<YYYY-MM-DD>"}'
-```
-
-즉시 발송 — `schedule_status` 와 `send_status` 가 모두 `sent` 여야 정상입니다.
-
-```bash
-curl -s -X POST "$N8N/web/send-now" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"schedule_id":"<schedule_id>"}'
-```
-
-프로모션 — `status` 가 `targeted` / `no_target` / `promotion_not_found` 중 하나로 옵니다.
-
-```bash
-curl -s -X POST "$N8N/web/promotion" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"document_id":"<document_id>","store_id":"<store_id>"}'
-```
-
-프로모션 등록 — 문서 행과 본문 조각을 저장하고 `document_id` 를 돌려줍니다. 실제 데이터가 생깁니다.
-
-```bash
-curl -s -X POST "$N8N/web/promotion-register" -H "content-type: application/json" -H "x-web-secret: $SECRET" -d '{"store_id":"<store_id>","promotion_name":"<이름>","valid_from":"2026-11-01","valid_until":"2026-11-30","benefit":"<혜택>","target_device":"<대상 기기>"}'
-```
-
-### 3. 웹사이트 전환
-
-`.env.local` 에서 `USE_MOCK=false` 로 바꾸고 나머지 값을 채운 뒤 개발 서버를 다시 시작합니다. 우상단의 MOCK 배지가 사라지면 실제 연동 상태입니다.
-
-### 알아 둘 동작
-
-- 문자 발송은 MOCK입니다. 실제 SMS는 나가지 않고 DB에 발송 완료로 기록됩니다.
-- 약정·재상담 일정은 재연락 동의가 있어야 생기고, 프로모션은 마케팅 동의까지 필요합니다.
-- 맞춤 추천은 DB에 저장되지 않고 화면에만 표시됩니다.
-- LLM을 거치는 호출(분석, 추천, 상담 결과, 문자 생성)은 10~55초가 걸립니다. 웹사이트의 n8n 호출 한도는 90초입니다.
-- `zWF04` 는 매일 09시와 18시(서울 시간)에 그날 예정된 일정을 조회해 발송합니다. 화면의 [지금 발송]은 이와 별개로 한 건을 바로 보냅니다.
-- OpenAI·Google Calendar·Postgres 자격증명이 유효해야 합니다. Google Calendar 자격증명이 만료되면 일정 생성이 중간에 실패합니다.
-- 게이트웨이가 보완하는 것: 상담 행 생성(F04는 update만 함), 재상담 예정일을 `reconsultation_at` 에 저장, F04의 `contract_expiry` 를 F06의 `contract` 로 매핑, F05가 선정한 고객 ID를 F06으로 전달, 프로모션 등록.
-
-## 시연 촬영 순서
-
-휴대폰 크기 창(`/join`)과 PC 창(`/staff`)을 나란히 놓고 촬영합니다. PC 창은 1280px 이상을 권장합니다.
-
-1. **고객 제출** — `/join` 에서 세 가지 동의를 모두 체크하고, 약정 만료일을 포함해 정보를 입력한 뒤 제출
-2. **직원 화면 알림** — `/staff` 고객 목록에 새 고객이 새로고침 없이 나타나고 "새 고객 등록" 알림, 이어서 "약정 만료 안내 일정 생성" 알림
-3. **분석·추천** — 새 고객을 눌러 AI 고객 분석 확인, [추천 받기]로 맞춤 추천 카드 확인
-4. **상담 결과** — 상담 메모와 재상담 예정일(내일)을 입력하고 저장 → AI가 정리한 결과 표시, "재상담 안내 일정 생성" 알림
-5. **문자 발송** — 후속 연락 일정의 [지금 발송 (시연용)] → 처리 중 → 발송 완료, "문자 발송" 알림, 생성된 문자 본문 확인
-6. **프로모션** — 프로모션 메뉴의 [새 프로모션 등록]에서 이름·기간·대상 기기·혜택을 입력해 등록 → 목록 맨 위의 [대상 선정 및 일정 생성] → 조건에 맞는 고객과 선정 사유 표시, 일정 생성 알림 → 그 일정을 [지금 발송]해 혜택이 담긴 문자 확인
-
-주의할 점:
-
-- **재연락 동의**를 체크하지 않으면 약정·재상담 일정이 생기지 않습니다.
-- 재상담 예정일은 **내일**로 잡고 **19시 이전**에 촬영하세요. 하루 전 안내가 오늘 10시/16시/19시 중 다음 시각으로 잡히며, 19시 이후에는 일정이 생성되지 않습니다.
-- 촬영마다 **새 전화번호**를 쓰세요. 같은 번호로 다시 제출하면 동의 기록이 중복으로 쌓입니다.
-- 문자는 실제로 발송되지 않습니다(n8n의 발송 단계가 MOCK). 화면 상단에 "시연 모드"로 표기됩니다.
-- 알림 목록은 페이지를 새로고침하면 비워집니다. 촬영 중에는 새로고침하지 말고 왼쪽 메뉴로 이동하세요.
+- **문자는 실제로 발송되지 않습니다.** 발송 단계가 모의(MOCK)라서 DB에 발송 완료로 기록될 뿐입니다.
+- **고객 상담 화면은 이름과 휴대폰 번호만으로 열립니다.** 그래서 전화번호, 상담 메모, AI 분석, 추천 이유는 이 화면에 내보내지 않습니다. 확인 시도는 10분에 5번으로 제한합니다.
+- **자동 발송에는 직원 검토 단계가 없습니다.** 검토는 [지금 발송]에만 있습니다.
+- **창 크기**: 1200px 이상은 내용이 화면을 채우고, 640~1200px 은 같은 화면을 비율대로 축소하며, 그보다 좁으면 휴대폰용 배치로 바뀝니다.
+- **공개 저장소입니다.** `n8n/workflows` 에는 테스트 데이터와 캘린더 ID를 빼고 저장하며, 자격증명은 이름만 들어 있습니다.
