@@ -43,20 +43,23 @@ export async function POST(request: Request) {
 }
 
 // 확인된 고객의 화면 내용. 화면이 주기적으로 불러 직원이 새로 받은 추천과 직원이 고른 장을 따라간다.
-export async function GET() {
+// ?light=1 이면 직원이 고른 장만 돌려준다(DB 조회 1건). 화면은 2초마다 이것을 부르고,
+// 장이 바뀌었거나 한동안 지났을 때만 전체(조회 6건)를 부른다.
+export async function GET(request: Request) {
   const session = await getConsultSession();
   if (!session) return fail(401, "NOT_IDENTIFIED", "본인 확인이 필요합니다.");
+  const light = new URL(request.url).searchParams.get("light") === "1";
   try {
     const backend = getBackend();
     const [view, state] = await Promise.all([
-      backend.consultView(session.customerId),
+      light ? null : backend.consultView(session.customerId),
       // 원격 조작 테이블이 없거나 읽지 못해도 화면은 보여 준다.
       backend.screenState(session.customerId).catch((error) => {
         console.error(error);
         return null;
       }),
     ]);
-    if (!view) {
+    if (!light && !view) {
       await clearConsultCustomerId();
       return fail(404, "NOT_FOUND", "접수 내역을 찾을 수 없습니다.");
     }
@@ -69,7 +72,8 @@ export async function GET() {
     if (!state?.seen_at || Date.now() - new Date(state.seen_at).getTime() > SEEN_EVERY_MS) {
       await backend.setScreenState(session.customerId, { seen_at: new Date().toISOString() }).catch((error) => console.error(error));
     }
-    return ok({ ...view, remote: state ? { slide: state.slide, updated_at: state.updated_at } : null });
+    const remote = state ? { slide: state.slide, updated_at: state.updated_at } : null;
+    return view ? ok({ ...view, remote }) : Response.json({ success: true, remote }, { headers: NO_STORE });
   } catch (error) {
     console.error(error);
     return fail(500, "SERVER_ERROR", "화면을 불러오지 못했습니다.");
